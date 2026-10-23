@@ -535,6 +535,23 @@ export const usePanelOpenStore = create<PanelOpenState>((set, get) => ({
         seedUnconfirmed = [];
       }
     }
+    /**
+     * ★ 2026-10-19 修复「已满 3 个标签时，点活动栏第 3 个面板图标**第一次点击被吞**」：
+     *
+     * 活动栏走的是 `DockShellApi.openPanel` —— 直接 `addPanel`，**不经过本 store 的
+     * `open()`**，于是新面板的 `touchRecency` 只在它被激活（`_setActive`）时才发生，
+     * 而那一刻可能**晚于**下面的裁剪。此时 `ageRank` 读到的是该 key 在本会话里
+     * **更早那次打开**留下的陈旧位次（`recency` 是模块级、跨整个页面生命周期），
+     * 于是「刚打开的这个」被判成最久没用过的，**当场被自己淘汰掉** ——
+     * 表现为点了没反应（视图加完立刻被移除，store 与标签栏都不变），再点一次才好。
+     *
+     * 判据取「**本次新出现在上报集合里的 key**」= 视图刚把它加进来 = 刚被打开。
+     * 它们先记一次最近使用，再走下面的 LRU 裁剪，保证被淘汰的永远是**别的**面板。
+     * （`ageRank` 对「从未 touch 过」的 key 返回 -1 当最新，只挡住了「首次打开」；
+     *   本条挡住的是「本会话早先打开过、位次已陈旧」这一半。）
+     */
+    const prev = get().keys;
+    for (const k of next) if (!prev.includes(k)) touchRecency(k);
     // ★ §4.4：视图可能上报**超过上限**的集合 —— 活动栏走的是 `DockShellApi.openPanel`
     //   （直接 addPanel，绕过了 store 的 `open`），用户拖标签也会。这里统一裁剪；
     //   被淘汰的面板由受控 effect（DockShell 的 `openKeys`）从视图移除。

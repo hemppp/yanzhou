@@ -15,6 +15,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = 'F:/new1.2';
+/**
+ * 步骤日志目录。
+ * ★ 2026-10-17 修复：原先直接写 `<ROOT>/.workbuddy/`，但该目录是 WorkBuddy 工具时代
+ *   的遗留约定 —— 全新 clone（或该目录被清掉）时不存在，`fs.openSync` 第一步就
+ *   ENOENT 抛错，整个一键验证**在跑第一条单测之前**就死了（实测：屏幕上只剩一段
+ *   栈回溯）。目录名沿用 `.workbuddy` 只为不改变已有使用者的路径习惯；
+ *   它是**可重建的临时日志目录**，缺失即自建（已被 .gitignore 覆盖，不进版本库）。
+ */
+const LOG_DIR = path.join(ROOT, '.workbuddy');
+fs.mkdirSync(LOG_DIR, { recursive: true });
 /** server 套件必须用这个 Node（ABI 137），没有就回退到 PATH 上的 node */
 const NODE24 = 'D:/ruanjian/node.24/node.exe';
 const NODE = fs.existsSync(NODE24) ? NODE24 : process.execPath;
@@ -100,7 +110,7 @@ for (let i = 0; i < steps.length; i += 1) {
    *   （实测：日志里明明有 `Tests 159 passed (159)`，`r.stdout` 里却搜不到 → 判定成了假失败）。
    *   写文件就没有这个不确定性：被杀掉的那一刻，已经写出去的东西一定还在文件里。
    */
-  const logPath = path.join(ROOT, '.workbuddy', `verify-step${i + 1}.log`);
+  const logPath = path.join(LOG_DIR, `verify-step${i + 1}.log`);
   const fd = fs.openSync(logPath, 'w');
   let r;
   try {

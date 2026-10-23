@@ -81,6 +81,25 @@ describe('panelOpenStore · 打开数量上限（ADR §4.4）', () => {
     expect(keys()).toEqual(['b', 'c', 'd']);
   });
 
+  /**
+   * ★ 2026-10-19 回归：上面那条只覆盖「d 从未被 touch 过」（`ageRank` 兜底成最新）。
+   *   真实路径里 d 往往**本会话早先打开过** —— `recency` 是模块级、跨整页生命周期，
+   *   关掉面板并不清它的位次。于是 d 带着一条**陈旧**位次重新被打开时，
+   *   裁剪会把它自己判成最久没用过的当场淘汰 ⇒ 用户「点一次没反应、再点一次才开」。
+   */
+  it('刚打开的面板位次已陈旧时也不会自淘汰（活动栏路径的吞点击）', () => {
+    open('d'); // ① 先开过 ⇒ 在 recency 里留下记录
+    getPanelNavigation().close('d'); // 关掉不清 recency（视图层减少操作不动使用序）
+    open('a');
+    open('b');
+    open('c');
+    expect(keys()).toEqual(['a', 'b', 'c']);
+    // ② 活动栏路径：直接 addPanel + 整集合回写。d 是刚被加进视图的那个。
+    syncFromView(['a', 'b', 'c', 'd']);
+    // 被淘汰的必须是**别的**面板（此处是位次最旧的 a），绝不能是刚点的 d。
+    expect(keys()).toEqual(['b', 'c', 'd']);
+  });
+
   it('淘汰时抛出可见提示（不是静默挤掉）', () => {
     for (const k of ['a', 'b', 'c']) open(k);
     const seen = collectToasts(() => open('d'));

@@ -372,13 +372,18 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
     });
 
     // 其余面板按 resolveDockMeta 分桶，逐条 addPanel（串行是 dockview 的硬约束）
+    // ★ 2026-10-17：这里加的是**恢复出来的**打开集合（受控 openKeys），是「补齐到视图」
+    //   而非用户此刻的打开意图 ⇒ 一律 `inactive`，让根面板（章节正文）保持焦点。
+    //   否则冷启动会落在最后加入的功能面板上（e2e-core-flows 第 5 节连红即此事）。
+    //   （`wanted` 只含业务 key，恒不等于中心面板 id，故根面板不在其中、焦点归它。）
     for (const step of buildLayoutSteps(plan, CENTER_DEFAULT_PANEL_ID)) {
       const { spec, isRoot } = step;
       // planDockAreas 里已剔除 center 默认面板，但保险起见仍跳过根 id
       if (spec.id === CENTER_DEFAULT_PANEL_ID) continue;
-      dock.addPanel(
-        isRoot ? { ...spec, position: undefined } : { ...spec, position: spec.position },
-      );
+      dock.addPanel({
+        ...(isRoot ? { ...spec, position: undefined } : spec),
+        inactive: true,
+      });
     }
 
     // 聚焦事件 → 上报 activeKey（§2.4 activePanel）
@@ -453,11 +458,17 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
     //   时 `openKeys` 里可能已有某 key，但它的 def 还没进候选池（模块仍在加载），
     //   上面的循环 `if (!def) continue` 会跳过；若 deps 只有 `[openKeys, ready]`，
     //   def 到达后 openKeys 未变化 ⇒ 该面板**永久不会被打开**（冷启动实测左栏缺席）。
+    //
+    // ★ 2026-10-17：本路径一律 `inactive` —— 它只承担「把 store 的打开集合**补齐到视图**」
+    //   （恢复上次集合 / 播默认种子 / def 迟到补加），**不是用户此刻的打开意图**。
+    //   若照缺省「新加面板即激活」，开项目时最后被补齐的功能面板会顶掉基础标签
+    //   「章节正文」的焦点 ⇒ 冷启动首屏落在 AI 对话、空态建章输入框不可达
+    //   （e2e-core-flows 第 5 节 9 项连红即此事）。用户主动打开走 `openPanel()`（不传）。
     for (const key of openKeys) {
       const def = defByKeyRef.current.get(key);
       if (!def) continue;
       if (api.getPanel(panelInstanceId(key))) continue;
-      api.addPanel(buildAddSpec(def));
+      api.addPanel(buildAddSpec(def, true));
     }
     // ★ 2026-10-11：deps 必须含 `baseOpen` —— 关/开基础标签（章节正文）时本 effect
     //   要把中心默认面板 `setVisible()` 同步过去；只依赖 openKeys 则它不会重跑。
@@ -735,7 +746,12 @@ function keyOfPanel(p: IDockviewPanel): string | null {
 }
 
 /** 构造作为**中心组标签**堆叠的 addPanel 规格（单列布局，见 layout.ts `planDockAreas`）。 */
-function buildAddSpec(def: DockPanelDef) {
+/**
+ * @param inactive 加入但**不抢焦点**（见 `DockPanelSpec.inactive`）。
+ *   「恢复上次集合 / 播默认种子 / 补加迟到 def」这些非用户意图的加入一律传 `true`，
+ *   以免把焦点从基础标签（章节正文）抢走；用户在视图层主动打开时传缺省 `false`。
+ */
+function buildAddSpec(def: DockPanelDef, inactive = false) {
   const meta = resolveDockMeta(def);
   const spec: DockPanelSpec = {
     id: panelInstanceId(def.key),
@@ -747,6 +763,7 @@ function buildAddSpec(def: DockPanelDef) {
     minimumWidth: meta.minSize.width,
     minimumHeight: meta.minSize.height,
   };
+  if (inactive) spec.inactive = true;
   return spec;
 }
 

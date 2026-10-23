@@ -26,7 +26,7 @@
   "novelMuse": {
     "id": "novel.auto.workbench",
     "name": "AI 写作台",
-    "description": "AI 写作台大模块：对话面板 + chatRail + 自动写作工作台（modes: ['auto']）",
+    "description": "AI 写作台大模块：对话面板 + 自动写作工作台（modes: ['auto']）",
     "version": "0.1.0",
     "modes": [
       "auto"
@@ -36,10 +36,7 @@
     "web": {
       "inject": [
         "projectPanels",
-        "builtinBubble",
-        "chatRail",
         "workbench",
-        "settings",
         "capability"
       ]
     }

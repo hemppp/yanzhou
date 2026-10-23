@@ -2,27 +2,30 @@
   // ============================================================
   // apps/plugins/auto/workbench/tsconfig.typecheck.json
   //
-  // ★ t4（跨区集成）：**模块内部专用**类型检查配置，与 manual 侧
-  //   `apps/plugins/manual/workbench/tsconfig.typecheck.json` 对称。
+  // ★ t29 / 验收 (a2)：**模块内部专用**类型检查配置。
   //
-  // 为什么需要它：`pnpm --filter @novel/web type-check` = `tsc --noEmit` +
-  //   `apps/web/tsconfig.json` 的 `include: ["src"]`，`apps/plugins/**` 一个文件都不进
-  //   tsc 程序 ⇒ 那一步看不见模块内部的死导入 / 悬空引用。
-  //   本次 t4 新增了 `web/ai/**`（AI 对话面板 + SSE 解析）并把 `web/index.tsx` 改为
-  //   面板注册入口；2026-10「手写/自动隔离改造」后该面板已移交 manual 模块、
-  //   本包入口不再注册任何槽（`web/ai/**` 仅留档，仍纳入本配置的类型检查），
-  //   需要一份**可复现**的配置把这份改动纳入类型检查。
+  // 为什么需要它（kernel-eng 实测、队长复核确认的结构性盲区）：
+  //   `pnpm --filter @novel/web type-check` = `tsc --noEmit` + `apps/web/tsconfig.json`
+  //   的 `include: ["src"]`。实测 `--listFiles` 共 999 个 .ts/.tsx，其中
+  //   `plugins/{auto,manual}/workbench` 命中 **0** 个（命中 shared 44 个）。
+  //   ⇒ 那一步**只覆盖 kernel + shared**，模块内部的死导入 / 悬空引用它完全看不见。
+  //   该盲区已实际掩盖一个真缺陷：`web/discuss/ChatPanel.tsx` 的 lucide 导入含 `X`
+  //   而全文再无 `X` 引用（本配置一探即报 TS6133）。
   //
-  // 用法（仓库根执行）：
+  // 用法（**在模块移除态下也要能跑**，这是可分离性的一部分）：
   //   pnpm exec tsc -p apps/plugins/auto/workbench/tsconfig.typecheck.json --noEmit
   //
-  // 说明（与 manual 侧保持同一套口径）：
-  //   · `exclude` 掉测试文件 —— 本仓 `apps/web/tsconfig.json` 的 `types` 未含
-  //     `@testing-library/jest-dom`，纳入测试文件会冒出
-  //     `TS2339: Property 'toBeInTheDocument' does not exist` 噪声（既有配置缺口、非真缺陷）。
-  //   · 对 kernel **源码**零依赖；唯一纳入的 kernel 树文件是
-  //     `apps/web/src/types/d3-force-3d.d.ts`（第三方库最小环境声明）。
-  //   · 不改动任何既有门禁：没有任何 `pnpm -r` 脚本引用本文件，它是**按需**证据。
+  // ★ 必须 exclude 测试文件：本仓 `apps/web/tsconfig.json` 的 `types` 未含
+  //   `@testing-library/jest-dom`，纳入测试文件会冒出约 50 条
+  //   `TS2339: Property 'toBeInTheDocument' does not exist` 噪声 ——
+  //   那是**既有配置缺口、非真缺陷**，故排除，使本配置只反映**源码**内部问题。
+  //
+  // ★ 本图**不含 kernel 文件**（`--listFiles` 命中 `web/src/` = 0），
+  //   故可独立于 kernel 存在；移走另一模块后仍可运行（可分离性要求）。
+  //   注：`@/*` 映射仍保留 —— 模块确实 import 了 kernel 的**类型/注册表**
+  //   （`@/plugin/types`、`@/plugin/registry`、`@/routes/paths`、`@/stores/panelOpenStore`），
+  //   这是设计允许的 module→kernel 方向；tsc 会按需把那些文件拉进图，
+  //   但不影响本配置对**模块自身 web/** 的覆盖。
   // ============================================================
   "compilerOptions": {
     "target": "ES2020",
@@ -55,7 +58,25 @@
       "@novel-plugins/auto-workbench/*": ["./*"]
     }
   },
-  "include": ["web/**/*", "server/**/*", "../../../web/src/types/d3-force-3d.d.ts"],
+  //   ★ 本图对 kernel **源码**零依赖；唯一纳入的 kernel 树文件是
+  //   `apps/web/src/types/d3-force-3d.d.ts` —— 那是**第三方库的最小环境声明**
+  //   （`d3-force-3d` 在 npm 上无 `@types` 包），非 kernel 业务代码。
+  //   ui-graph 的 `Graph3D.tsx` 需要它，缺则报 TS7016 + 一串 TS2339。
+  //   与 `novel.autowrite/tsconfig.json` 的既有做法一致。
+  //   ★ t32 / 验收第 ⑦ 条：`include` 必须覆盖 **`server/**/*`**。
+  //   本模块自 t32 起有了 server 面入口（`server/index.ts`，兑现 D32-Q6 / G1 结构门：
+  //   `serverEntry` 缺省 `./server/index.ts`，`existsSync` 必须为真）。
+  //   若不加进来，就会重演 D48 的盲区 —— **模块内文件不进 tsc 图** ⇒ 死导入/类型错误无人发现。
+  //
+  //   ★ 实测坑（已由队长修掉根因，留档防回退）：server 面用根 barrel `@novel/core` 导入
+  //   `ServerPluginContext` 时，会把 `packages/core/src/loader.ts` 拖进本程序；该文件原
+  //   有 4 条**既存**死导入（`satisfiesMinVersion`/`DisposerBag`/`EventBus`/`HookBus`），
+  //   本配置的 `noUnusedLocals: true` 曾报 4 条 TS6133 ⇒ (a2) exit 2（模块自身 0 条错误）。
+  //   根因已删（`loader.ts` 头注释有完整成因链），现两模块 (a2) 均 exit 0。
+  //   要点：**不要**为此改用 `@novel/core/web` 绕行 —— 那是 Server 面语义错位，
+  //   且 `PluginModule['apply']` 的 `ctx` 是 `never`（`context.ts:71`），将来写
+  //   `ctx.routes.register(...)` 会类型层面写不出来。另：`exclude` **无法**阻断依赖解析。
+  "include": ["web/**/*", "stores/**/*", "server/**/*", "../../../web/src/types/d3-force-3d.d.ts"],
   "exclude": [
     "node_modules",
     "**/__tests__/**",

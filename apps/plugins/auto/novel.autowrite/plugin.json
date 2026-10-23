@@ -9,6 +9,6 @@
     "inject": ["routes", "db", "ai"]
   },
   "web": {
-    "inject": ["projectPanels", "skills", "api"]
+    "inject": ["skills", "api"]
   }
 }

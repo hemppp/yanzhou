@@ -1,7 +1,7 @@
 {
   "id": "novel.auto.workbench",
   "name": "AI 写作台",
-  "description": "AI 写作台大模块：AI 对话浮窗 + 编辑器气泡栏 + 自动写作工作台 + 技能库 + 流水线 / 记忆面板。大类子插件以 web/<大类>/ 目录体现。",
+  "description": "AI 写作台大模块：AI 对话浮窗 + 自动写作工作台 + 技能库 + 流水线 / 记忆面板。大类子插件以 web/<大类>/ 目录体现。",
   "version": "0.1.0",
   "modes": [
     "auto"
@@ -11,10 +11,7 @@
   "web": {
     "inject": [
       "projectPanels",
-      "builtinBubble",
-      "chatRail",
       "workbench",
-      "settings",
       "capability"
     ]
   },

@@ -51,16 +51,14 @@ const PASSWORD = 'Probe1234!';
 
 // ---- 契约常量（与 server-dev t2 实现口径一致）----
 // 迁移后：manual={novel.bookscan, worldbuilding}、auto={novel.autowrite}、shared={novel.typography}
-// ★ t10（AI 写作模块剥离）：novel.autowrite 的**实现**已移出仓外，仓内仅剩骨架包
-//   （plugin.json + server/index.ts，no-op）。骨架仍会被扫描并挂载 ⇒ 下面断言
-//   「auto 模式挂载全部 auto 专属插件」**仍成立**（它验的是**契约/模式归属**：
-//   骨架 modes=['auto'] 仍参与 manual/auto 的模式过滤）。★ 不得把「骨架已挂载」
-//   误读为「实现已装回」——唯一判据是 hasModule('auto')===false。
-//   骨架不注册任何路由 ⇒ AUTO_ROUTE 恒 404（故下面 (d3)/(d4) 已按此如实改写）。
+// ★ 2026-10-19（AI 写作模块**回仓**）：novel.autowrite 的实现（8 个聊天技能 +
+//   状态/流水线路由 + 多代理流水线）已装回仓内，骨架不再 no-op，AUTO_ROUTE 前缀
+//   重新注册。t10 剥离期把 (d3)/(d4) 改写为「恒 404 且非模式门禁」，其前提已失效，
+//   故本轮**恢复原探针语义**（见下方 d) 段注释）。
 const AUTO_ONLY_IDS = ['novel.autowrite'];                     // 仅 AI 写作
 const MANUAL_ONLY_IDS = ['novel.worldbuilding', 'novel.bookscan']; // 仅手写台
 const SHARED_IDS = ['novel.typography'];                       // 两种模式共享
-// 跨模式门禁的探针路由（auto 专属插件 novel.autowrite 的**实现**路由；已随实现移出）
+// 跨模式门禁的探针路由（auto 专属插件 novel.autowrite 的实现路由；回仓后已注册）
 const AUTO_ROUTE = '/api/plugins/autowrite/pipeline';
 
 let failed = 0;
@@ -264,25 +262,25 @@ try {
     d1.status === 404 && d2.status === 404, `auto项目 HTTP ${d1.status} / manual项目 HTTP ${d2.status}`);
   console.log(`  · manual 宿主上的错误码：auto项目=${d1.json?.error?.code ?? '(无)'} manual项目=${d2.json?.error?.code ?? '(无)'}`);
 
-  // ★ t10（AI 写作模块剥离）：原 (d3)/(d4) 用 AUTO_ROUTE（/api/plugins/autowrite/pipeline）
+  // ★ 2026-10-19（AI 写作模块回仓）：原 (d3)/(d4) 用 AUTO_ROUTE（/api/plugins/autowrite/pipeline）
   //   证明「auto 宿主 + auto 项目 → 非 404（门禁按 project.mode 判定，非一刀切）」。
-  //   剥离后 novel.autowrite 的实现已移出仓外，骨架**不注册**该路由前缀 ⇒ 该前缀恒 404
-  //   （连未鉴权访问都是 404，见 host.ts：前缀鉴权只对**已注册**前缀生效）。
-  //   ⇒ 原探针失去区分度（恒 404，无法再区分「门禁拦截」与「路由不存在」）。
-  //   ⇒ 如实改写为断言「该路由确已随实现移出（404 且**非** PLUGIN_MODE_MISMATCH）」，
-  //     并**明确标注**：PLUGIN_MODE_MISMATCH 门禁本身的覆盖**未丢失** —— 它由下面
-  //     c2) 的构造型探针（不依赖 auto 模块、真实写 manual 目录 + modes=['auto']）完整承担。
+  //   t10 剥离期该前缀恒 404（骨架不注册路由），故当时改写为「恒 404 且非模式门禁」。
+  //   实现回仓后前缀重新注册，(d3)/(d4) 的**原语义恢复**，且是本文件里**唯一**能用
+  //   真实插件路由证伪「门禁存在」的一对（(d1)/(d2) 只能证明「宿主没挂该插件」）：
+  //     (d3) auto 宿主 + manual 项目 → 404 + PLUGIN_MODE_MISMATCH（项目模式门禁生效）
+  //     (d4) auto 宿主 + auto 项目   → 非 404（门禁按 project.mode 判定，非一刀切）
   const manualProjOnAuto = await provision(auto.port, 'manual', 'am'); // auto 宿主 + manual 项目
   const autoProjOnAuto = await provision(auto.port, 'auto', 'aa');     // auto 宿主 + auto 项目
   const d3 = await manualProjOnAuto.req(AUTO_ROUTE, { headers: { 'x-project-id': manualProjOnAuto.projectId } });
   const d4 = await autoProjOnAuto.req(AUTO_ROUTE, { headers: { 'x-project-id': autoProjOnAuto.projectId } });
   const d3code = d3.json?.error?.code;
-  check(`auto 插件路由已随实现移出（未注册 ⇒ 404）`, d3.status === 404 && d4.status === 404,
-    `manual项目 HTTP ${d3.status} / auto项目 HTTP ${d4.status}`);
-  check('  ⇒ 证明确非模式门禁挡下（error.code ≠ PLUGIN_MODE_MISMATCH）',
-    d3code !== 'PLUGIN_MODE_MISMATCH' && d4.json?.error?.code !== 'PLUGIN_MODE_MISMATCH',
-    `manual项目 code=${d3code ?? '(无)'} / auto项目 code=${d4.json?.error?.code ?? '(无)'}`);
-  console.log('  · ⚠ PLUGIN_MODE_MISMATCH 门禁的覆盖**未丢失**：由下方 c2) 构造型探针独立承担（不依赖 auto 模块）。');
+  check('auto 宿主 + manual 项目 → 404 且 PLUGIN_MODE_MISMATCH（项目模式门禁生效）',
+    d3.status === 404 && d3code === 'PLUGIN_MODE_MISMATCH',
+    `manual项目 HTTP ${d3.status} code=${d3code ?? '(无)'}`);
+  check('auto 宿主 + auto 项目 → 非 404（门禁按 project.mode 判定，非一刀切）',
+    d4.status !== 404,
+    `auto项目 HTTP ${d4.status} code=${d4.json?.error?.code ?? '(无)'}`);
+  console.log('  · (d3) 拿到 PLUGIN_MODE_MISMATCH 本身就证明该前缀**已注册**（未注册只会是裸 404、无 error.code）。');
 
   // ---- c2) G2.5 模式门（构造型用例）----
   // 契约（install.ts L154，严格单元素）：declaredSet.size === 1 && declaredSet.has(dirMode)

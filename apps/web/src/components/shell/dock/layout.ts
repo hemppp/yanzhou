@@ -97,6 +97,15 @@ export interface DockPanelSpec {
   initialHeight?: number;
   minimumWidth: number;
   minimumHeight: number;
+  /**
+   * ★ dockview 能力：加入但**不设为激活面板**。
+   *
+   * 为什么本内核需要它（2026-10-17 修「打开项目默认落在 AI 对话而非章节正文」）：
+   * `addPanel` 缺省把新面板设为激活，于是「恢复上次打开集合 / 播默认种子 / 补加迟到
+   * def」这些**非用户意图**的加入会把焦点从基础标签（章节正文）抢走。只有用户在
+   * 视图层主动打开时才该抢焦点（那条路径走 `DockShellApi.openPanel`，不带本标记）。
+   */
+  inactive?: boolean;
 }
 
 /** dockview 内部注册的**唯一**通用渲染器 id（见 DockPanelContent）。 */

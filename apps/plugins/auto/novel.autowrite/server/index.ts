@@ -1,47 +1,47 @@
 // ============================================================
-// 自动写作引擎插件 —— Server 面入口（**最小 no-op 骨架**）
+// 自动写作引擎插件 —— Server 面
 //
-// ★ 本文件是「实现已剥离」后的**接口骨架**：自动写作引擎的全部实现
-//   （8 个聊天技能 + 状态/流水线路由 + 多代理流水线 + 记忆水车）已移出仓库，
-//   暂存于 F:\new1.2-detached\ai-autowrite-module\novel.autowrite\，
-//   装回步骤见 F:\new1.2-detached\ai-autowrite-module\PLUG-BACK.md。
+// 写作技能框架（docs/architecture/ai-writing-architecture.md）：
+//   1. 注册 8 个聊天型技能（自核心 skills.ts 剥离，内容归插件所有）
+//   2. 状态/流水线路由（现役：/session 单章闭环 + /pipeline 多智能体流水线）
+//   3. 状态全部存插件 KV（项目隔离），零迁移依赖
 //
-// ★ 为什么必须存在（G1 结构门）：
-//   `plugin.json` 的 `serverEntry`（缺省即 `./server/index.ts`）所指向的
-//   **文件必须真实存在**（`existsSync`）。缺则 `ENTRY_MISSING`
-//   ⇒ 整个插件被拒 ⇒ `/api/health` 报 `status=error`。
-//   骨架入口的真实作用是**让契约（plugin.json）在仓库内继续可校验**，
-//   装回时把实现原样覆盖回来即可，仓内 0 改动。
-//
-// ★ 与装回前实现的差异（诚实说明）：
-//   装回前本文件的 `inject` 为 `['routes','db','ai']` 并注册 8 个技能 +
-//   `/api/plugins/autowrite` 路由。骨架期：
-//     · 不注册任何技能（`ctx.ai.skills` 不动）
-//     · 不注册任何路由（`ctx.routes` 不动）⇒ `/api/plugins/autowrite/*` 恒 404
-//     · 不改 DB、不注册任何服务 / 事件 / 定时器
-//   这是「模块不在」的如实体现，而非伪装成「已加载」。
-//
-// ★ 为什么 `inject` 是空数组而不是保留 `['routes','db','ai']`：
-//   服务端挂载期有注入可用性门（`INJECT_MISSING`）：声明了却用不到的服务
-//   会让插件被跳过/上报。骨架不做任何事，故显式声明「不需要任何宿主服务」。
-//   装回后由实现文件恢复原 inject。
-//
-// ★ 为什么只 `import type`：server 面不注册路由，不需要 Hono / 路由实现。
+// ⚠️ 2026-09-28：已删除**旧批次流水线**（`server/autowrite/*` 的 8 个流程工具 +
+//    `auto-write` flow 型技能 + `FlowStore` + `/batches` 路由）。它自 2026-09-12 起
+//    与现役链路脱节、UI 也不再注册；其审计台账能力已迁到 `pipeline_runs`
+//    （`GET /api/plugins/autowrite/pipeline/runs`）。被现役链路共用的纯函数
+//    （JSON 解析 / 字数 / nowId）与两道门提示词已分别迁到 `framework/text.ts` /
+//    `framework/gates-prompts.ts`。
 // ============================================================
 
 import type { ServerPluginContext } from '@novel/core';
+import { CHAT_SKILLS } from './skills/index.js';
+import { createAutowriteRouter } from './routes.js';
+import { isDecisionEnabled, resolveJevConfig, resolveChatDecisionModel } from './framework/gate-decision.js';
 
 export const name = 'novel.autowrite';
+export const inject = ['routes', 'db', 'ai'];
 
-/** 实现已剥离：骨架不依赖任何宿主服务 */
-export const inject: string[] = [];
+export function apply(ctx: ServerPluginContext): void {
+  // ── 1. 聊天型技能（剥离内容，直通宿主注册表）──
+  for (const def of CHAT_SKILLS) {
+    ctx.effect(() => ctx.ai.skills.register(def), `autowrite: skill ${def.id}`);
+  }
 
-/**
- * 挂载函数 —— **刻意 no-op**（见文件头说明）。
- *
- * 参数以 `_` 前缀命名：本包 tsconfig 开了 `noUnusedParameters`，
- * 未使用参数会被判 `TS6133`；下划线前缀是 TS 认可的「刻意未用」写法。
- */
-export function apply(_ctx: ServerPluginContext): void {
-  // 有意留空：实现已剥离。装回时本文件被原实现覆盖。
+  // ── 2. 状态路由（/session 单章闭环 + /pipeline 多智能体流水线）──
+  ctx.effect(
+    () => ctx.routes.register('/api/plugins/autowrite', createAutowriteRouter(ctx)),
+    'autowrite: routes',
+  );
+
+  ctx.logger.info(`自动写作引擎已挂载（${CHAT_SKILLS.length} 个技能 + 状态/流水线路由）`);
+  // ── 3. 意图门决策器（可选增强）启用状态 —— 启动时打一行，排查"决策器到底开没开" ──
+  if (isDecisionEnabled()) {
+    const jev = resolveJevConfig();
+    const chat = resolveChatDecisionModel();
+    const how = jev ? `Jev 原生 ${jev.model} @ ${jev.url}` : `chat 兜底 ${String(chat)}`;
+    ctx.logger.info(`意图门决策器已启用（${how}）；不可用时自动回退硬规则`);
+  } else {
+    ctx.logger.info('意图门决策器未启用（设 AUTOWRITE_JEV_URL 或 AUTOWRITE_DECISION_MODEL 开启）');
+  }
 }
