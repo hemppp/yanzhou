@@ -137,6 +137,12 @@ graphflow-out/
 
 # playwright 调试会话产物（console/page 快照）
 .playwright-cli/
+# ★ 2026-10-23 补：MCP 版 playwright 的同型产物（`page-*.yml` 快照 + 随手丢进去的 md）
+#   与前一条是同一种"调试现场"，只是工具不同 —— 此前未忽略，30 个快照长期挂在 git status 里。
+.playwright-mcp/
+# 本机 AI 编码助手的会话/启动配置（.claude/launch.json 等）：属于**本机环境**，
+#   与 .mimosa/、.zcode/、.agent-teams/ 同类，不入库。需要团队共享的配置请另存到仓库内的显式路径。
+.claude/
 
 # 设计评审会话截图与演示产物
 .design-review/

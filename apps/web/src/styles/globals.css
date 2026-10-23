@@ -855,6 +855,19 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   border-color: hsl(var(--ring) / 0.6);
 }
 
+/* —— 键盘焦点的**通用**可见环 ——
+   ★ 2026-10-23（U7）：此前只有 input/textarea/select 有聚焦反馈，其余可聚焦元素
+   （标签页 [role=tab]、气泡按钮、图标按钮…）走浏览器默认 —— 实测计算值是
+   `auto 1px rgb(16,16,16)`：暗色档下这条近黑细线压在同色深灰底上**几乎看不见**，
+   键盘用户完全不知道焦点在哪。这里补一条全局规则，只作用在 `:focus-visible`
+   （鼠标点击不触发），用 `--ring` 令牌 —— 它在亮档是 `0 0% 40%`、暗档 `0 0% 70%`，
+   两档都够清楚。已自带聚焦样式（如 .nm-btn-apple 的 outline:none）的地方不受影响：
+   它们的规则更具体，且本规则不碰 border/background，只加 outline。 */
+:where(a, button, [role="tab"], [role="menuitem"], [tabindex]):focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.75);
+  outline-offset: 1px;
+}
+
 .storymap-marker {
   background: none !important;
   border: none !important;
@@ -929,7 +942,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   box-shadow: inset 0 1px 0 rgb(var(--glass-highlight) / var(--glass-surface-highlight));
 }
 .nm-btn-apple-secondary:hover {
-  background: hsl(var(--glass-tint) / 0.7);
+  background: rgb(var(--glass-tint) / 0.7);
   border-color: hsl(var(--border) / 0.8);
 }
 

@@ -143,7 +143,7 @@ function TypographyPanel() {
 
   return (
     <div className="p-4 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
-      <p className="text-xs" style={{ color: 'hsl(var(--ink-light) / 0.6)' }}>
+      <p className="text-xs" style={{ color: 'hsl(var(--ink-light))' }}>
         实时应用到编辑器正文（.ProseMirror），保存为用户级偏好
       </p>
 
@@ -204,7 +204,7 @@ function TypographyPanel() {
                 borderRadius: 'var(--r-2xs, 8px)',
                 border: '2px solid',
                 borderColor: settings.color === c.value ? 'hsl(var(--primary))' : 'hsl(var(--border) / 0.6)',
-                background: c.value ?? 'repeating-linear-gradient(45deg, hsl(var(--glass-tint)), hsl(var(--glass-tint)) 4px, transparent 4px, transparent 8px)',
+                background: c.value ?? 'repeating-linear-gradient(45deg, rgb(var(--glass-tint)), rgb(var(--glass-tint)) 4px, transparent 4px, transparent 8px)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -274,11 +274,11 @@ function TypographyPanel() {
       <div
         className="rounded-lg p-3"
         style={{
-          background: 'hsl(var(--glass-tint) / 0.35)',
+          background: 'rgb(var(--glass-tint) / 0.35)',
           border: '0.5px solid hsl(var(--border) / 0.5)',
         }}
       >
-        <div className="text-xs mb-1" style={{ color: 'hsl(var(--ink-light) / 0.55)' }}>实时预览</div>
+        <div className="text-xs mb-1" style={{ color: 'hsl(var(--ink-light))' }}>实时预览</div>
         <div style={{ fontWeight: settings.weight, color: settings.color ?? 'hsl(var(--ink))', fontFamily: "'Noto Serif SC', serif", lineHeight: 1.9 }}>
           墨色的风掠过书页，故事在灯火里悄然生长。
         </div>
@@ -347,7 +347,7 @@ function TypographySettingsSection() {
         ))}
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-xs" style={{ color: 'hsl(var(--ink-light) / 0.6)' }}>
+        <span className="text-xs" style={{ color: 'hsl(var(--ink-light))' }}>
           当前颜色：{hexToDisplay(settings.color)}（完整色板在工作台「字体排版」面板）
         </span>
         <button
