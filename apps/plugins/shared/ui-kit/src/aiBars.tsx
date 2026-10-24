@@ -166,7 +166,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
     border: `1px solid ${color}33`,
     boxShadow:
-      '0 4px 12px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 hsl(var(--glass-highlight) / 0.5)',
+      '0 4px 12px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
     color: 'hsl(var(--ink))',
     fontFamily: "'Noto Serif SC', serif",
   });
@@ -240,7 +240,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             border: '1px solid hsl(var(--border) / 0.4)',
             boxShadow:
-              '0 12px 40px hsl(var(--glass-shadow) / 0.12), 0 4px 12px hsl(var(--glass-shadow) / 0.06), inset 0 1px 0 hsl(var(--glass-highlight) / 0.6)',
+              '0 12px 40px hsl(var(--glass-shadow) / 0.12), 0 4px 12px hsl(var(--glass-shadow) / 0.06), inset 0 1px 0 rgb(var(--glass-highlight) / 0.6)',
           }}
         >
           {QUICK_PROMPTS.map((group) => {
@@ -354,8 +354,8 @@ export function SkillsBar({
     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
     border: `1px solid ${active ? color : color + '33'}`,
     boxShadow: active
-      ? `0 0 0 2px ${color}40, 0 4px 16px ${color}30, inset 0 1px 0 hsl(var(--glass-highlight) / 0.5)`
-      : '0 4px 12px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 hsl(var(--glass-highlight) / 0.5)',
+      ? `0 0 0 2px ${color}40, 0 4px 16px ${color}30, inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)`
+      : '0 4px 12px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
     color: 'hsl(var(--ink))',
     fontFamily: "'Noto Serif SC', serif",
   });
@@ -378,7 +378,7 @@ export function SkillsBar({
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             border: '1px solid hsl(var(--border) / 0.4)',
             boxShadow:
-              '0 12px 40px hsl(var(--glass-shadow) / 0.12), 0 4px 12px hsl(var(--glass-shadow) / 0.06), inset 0 1px 0 hsl(var(--glass-highlight) / 0.6)',
+              '0 12px 40px hsl(var(--glass-shadow) / 0.12), 0 4px 12px hsl(var(--glass-shadow) / 0.06), inset 0 1px 0 rgb(var(--glass-highlight) / 0.6)',
           }}
         >
           {skills.map((skill) => {
@@ -475,7 +475,7 @@ export function SkillsBar({
               WebkitBackdropFilter: 'blur(24px) saturate(180%)',
               border: '1px solid hsl(var(--border) / 0.4)',
               boxShadow:
-                '0 12px 40px hsl(var(--glass-shadow) / 0.12), 0 4px 12px hsl(var(--glass-shadow) / 0.06), inset 0 1px 0 hsl(var(--glass-highlight) / 0.6)',
+                '0 12px 40px hsl(var(--glass-shadow) / 0.12), 0 4px 12px hsl(var(--glass-shadow) / 0.06), inset 0 1px 0 rgb(var(--glass-highlight) / 0.6)',
             }}
           >
             {skills.map((skill) => {

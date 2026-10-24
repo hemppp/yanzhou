@@ -200,7 +200,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         WebkitBackdropFilter: 'blur(20px) saturate(180%)',
         border: '1px solid hsl(var(--border) / 0.3)',
         boxShadow: `
-          0 1px 0 0 hsl(var(--glass-highlight) / 0.4) inset,
+          0 1px 0 0 rgb(var(--glass-highlight) / 0.4) inset,
           0 8px 24px -8px hsl(var(--glass-shadow) / 0.18)
         `,
       }}

@@ -76,7 +76,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
               backdropFilter: 'blur(24px) saturate(180%)',
               WebkitBackdropFilter: 'blur(24px) saturate(180%)',
               boxShadow: `
-                0 1px 0 0 hsl(var(--glass-highlight) / 0.4) inset,
+                0 1px 0 0 rgb(var(--glass-highlight) / 0.4) inset,
                 0 8px 24px -8px hsl(var(--glass-shadow) / 0.18)
               `,
             }}
@@ -117,7 +117,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             border: '1px solid hsl(var(--border) / 0.4)',
             boxShadow: `
-              0 1px 0 0 hsl(var(--glass-highlight) / 0.4) inset,
+              0 1px 0 0 rgb(var(--glass-highlight) / 0.4) inset,
               0 12px 32px -12px hsl(var(--glass-shadow) / 0.18)
             `,
           }}
@@ -235,7 +235,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
               borderStyle: 'solid',
               borderColor: 'hsl(var(--border) / 0.4)',
               boxShadow: `
-                0 1px 0 0 hsl(var(--glass-highlight) / 0.4) inset,
+                0 1px 0 0 rgb(var(--glass-highlight) / 0.4) inset,
                 0 4px 12px -4px hsl(var(--glass-shadow) / 0.12)
               `,
               fontWeight: 500,
