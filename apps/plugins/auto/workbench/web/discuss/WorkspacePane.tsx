@@ -142,7 +142,7 @@ export function WorkspacePane({
               /* 错误文案用 sig-stop —— 这是本体系里"失败"的指定色。
                  原来用 --destructive，而按水墨迁移的注释，--destructive 在亮色下
                  就是 16% 明度的深墨，跟正文几乎同色，读不出"这是错误"。 */
-              <div className="p-4 text-[12px] text-sig-stop">
+              <div className="p-4 text-[11px] text-sig-stop">
                 「{activePanel?.label}」面板出错了 —— 正文与其它标签不受影响，可关闭此标签后重开。
               </div>
             )}
@@ -150,7 +150,7 @@ export function WorkspacePane({
             <PanelComponent {...(panelProps ?? {})} />
           </ErrorBoundary>
         ) : (
-          <div className="p-6 text-center text-[12px] text-tone-2">
+          <div className="p-6 text-center text-[11px] text-tone-2">
             没有打开的看板 —— 点左侧气泡即可打开。
           </div>
         )}

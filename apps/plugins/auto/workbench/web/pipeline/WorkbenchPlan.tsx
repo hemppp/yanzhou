@@ -107,11 +107,11 @@ export function WorkbenchPlan({ chapterTitle, conclusion, running, stages }: Wor
         style={{ borderBottom: '0.5px solid hsl(var(--border) / 0.45)' }}
       >
         <ListOrdered size={12} style={{ color: 'hsl(var(--primary) / 0.85)' }} aria-hidden="true" />
-        <span className="text-[12px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
+        <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
           本章计划
         </span>
         {chapterTitle && (
-          <span className="text-[11px] truncate max-w-[180px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="text-[10px] truncate max-w-[180px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {chapterTitle}
           </span>
         )}
@@ -147,15 +147,15 @@ export function WorkbenchPlan({ chapterTitle, conclusion, running, stages }: Wor
                     style={{ width: 6, height: 6, background: sty.dot }}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px] font-medium" style={{ color: st === 'idle' ? 'hsl(var(--muted-foreground))' : 'hsl(var(--ink))' }}>
+                  <span className="text-[10px] font-medium" style={{ color: st === 'idle' ? 'hsl(var(--muted-foreground))' : 'hsl(var(--ink))' }}>
                     {s.label}
                   </span>
-                  <span className="text-[11px]" style={{ color: sty.text }}>
+                  <span className="text-[10px]" style={{ color: sty.text }}>
                     {sty.label}
                   </span>
                 </span>
                 {i < STAGES.length - 1 && (
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground) / 0.5)' }} aria-hidden="true">
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground) / 0.5)' }} aria-hidden="true">
                     ›
                   </span>
                 )}
@@ -166,18 +166,18 @@ export function WorkbenchPlan({ chapterTitle, conclusion, running, stages }: Wor
 
         {/* —— 本章结论 —— */}
         {!conclusion ? (
-          <div className="text-[11px] leading-[1.75]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <div className="text-[10px] leading-[1.75]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             还没有结论。在左侧对智能体说明这一章要写什么，讨论收敛出的「本章结论」会落在这里 ——
             它既是写作官的输入，也是复核时的对照物。
           </div>
         ) : !open ? (
-          <div className="text-[11px] truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <div className="text-[10px] truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>
             本章结论已收敛（收起中）
           </div>
         ) : fields.length === 0 ? (
           // 格式跑偏时原样显示，绝不丢内容
           <pre
-            className="text-[11px] leading-[1.75] whitespace-pre-wrap"
+            className="text-[10px] leading-[1.75] whitespace-pre-wrap"
             style={{ color: 'hsl(var(--ink-light))', margin: 0, fontFamily: 'inherit' }}
           >
             {conclusion}
@@ -187,13 +187,13 @@ export function WorkbenchPlan({ chapterTitle, conclusion, running, stages }: Wor
             {fields.map((f) => (
               <div key={f.key} className="flex gap-2">
                 <dt
-                  className="shrink-0 text-[11px] font-medium"
+                  className="shrink-0 text-[10px] font-medium"
                   style={{ color: 'hsl(var(--primary) / 0.9)', minWidth: 48 }}
                 >
                   {f.key}
                 </dt>
                 <dd
-                  className="text-[11px] leading-[1.7] whitespace-pre-wrap"
+                  className="text-[10px] leading-[1.7] whitespace-pre-wrap"
                   style={{ color: 'hsl(var(--ink-light))', margin: 0, minWidth: 0 }}
                 >
                   {f.value}

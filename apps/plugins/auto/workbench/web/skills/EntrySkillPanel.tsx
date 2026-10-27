@@ -22,12 +22,12 @@ export function EntrySkillPanel({
   return (
     <div className="flex flex-col gap-2 p-2.5">
       <div className="flex items-baseline gap-2">
-        <span className="text-[12px] font-semibold">{title}</span>
-        {hint && <span className="text-[11px] text-muted-foreground truncate">{hint}</span>}
+        <span className="text-[11px] font-semibold">{title}</span>
+        {hint && <span className="text-[10px] text-muted-foreground truncate">{hint}</span>}
       </div>
       {/* ★ 开关只是"给这个智能体开/关一条技能"，不等于本轮对话一定用它 ——
           这一句必须写出来，否则作者会以为开了就等于生效在每轮对话里 */}
-      <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
         <AlertCircle size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
         <span>这里的开关决定「这个智能体是否启用该技能」；具体某一轮用哪条，仍在对话的技能徽章里选择。</span>
       </div>

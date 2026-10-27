@@ -109,7 +109,7 @@ export function PromptBar({
           rows={1}
           aria-label="输入消息"
           className={cn(
-            'mc-scroll block w-full resize-none bg-transparent text-[12.5px] leading-[1.55] text-tone',
+            'mc-scroll block w-full resize-none bg-transparent text-[11.5px] leading-[1.55] text-tone',
             'outline-none [overflow-wrap:anywhere] placeholder:text-tone-3',
           )}
         />
@@ -120,7 +120,7 @@ export function PromptBar({
         {toolbar && <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">{toolbar}</div>}
         {!toolbar && <span className="flex-1" />}
 
-        {accessory && <span className="mc-num shrink-0 text-[11px] text-tone-3">{accessory}</span>}
+        {accessory && <span className="mc-num shrink-0 text-[10px] text-tone-3">{accessory}</span>}
 
         {streaming && onStop ? (
           <button
@@ -158,7 +158,7 @@ export function PromptBar({
         )}
       </div>
 
-      {hint && <div className="border-t border-paper-line px-3 py-1.5 text-[11px] text-tone-3">{hint}</div>}
+      {hint && <div className="border-t border-paper-line px-3 py-1.5 text-[10px] text-tone-3">{hint}</div>}
     </div>
   );
 }

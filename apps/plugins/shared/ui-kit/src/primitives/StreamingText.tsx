@@ -62,7 +62,7 @@ export function SourceStack({ sources, className }: { sources: SourceRef[]; clas
             aria-label={s.name}
             className={cn(
               'flex size-4 items-center justify-center rounded-full',
-              'bg-paper text-[11px] font-medium text-tone-2',
+              'bg-paper text-[10px] font-medium text-tone-2',
               'shadow-[0_0_0_1.5px_hsl(var(--paper-canvas))]',
             )}
           >
@@ -70,7 +70,7 @@ export function SourceStack({ sources, className }: { sources: SourceRef[]; clas
           </span>
         ))}
       </div>
-      <span className="mc-num text-[11px] text-tone-3">
+      <span className="mc-num text-[10px] text-tone-3">
         {sources.length} 处来源{rest > 0 ? `（+${rest}）` : ''}
       </span>
     </div>
@@ -98,7 +98,7 @@ export function InlineActions({
           onClick={a.onClick}
           disabled={a.disabled}
           className={cn(
-            'mc-focus group/ia relative rounded-chip px-1.5 py-0.5 text-[11.5px] font-medium',
+            'mc-focus group/ia relative rounded-chip px-1.5 py-0.5 text-[10.5px] font-medium',
             'text-tone-2 transition-colors duration-150 ease-out hover:text-tone',
             'disabled:pointer-events-none disabled:opacity-50',
           )}

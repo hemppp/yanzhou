@@ -135,7 +135,7 @@ export function LandingPage() {
           <div className="landing-hero-cta">
             <button
               className="nm-btn-apple-primary"
-              style={{ width: 180, height: 56, padding: 0, fontSize: 16 }}
+              style={{ width: 180, height: 56, padding: 0, fontSize: 15 }}
               onClick={() => navigate('/bookshelf')}
             >
               开始创作
@@ -200,7 +200,7 @@ export function LandingPage() {
           <div className="landing-cta-btn">
             <button
               className="nm-btn-apple-primary"
-              style={{ width: 200, height: 60, padding: 0, fontSize: 17 }}
+              style={{ width: 200, height: 60, padding: 0, fontSize: 16 }}
               onClick={() => navigate('/bookshelf')}
             >
               开始创作

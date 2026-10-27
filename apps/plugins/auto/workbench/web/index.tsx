@@ -44,17 +44,32 @@ import { useChatHistoryStore } from '../stores/chatHistoryStore';
 import { registerLocalDataCleaner } from '@novel-plugins/data-core';
 
 // ---- 懒加载（保持 chunk 分割：three.js / 图谱面板不进主包）----
-const PipelineGraphPanel = React.lazy(() =>
+//
+// ★ 2026-10-26：懒组件与**预取入口**成对返回（`preload` 挂到 `FloatingPanelDef.preload`）。
+//   宿主 / 工作台在「悬停气泡（意图已出现、点击尚未发生）」时调它，把「点击后才开始下载
+//   chunk、先闪一下加载中」变成「点击即命中模块缓存」。两者共用同一个 import() 说明符。
+interface LazyPanelEntry<T extends React.ComponentType<any>> {
+  Component: React.LazyExoticComponent<T>;
+  preload: () => Promise<unknown>;
+}
+
+function lazyPanel<T extends React.ComponentType<any>>(
+  load: () => Promise<{ default: T }>,
+): LazyPanelEntry<T> {
+  return { Component: React.lazy(load), preload: load as () => Promise<unknown> };
+}
+
+const PipelineGraphPanel = lazyPanel(() =>
   import('./pipeline/PipelineGraphPanel').then((m) => ({ default: m.PipelineGraphPanel })));
-const ChapterPlanGraphPanel = React.lazy(() =>
+const ChapterPlanGraphPanel = lazyPanel(() =>
   import('./pipeline/ChapterPlanGraphPanel').then((m) => ({ default: m.ChapterPlanGraphPanel })));
-const MemoryGraphPanel = React.lazy(() =>
+const MemoryGraphPanel = lazyPanel(() =>
   import('./memory/MemoryGraphPanel').then((m) => ({ default: m.MemoryGraphPanel })));
-const SkillLibraryPanel = React.lazy(() =>
+const SkillLibraryPanel = lazyPanel(() =>
   import('./skills/SkillLibraryPanel').then((m) => ({ default: m.SkillLibraryPanel })));
-const EntityOverviewPanel = React.lazy(() =>
+const EntityOverviewPanel = lazyPanel(() =>
   import('./entities/EntityOverviewPanel').then((m) => ({ default: m.EntityOverviewPanel })));
-const ManuscriptPanel = React.lazy(() =>
+const ManuscriptPanel = lazyPanel(() =>
   import('./manuscript/ManuscriptPanel').then((m) => ({ default: m.ManuscriptPanel })));
 
 const AutoWriteWorkbench = React.lazy(() =>
@@ -70,13 +85,13 @@ export const inject = ['projectPanels', 'workbench', 'capability'];
 
 /** AI 写作工作台面板定义（与原 plugin/autoBuiltin.ts 完全一致） */
 export const AUTO_WORKBENCH_PANELS: FloatingPanelDef[] = [
-  { key: 'pipeline', label: '流水线', icon: Workflow, group: 'live', Component: PipelineGraphPanel, modes: ['auto'] },
-  { key: 'chapterPlan', label: '本章计划', icon: ClipboardList, group: 'live', Component: ChapterPlanGraphPanel, modes: ['auto'] },
-  { key: 'entities', label: '实体与设定', icon: Network, group: 'data', Component: EntityOverviewPanel, modes: ['auto'] },
-  { key: 'memory', label: '记忆审计', icon: ShieldCheck, group: 'data', Component: MemoryGraphPanel, modes: ['auto'] },
-  { key: 'skills', label: '技能库', icon: Wand2, group: 'data', Component: SkillLibraryPanel, modes: ['auto'] },
+  { key: 'pipeline', label: '流水线', icon: Workflow, group: 'live', Component: PipelineGraphPanel.Component, preload: PipelineGraphPanel.preload, modes: ['auto'] },
+  { key: 'chapterPlan', label: '本章计划', icon: ClipboardList, group: 'live', Component: ChapterPlanGraphPanel.Component, preload: ChapterPlanGraphPanel.preload, modes: ['auto'] },
+  { key: 'entities', label: '实体与设定', icon: Network, group: 'data', Component: EntityOverviewPanel.Component, preload: EntityOverviewPanel.preload, modes: ['auto'] },
+  { key: 'memory', label: '记忆审计', icon: ShieldCheck, group: 'data', Component: MemoryGraphPanel.Component, preload: MemoryGraphPanel.preload, modes: ['auto'] },
+  { key: 'skills', label: '技能库', icon: Wand2, group: 'data', Component: SkillLibraryPanel.Component, preload: SkillLibraryPanel.preload, modes: ['auto'] },
   // 正文阅读：写出来的章节得能直接在界面上读（此前只能翻库/脚本，质量问题看不见）
-  { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', Component: ManuscriptPanel, modes: ['auto'] },
+  { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', Component: ManuscriptPanel.Component, preload: ManuscriptPanel.preload, modes: ['auto'] },
 ];
 
 export function apply(ctx: WebPluginContext): void {

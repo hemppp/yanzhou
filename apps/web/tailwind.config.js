@@ -20,7 +20,20 @@ export default {
   // ★ 插件 Web 面也要扫描（novel.autowrite / worldbuilding 等）：
   //   否则插件独有的工具类（如 -right-14 / right-12）不会生成 CSS，
   //   表现为气泡栏/弹层类全部失效、叠在面板内部（2026-09-10 实测事故）。
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}', '../plugins/**/web/**/*.{js,ts,jsx,tsx}'],
+  //
+  // ★ 2026-10-27 补 shared 包（**实测缺口**，勿删）：
+  //   `../plugins/**/web/**` 只覆盖带 `web/` 段的目录；`ui-kit/src`、`ui-graph/src`
+  //   **没有** `web` 段 ⇒ 它们里的工具类一直没被编译。实测证据：ui-kit/ToastProvider
+  //   的 `min-w-[280px]` / `z-[9999]` 在产物 CSS 里**不存在**（同名字串只来自 apps/web 的其它文件）。
+  //   shadcn 组件落在 ui-kit 后，`bg-background/border-border/ring-ring` 这类类名
+  //   若不在此范围内会**全部裸奔**（组件有形无皮）。
+  content: [
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
+    '../plugins/**/web/**/*.{js,ts,jsx,tsx}',
+    '../plugins/shared/ui-kit/src/**/*.{js,ts,jsx,tsx}',
+    '../plugins/shared/ui-graph/src/**/*.{js,ts,jsx,tsx}',
+  ],
   theme: {
     extend: {
       colors: {
@@ -52,6 +65,14 @@ export default {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+        },
+        // ★ 2026-10-27 补 popover：shadcn 的 Dialog/Dropdown/Popover/Command 默认用
+        //   `bg-popover text-popover-foreground`，而全仓此前**没有**这两个 token 也没有
+        //   这个 colors 键 ⇒ 那些组件会「有形无皮」（背景透明、文字继承）。
+        //   值刻意别名到 card（弹层与卡片同面），不新增字面色值（ADR 约定 C-2）。
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
 
         // ============================================================
@@ -364,6 +385,37 @@ export default {
       fontSize: {
         '2xs': ['11px', { lineHeight: '1.45' }],
       },
+
+      /**
+       * ★ 2026-10-27「字号小一点、留白大一点」——**只放大间距，不放大尺寸**。
+       *
+       * 关键取舍（勿改回 spacing）：
+       *   直接覆盖 `theme.spacing` 会**连带**放大 `h-*` / `w-*` / `size-*`
+       *   （实测 384 处），图标、按钮、色块会一起变胖 —— 与"整体缩小"相反。
+       *   故这里只覆盖 `padding` / `margin` / `gap` 三族（它们各自继承 spacing 刻度，
+       *   但可以被单独覆盖），实测 2359 处受益，而尺寸类完全不动。
+       *
+       * 口径（2026-10-27 作者二次反馈后定稿）：
+       *   **小档不动、大档放大** —— 0.5~3 档（2/4/6/8/10/12px）承载控件内边距，
+       *   放大会让按钮/输入框变胖（与"整体缩小"矛盾）；从 3.5 起逐档放大到 ~1.3×，
+       *   这一档以上基本是**布局留白**（卡片间距、区块间距、面板内边距），放大才叫"透气"。
+       * 与字号 ×0.93 配合 ⇒ 观感是"字更小、块更松"，而不是"整体缩水"。
+       */
+      padding: {
+        0: '0px', 0.5: '2px', 1: '4px', 1.5: '6px', 2: '8px', 2.5: '10px',
+        3: '12px', 3.5: '14px', 4: '18px', 5: '22px', 6: '26px', 7: '30px',
+        8: '36px', 9: '44px', 10: '52px', 12: '64px', 16: '80px',
+      },
+      margin: {
+        0: '0px', 0.5: '2px', 1: '4px', 1.5: '6px', 2: '8px', 2.5: '10px',
+        3: '12px', 3.5: '14px', 4: '18px', 5: '22px', 6: '26px', 7: '30px',
+        8: '36px', 9: '44px', 10: '52px', 12: '64px', 16: '80px',
+      },
+      gap: {
+        0: '0px', 0.5: '2px', 1: '4px', 1.5: '6px', 2: '8px', 2.5: '10px',
+        3: '12px', 3.5: '15px', 4: '20px', 5: '24px', 6: '28px', 7: '32px',
+        8: '38px', 9: '46px', 10: '54px', 12: '66px', 16: '82px',
+      },
     },
   },
   daisyui: {
@@ -373,5 +425,9 @@ export default {
     styled: true,
     utils: true,
   },
-  plugins: [require('daisyui')],
+  // ★ 2026-10-27：`tailwindcss-animate` 是 shadcn 组件（Dialog/Dropdown/Popover/Tooltip）
+  //   进出场动画的依赖（`animate-in` / `fade-in-0` / `zoom-in-95` / `slide-in-from-*`）。
+  //   本仓是 Tailwind **v3**，故用 `tailwindcss-animate`，**不要**换成 v4 的 `tw-animate-css`。
+  //   daisyUI 与它在不同 layer（daisyui.l1/l2/l3 vs utilities），无同名冲突。
+  plugins: [require('daisyui'), require('tailwindcss-animate')],
 };

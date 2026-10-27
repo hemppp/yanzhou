@@ -104,7 +104,7 @@ export function QuickOpen({ open, panels, openKeys, onPick, onClose }: QuickOpen
           aria-label="快速打开看板"
           className="w-full outline-none"
           style={{
-            height: 38, padding: '0 14px', fontSize: 13,
+            height: 38, padding: '0 var(--space-5)', fontSize: 12,
             background: 'transparent', border: 'none',
             borderBottom: '0.5px solid hsl(var(--border) / 0.6)',
             color: 'hsl(var(--foreground))',
@@ -112,7 +112,7 @@ export function QuickOpen({ open, panels, openKeys, onPick, onClose }: QuickOpen
         />
         <div style={{ maxHeight: 300, overflowY: 'auto' }} role="listbox">
           {list.length === 0 && (
-            <div className="px-4 py-3 text-[12px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <div className="px-4 py-3 text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
               没有匹配的看板
             </div>
           )}
@@ -130,7 +130,7 @@ export function QuickOpen({ open, panels, openKeys, onPick, onClose }: QuickOpen
                 height: 30,
                 background: i === cursor ? 'hsl(var(--secondary))' : 'transparent',
                 border: 'none',
-                fontSize: 12.5,
+                fontSize: 11.5,
                 color: 'hsl(var(--foreground))',
                 cursor: 'pointer',
               }}
@@ -138,7 +138,7 @@ export function QuickOpen({ open, panels, openKeys, onPick, onClose }: QuickOpen
               <p.icon size={13} aria-hidden="true" />
               <span className="flex-1 truncate">{p.label}</span>
               {openKeys.includes(p.key) && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>已打开</span>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>已打开</span>
               )}
             </button>
           ))}

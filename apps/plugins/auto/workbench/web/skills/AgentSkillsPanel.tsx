@@ -151,7 +151,7 @@ export function AgentSkillsPanel() {
   const LibraryView = () => {
     if (!lib) {
       return (
-        <div className="flex items-center justify-center gap-2 py-6 text-[11px] text-muted-foreground" role="status">
+        <div className="flex items-center justify-center gap-2 py-6 text-[10px] text-muted-foreground" role="status">
           <Loader2 size={13} className="animate-spin" aria-hidden="true" /> 正在读取技能库…
         </div>
       );
@@ -161,12 +161,12 @@ export function AgentSkillsPanel() {
     }: { label: string; note: string; items: LibrarySkill[] }) => (
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline gap-2 px-1">
-          <span className="text-[11px] font-semibold">{label}</span>
-          <span className="text-[11px] text-muted-foreground">{items.length}</span>
-          <span className="text-[11px] text-muted-foreground truncate">{note}</span>
+          <span className="text-[10px] font-semibold">{label}</span>
+          <span className="text-[10px] text-muted-foreground">{items.length}</span>
+          <span className="text-[10px] text-muted-foreground truncate">{note}</span>
         </div>
         {items.length === 0 && (
-          <div className="px-2 py-2 text-[11px] text-muted-foreground">（这一类还没有技能）</div>
+          <div className="px-2 py-2 text-[10px] text-muted-foreground">（这一类还没有技能）</div>
         )}
         {items.map((s) => {
           const Icon = resolveSkillIcon(s.iconKey || s.id);
@@ -175,15 +175,15 @@ export function AgentSkillsPanel() {
               <Icon size={14} style={{ color: s.color }} className="shrink-0" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-medium truncate">{s.name}</span>
+                  <span className="text-[11px] font-medium truncate">{s.name}</span>
                   {/* ★ 公共 / 私有必须一眼可辨：删公共技能会影响所有用户 */}
                   {(s.visibility ?? 'public') === 'public' ? (
-                    <span className="shrink-0 text-[10px] px-1 rounded bg-muted text-muted-foreground" title="内置 / 插件带，所有用户可见">公共</span>
+                    <span className="shrink-0 text-[9.5px] px-1 rounded bg-muted text-muted-foreground" title="内置 / 插件带，所有用户可见">公共</span>
                   ) : (
-                    <span className="shrink-0 text-[10px] px-1 rounded" style={{ background: 'hsl(var(--mountain-cyan) / 0.12)', color: 'hsl(var(--mountain-cyan))' }} title="你自己上传的，只有你能看到">私有</span>
+                    <span className="shrink-0 text-[9.5px] px-1 rounded" style={{ background: 'hsl(var(--mountain-cyan) / 0.12)', color: 'hsl(var(--mountain-cyan))' }} title="你自己上传的，只有你能看到">私有</span>
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground truncate">
+                <div className="text-[10px] text-muted-foreground truncate">
                   {s.ownerAgentName ? `归属 ${s.ownerAgentName}` : (s.category === 'assistant' ? '归属 对话智能体' : '未归属')}
                   {s.description ? ` · ${s.description}` : ''}
                 </div>
@@ -209,7 +209,7 @@ export function AgentSkillsPanel() {
       <div className="flex flex-col gap-3">
         <button
           onClick={() => setInstallOpen((v) => !v)}
-          className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl border text-[11px] hover:bg-muted/60"
+          className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl border text-[10px] hover:bg-muted/60"
         >
           {installOpen ? <X size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
           {installOpen ? '收起安装表单' : '安装技能'}
@@ -234,7 +234,7 @@ export function AgentSkillsPanel() {
           }}
         />}
         {lib.orphans.length > 0 && (
-          <div className="flex items-start gap-1.5 rounded-xl px-2 py-1.5 text-[11px] border" style={{ borderColor: 'hsl(var(--destructive) / 0.4)' }} role="alert">
+          <div className="flex items-start gap-1.5 rounded-xl px-2 py-1.5 text-[10px] border" style={{ borderColor: 'hsl(var(--destructive) / 0.4)' }} role="alert">
             <AlertCircle size={11} className="shrink-0 mt-0.5 text-destructive" aria-hidden="true" />
             <span>
               有 {lib.orphans.map((o) => `${o.count} 条技能归属到「${o.agentId}」`).join('、')}，
@@ -255,17 +255,17 @@ export function AgentSkillsPanel() {
   function MarketView() {
     if (market === null) {
       return (
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-1 py-2">
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 py-2">
           <Loader2 size={13} className="animate-spin" aria-hidden="true" /> 正在读取技能市场…
         </div>
       );
     }
     if (market.length === 0) {
-      return <div className="px-1 py-3 text-[11px] text-muted-foreground">（市场里暂时没有可装的技能）</div>;
+      return <div className="px-1 py-3 text-[10px] text-muted-foreground">（市场里暂时没有可装的技能）</div>;
     }
     return (
       <div className="flex flex-col gap-1.5">
-        <div className="px-1 text-[11px] text-muted-foreground">
+        <div className="px-1 text-[10px] text-muted-foreground">
           公共技能源 · 共 {market.length} 条。装进来的技能归你自己，别人看不到。
         </div>
         {market.map((m) => {
@@ -275,25 +275,25 @@ export function AgentSkillsPanel() {
               <Icon size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-medium truncate">{m.name}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">v{m.version}</span>
+                  <span className="text-[11px] font-medium truncate">{m.name}</span>
+                  <span className="text-[9.5px] text-muted-foreground shrink-0">v{m.version}</span>
                   {(m.tags ?? []).map((t) => (
-                    <span key={t} className="text-[10px] px-1 rounded bg-muted text-muted-foreground shrink-0">{t}</span>
+                    <span key={t} className="text-[9.5px] px-1 rounded bg-muted text-muted-foreground shrink-0">{t}</span>
                   ))}
                 </div>
-                <div className="text-[11px] text-muted-foreground truncate">{m.description}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{m.description}</div>
                 {/* 归属写了但清单里没这个 agent —— 装了也看不见，必须提前说 */}
                 {!m.ownerKnown && (
-                  <div className="text-[11px] text-destructive">⚠ 归属智能体「{m.ownerAgent}」不在清单里，装了也看不到</div>
+                  <div className="text-[10px] text-destructive">⚠ 归属智能体「{m.ownerAgent}」不在清单里，装了也看不到</div>
                 )}
               </div>
               {m.installed ? (
-                <span className="shrink-0 text-[11px] text-muted-foreground px-1">已安装</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground px-1">已安装</span>
               ) : (
                 <button
                   onClick={() => void handleInstallFromMarket(m)}
                   disabled={installing === m.id || !m.ownerKnown}
-                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] hover:bg-muted/60 disabled:opacity-40"
+                  className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] hover:bg-muted/60 disabled:opacity-40"
                   aria-label={`安装 ${m.name}`}
                 >
                   {installing === m.id
@@ -317,19 +317,19 @@ export function AgentSkillsPanel() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSelected(null)}
-            className="shrink-0 flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            className="shrink-0 flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft size={12} aria-hidden="true" /> 全部智能体
           </button>
           <div className="flex-1" />
-          {t && <span className="text-[11px] text-muted-foreground">{t.group}</span>}
+          {t && <span className="text-[10px] text-muted-foreground">{t.group}</span>}
         </div>
         {t && (
           <div className="flex items-center gap-2">
             <AgentAvatar short={t.short} color={t.color} size={26} />
             <div className="min-w-0">
-              <div className="text-[12px] font-semibold truncate">{t.name}</div>
-              <div className="text-[11px] text-muted-foreground truncate">{t.description}</div>
+              <div className="text-[11px] font-semibold truncate">{t.name}</div>
+              <div className="text-[10px] text-muted-foreground truncate">{t.description}</div>
             </div>
           </div>
         )}
@@ -348,7 +348,7 @@ export function AgentSkillsPanel() {
             role="tab"
             aria-selected={tab === k}
             onClick={() => setTab(k)}
-            className="flex-1 px-2 py-1 rounded-lg text-[11px] transition-all"
+            className="flex-1 px-2 py-1 rounded-lg text-[10px] transition-all"
             style={{
               background: tab === k ? 'hsl(var(--background))' : 'transparent',
               fontWeight: tab === k ? 600 : 400,
@@ -359,7 +359,7 @@ export function AgentSkillsPanel() {
       </div>
 
       {error && (
-        <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground" role="alert">
+        <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground" role="alert">
           <AlertCircle size={11} className="shrink-0 mt-0.5 text-destructive" aria-hidden="true" />
           <span className="text-destructive">{error}</span>
         </div>
@@ -377,11 +377,11 @@ export function AgentSkillsPanel() {
 
       {tab === 'agents' && (
         targets === null ? (
-          <div className="flex items-center justify-center gap-2 py-6 text-[11px] text-muted-foreground" role="status">
+          <div className="flex items-center justify-center gap-2 py-6 text-[10px] text-muted-foreground" role="status">
             <Loader2 size={13} className="animate-spin" aria-hidden="true" /> 正在读取智能体…
           </div>
         ) : targets.length === 0 ? (
-          <div className="flex flex-col items-center gap-1.5 py-6 text-[11px] text-muted-foreground" role="status">
+          <div className="flex flex-col items-center gap-1.5 py-6 text-[10px] text-muted-foreground" role="status">
             <PackageOpen size={16} aria-hidden="true" />
             <div>没有已声明的智能体</div>
           </div>
@@ -389,7 +389,7 @@ export function AgentSkillsPanel() {
           <div className="flex flex-col gap-2">
             {[...new Set(targets.map((t) => t.group))].map((group) => (
               <div key={group} className="flex flex-col gap-1">
-                <div className="px-1 text-[11px] text-muted-foreground">{group}</div>
+                <div className="px-1 text-[10px] text-muted-foreground">{group}</div>
                 {targets.filter((t) => t.group === group).map((t) => (
                   <button
                     key={t.id}
@@ -399,11 +399,11 @@ export function AgentSkillsPanel() {
                   >
                     <AgentAvatar short={t.short} color={t.color} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12px] font-medium truncate">{t.name}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">{t.description}</div>
+                      <div className="text-[11px] font-medium truncate">{t.name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{t.description}</div>
                     </div>
                     {/* 计数直接写出来：不显示就没法一眼看出"这个智能体配了几条" */}
-                    <span className="shrink-0 text-[11px]" style={{ color: t.enabled > 0 ? t.color : 'hsl(var(--muted-foreground))' }}>
+                    <span className="shrink-0 text-[10px]" style={{ color: t.enabled > 0 ? t.color : 'hsl(var(--muted-foreground))' }}>
                       {t.enabled}/{t.total}
                     </span>
                     <ChevronRight size={12} className="shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -462,7 +462,7 @@ function InstallForm({
             key={k}
             type="button"
             onClick={() => setCategory(k)}
-            className="flex-1 px-2 py-1 rounded-lg text-[11px] border"
+            className="flex-1 px-2 py-1 rounded-lg text-[10px] border"
             style={{
               background: category === k ? 'hsl(var(--primary) / 0.12)' : 'transparent',
               borderColor: category === k ? 'hsl(var(--primary) / 0.5)' : 'hsl(var(--border))',
@@ -472,12 +472,12 @@ function InstallForm({
         ))}
       </div>
       {category === 'agent' && (
-        <label className="flex items-center gap-1.5 text-[11px]">
+        <label className="flex items-center gap-1.5 text-[10px]">
           <span className="text-muted-foreground shrink-0">归属智能体</span>
           <select
             value={ownerAgent}
             onChange={(e) => setOwnerAgent(e.target.value)}
-            className="flex-1 min-w-0 px-1.5 py-1 rounded-md border bg-background text-[11px]"
+            className="flex-1 min-w-0 px-1.5 py-1 rounded-md border bg-background text-[10px]"
           >
             {agentTargets.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -485,25 +485,25 @@ function InstallForm({
       )}
       <input
         value={id} onChange={(e) => setId(e.target.value)} placeholder="技能 id（字母数字，如 foreshadow-doctor）"
-        className="px-2 py-1 rounded-md border bg-background text-[11px]"
+        className="px-2 py-1 rounded-md border bg-background text-[10px]"
       />
       <input
         value={name} onChange={(e) => setName(e.target.value)} placeholder="展示名称"
-        className="px-2 py-1 rounded-md border bg-background text-[11px]"
+        className="px-2 py-1 rounded-md border bg-background text-[10px]"
       />
       <input
         value={description} onChange={(e) => setDescription(e.target.value)} placeholder="一句话描述"
-        className="px-2 py-1 rounded-md border bg-background text-[11px]"
+        className="px-2 py-1 rounded-md border bg-background text-[10px]"
       />
       <textarea
         value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
         placeholder="技能正文：叠加到 system prompt 的专家指导" rows={3}
-        className="px-2 py-1 rounded-md border bg-background text-[11px] resize-y"
+        className="px-2 py-1 rounded-md border bg-background text-[10px] resize-y"
       />
       <button
         type="submit"
         disabled={!canSubmit}
-        className="px-2 py-1.5 rounded-lg text-[11px] text-primary-foreground disabled:opacity-50 mc-auth-btn-primary"
+        className="px-2 py-1.5 rounded-lg text-[10px] text-primary-foreground disabled:opacity-50 mc-auth-btn-primary"
       >
         {busy ? '安装中…' : '安装到技能库'}
       </button>

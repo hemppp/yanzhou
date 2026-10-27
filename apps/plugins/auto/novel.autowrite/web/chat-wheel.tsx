@@ -68,7 +68,7 @@ function WheelBubble({
     >
       <Icon size={16} aria-hidden="true" />
       <span
-        className={`absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${side === 'left' ? 'left-full ml-2' : 'right-full mr-2'}`}
+        className={`absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[9.5px] px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${side === 'left' ? 'left-full ml-2' : 'right-full mr-2'}`}
         style={{
           color: 'hsl(var(--ink))',
           background: 'rgb(var(--glass-tint) / 0.85)',
@@ -285,7 +285,7 @@ export function ChatWheelRail({
           aria-label="选择技能"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">技能 · 选中后生效</span>
+            <span className="text-[9.5px] uppercase tracking-wider text-muted-foreground/70">技能 · 选中后生效</span>
             <button
               type="button"
               onClick={() => setFlyout(null)}
@@ -316,7 +316,7 @@ export function ChatWheelRail({
           aria-label="快捷语"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">快捷语 · 点击填入</span>
+            <span className="text-[9.5px] uppercase tracking-wider text-muted-foreground/70">快捷语 · 点击填入</span>
             <button
               type="button"
               onClick={() => setFlyout(null)}

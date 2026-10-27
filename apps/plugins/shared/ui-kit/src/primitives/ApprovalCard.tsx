@@ -60,11 +60,11 @@ export function ApprovalCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[12.5px] font-semibold leading-tight text-tone">{title}</h3>
+            <h3 className="text-[11.5px] font-semibold leading-tight text-tone">{title}</h3>
             <span className="mc-eyebrow">待确认</span>
           </div>
           {description && (
-            <p className="mt-1 text-[11.5px] leading-relaxed text-tone-2">{description}</p>
+            <p className="mt-1 text-[10.5px] leading-relaxed text-tone-2">{description}</p>
           )}
         </div>
       </header>
@@ -78,7 +78,7 @@ export function ApprovalCard({
 
       {/* 底部：元信息 + 两个不等重的动作 */}
       <footer className="flex items-center justify-between gap-3 border-t border-paper-line px-3 py-2.5">
-        <span className="mc-num min-w-0 truncate text-[11px] text-tone-3">{meta}</span>
+        <span className="mc-num min-w-0 truncate text-[10px] text-tone-3">{meta}</span>
         <span className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
@@ -86,7 +86,7 @@ export function ApprovalCard({
             disabled={busy}
             className={cn(
               'mc-press mc-focus inline-flex h-[27px] items-center rounded-control px-2.5',
-              'text-[12px] font-medium text-tone-2 transition-colors duration-150 ease-out',
+              'text-[11px] font-medium text-tone-2 transition-colors duration-150 ease-out',
               'bg-paper-hover-2 hover:bg-paper-line-strong hover:text-tone',
               'disabled:pointer-events-none disabled:opacity-50',
             )}
@@ -100,7 +100,7 @@ export function ApprovalCard({
             disabled={busy}
             className={cn(
               'mc-press mc-focus mc-sheen inline-flex h-[27px] items-center rounded-control px-3',
-              'text-[12px] font-medium transition-opacity duration-150 ease-out',
+              'text-[11px] font-medium transition-opacity duration-150 ease-out',
               'bg-primary text-primary-foreground hover:opacity-90',
               'disabled:pointer-events-none disabled:opacity-50',
             )}
@@ -130,7 +130,7 @@ export function ApprovalCardSkeleton({ title, className }: { title: string; clas
       aria-label={`${title}（准备中）`}
     >
       <SignalDot tone="run" pulse />
-      <span className="text-[11.5px] text-tone-2">{title}，正在准备…</span>
+      <span className="text-[10.5px] text-tone-2">{title}，正在准备…</span>
     </section>
   );
 }

@@ -123,8 +123,8 @@ export function ContinueWriteModal({ visible, chapterTitle, onConfirm, onClose }
             placeholder="输入续写方向或要求..."
           />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[11px] text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded-md text-[11px]" style={{ background: 'rgb(var(--glass-tint) / 0.3)', border: '1px solid hsl(var(--border) / 0.3)' }}>⌘Enter</kbd> 发送
+            <span className="text-[10px] text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded-md text-[10px]" style={{ background: 'rgb(var(--glass-tint) / 0.3)', border: '1px solid hsl(var(--border) / 0.3)' }}>⌘Enter</kbd> 发送
             </span>
           </div>
         </div>

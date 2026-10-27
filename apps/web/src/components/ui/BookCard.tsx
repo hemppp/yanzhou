@@ -41,12 +41,12 @@ const coverFg = (alphaVar: string): string =>
 
 const DROPDOWN_ITEM_BASE: React.CSSProperties = {  display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 'var(--space-3)',
   width: '100%',
-  padding: '8px 12px',
+  padding: 'var(--space-3) var(--space-5)',
   border: 'none',
   background: 'transparent',
-  fontSize: 13,
+  fontSize: 12,
   cursor: 'pointer',
   textAlign: 'left',
   transition: 'background 0.15s',
@@ -196,19 +196,19 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 8,
+          gap: 'var(--space-3)',
         }}
       >
         <span
           style={{
             display: 'inline-block',
-            padding: '3px 10px',
+            padding: 'var(--space-1) var(--space-4)',
             borderRadius: 'var(--r-pill)',
             background: coverFg('--cover-chip-bg-alpha'),
             backdropFilter: 'blur(12px) saturate(180%)',
             WebkitBackdropFilter: 'blur(12px) saturate(180%)',
             border: '0.5px solid ' + coverFg('--cover-chip-border-alpha'),
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 500,
             color: coverFg('--cover-chip-fg-alpha'),
             fontFamily: "'Noto Serif SC', serif",
@@ -257,7 +257,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
           left: 0,
           right: 0,
           zIndex: 3,
-          padding: '14px 14px 16px',
+          padding: 'var(--space-6)',
           transform: isHovered ? 'translateY(0)' : 'translateY(0)',
           transition: 'transform 0.35s cubic-bezier(0.16,1,0.3,1)',
         }}
@@ -265,7 +265,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
         {/* 书名 */}
         <h3
           style={{
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: 600,
             // ★ 走变量（默认值 = 原硬编码白）—— 主题才能接管。
             //   起因：封面改成暖调淡纸后，白字实测只有 4.42:1，
@@ -290,9 +290,9 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
         {bookAuthor && (
           <p
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: coverFg('--cover-meta-alpha'),
-              margin: '4px 0 0 0',
+              margin: 'var(--space-1) 0 0 0',
               fontFamily: "'Noto Serif SC', serif",
               letterSpacing: '0.06em',
               whiteSpace: 'nowrap',
@@ -309,30 +309,30 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
-            marginTop: 10,
-            padding: '5px 10px',
+            gap: 'var(--space-2)',
+            marginTop: 'var(--space-4)',
+            padding: 'var(--space-2) var(--space-4)',
             borderRadius: 'var(--r-pill)',
             background: coverFg('--cover-stats-bg-alpha'),
             backdropFilter: 'blur(14px) saturate(180%)',
             WebkitBackdropFilter: 'blur(14px) saturate(180%)',
             border: '0.5px solid ' + coverFg('--cover-stats-border-alpha'),
-            fontSize: 11,
+            fontSize: 10,
             color: coverFg('--cover-stats-fg-alpha'),
             fontFamily: "'Noto Serif SC', serif",
           }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             <BookOpen size={10} />
             {wordCountDisplay}
           </span>
           <span style={{ opacity: 0.4 }}>·</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             <FileText size={10} />
             {chapterCount} 章
           </span>
           <span style={{ flex: 1 }} />
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: 0.8 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', opacity: 0.8 }}>
             <Clock size={10} />
             {formatDistanceToNow(updatedAt || Date.now())}
           </span>
@@ -355,7 +355,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
             WebkitBackdropFilter: 'blur(40px) saturate(200%)',
             border: '0.5px solid rgb(var(--glass-highlight) / 0.3)',
             boxShadow: '0 24px 64px hsl(var(--glass-shadow) / 0.18), 0 8px 24px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 rgb(var(--glass-highlight) / 0.8)',
-            padding: '4px 0',
+            padding: 'var(--space-1) 0',
           }}
           onClick={(e) => e.stopPropagation()}
         >

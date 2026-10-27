@@ -326,7 +326,7 @@ export function TimelineView() {
                   />
                   第{ch.order}章
                   <span
-                    className="text-[11px] opacity-70"
+                    className="text-[10px] opacity-70"
                     style={{ color: isActive ? 'white' : accent }}
                   >
                     {ch.count}

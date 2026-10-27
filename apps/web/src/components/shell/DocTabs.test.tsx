@@ -243,3 +243,159 @@ describe('DocTabsHeader 文档标签行', () => {
     expect(tabLabels(container)).toEqual(['第一章 山雨欲来', '大纲 · 山雨卷']);
   });
 });
+
+// ============================================================
+// ★ 2026-10-25 分屏：标签拖拽 + 按聚焦组过滤
+//
+// 背景：单列布局把 dockview 原生标签 `display:none` 了，用户没有拖拽抓手。
+// 故由自绘标签写入 dataTransfer，DockShell 的 DocSplitDropZone 读取并分屏。
+// 这里钉死两件事：① 拖拽载荷是面板 key；② 分屏后标签条只显示聚焦组的标签。
+// ============================================================
+describe('DocTabsHeader 分屏', () => {
+  /**
+   * ★ 2026-10-25：拖拽已从 HTML5 DnD 改为 **pointer 事件**（见 DocSplitDropZone 头注）：
+   * 标签主体是 `<button>`，Chrome 不会从 `<button>` 内发起祖先的 HTML5 拖拽。
+   * 故这里断言的是「pointerdown 后拖拽会话被启动」而不是 dataTransfer 载荷。
+   */
+  function pointerDown(el: HTMLElement, x = 100, y = 40) {
+    fireEvent.pointerDown(el, { button: 0, clientX: x, clientY: y, pointerId: 1 });
+  }
+
+  it('启用分屏时，标签可发起拖拽（pointerdown 启动拖拽会话）', () => {
+    registerPanels([['ai-chat', 'AI 对话']]);
+    const { container } = render(<DocTabsHeader onSplitRequest={() => {}} />);
+    openPanels(['ai-chat'], 'ai-chat');
+
+    const tabs = container.querySelectorAll<HTMLElement>('.shell-doctab');
+    expect(tabs.length).toBe(2); // 章节正文 + AI 对话
+
+    // 两条标签都能起拖（不再依赖 draggable 属性）
+    for (const t of Array.from(tabs)) {
+      expect(t.getAttribute('draggable')).toBeNull();
+      expect(() => pointerDown(t)).not.toThrow();
+    }
+    // 拖拽会话启动后，window 上应挂了 pointermove 监听（用一个移动事件验证不会抛错）
+    expect(() =>
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 400, clientY: 300 })),
+    ).not.toThrow();
+    // 清理：Esc 取消本次拖拽会话
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+
+  it('× 按钮上按下不发起拖拽（避免「关标签」被当成拖拽起点）', () => {
+    registerPanels([['notes', '笔记']]);
+    const { container } = render(<DocTabsHeader onSplitRequest={() => {}} />);
+    openPanels(['notes'], 'notes');
+    const closeBtn = container.querySelector('.shell-doctab-close') as HTMLElement;
+    expect(() => pointerDown(closeBtn)).not.toThrow();
+    fireEvent.keyDown(window, { key: 'Escape' });
+  });
+
+  it('★ 分屏后列出**所有栏**的标签（另一栏的标签不退场，带栏位角标）', () => {
+    // 2026-10-26 用户口径修正：分屏的意义是"同时看两样"，标签条却只显示聚焦栏
+    // ⇒ 用户以为「章节正文不见了」。现在两栏的标签都在，非聚焦栏带角标。
+    registerPanels([
+      ['chapters', '章节'],
+      ['ai-chat', 'AI 对话'],
+    ]);
+    // 左栏含基础标签 + 章节；右栏是 AI 对话 —— 焦点在右栏
+    const { container, rerender } = render(
+      <DocTabsHeader
+        groupScope={{
+          split: true,
+          hasBase: false,
+          panelKeys: ['ai-chat'],
+          groups: [
+            { panelKeys: ['chapters'], hasBase: true, active: false },
+            { panelKeys: ['ai-chat'], hasBase: false, active: true },
+          ],
+        }}
+        onSplitRequest={() => {}}
+      />,
+    );
+    openPanels(['chapters', 'ai-chat'], 'ai-chat');
+    // 两栏的标签都列出（基础标签 + 左栏章节 + 右栏 AI 对话）
+    expect(tabLabels(container)).toEqual(['章节正文', '章节', 'AI 对话']);
+    // 每个标签都带栏位角标，且聚焦栏的角标是 is-active
+    const badges = Array.from(container.querySelectorAll('.shell-doctab-group-badge')).map((b) => ({
+      text: b.textContent,
+      active: b.classList.contains('is-active'),
+    }));
+    expect(badges).toEqual([
+      { text: '1', active: false },
+      { text: '1', active: false },
+      { text: '2', active: true },
+    ]);
+
+    // 焦点切到左栏 ⇒ 角标激活态跟着换，但标签集合不变（一栏都不丢）
+    rerender(
+      <DocTabsHeader
+        groupScope={{
+          split: true,
+          hasBase: true,
+          panelKeys: ['chapters'],
+          groups: [
+            { panelKeys: ['chapters'], hasBase: true, active: true },
+            { panelKeys: ['ai-chat'], hasBase: false, active: false },
+          ],
+        }}
+        onSplitRequest={() => {}}
+      />,
+    );
+    expect(tabLabels(container)).toEqual(['章节正文', '章节', 'AI 对话']);
+    expect(
+      Array.from(container.querySelectorAll('.shell-doctab-group-badge')).map((b) => b.classList.contains('is-active')),
+    ).toEqual([true, true, false]);
+  });
+
+  it('未分屏（split:false）时忽略 groupScope，显示全部标签', () => {
+    registerPanels([
+      ['chapters', '章节'],
+      ['ai-chat', 'AI 对话'],
+    ]);
+    const { container } = render(
+      <DocTabsHeader
+        groupScope={{ split: false, hasBase: true, panelKeys: ['chapters'] }}
+        onSplitRequest={() => {}}
+      />,
+    );
+    openPanels(['chapters', 'ai-chat'], null);
+    expect(tabLabels(container)).toEqual(['章节正文', '章节', 'AI 对话']);
+  });
+
+  it('分屏时出现「合并分屏」按钮，点击触发 onUnsplitAll', () => {
+    let called = 0;
+    const { container } = render(
+      <DocTabsHeader splitActive onUnsplitAll={() => { called += 1; }} />,
+    );
+    const btn = container.querySelector('.shell-doctab-unsplit') as HTMLElement;
+    expect(btn?.textContent).toBe('合并分屏');
+    fireEvent.click(btn);
+    expect(called).toBe(1);
+
+    // 非分屏不出现
+    const { container: c2 } = render(<DocTabsHeader onUnsplitAll={() => {}} />);
+    expect(c2.querySelector('.shell-doctab-unsplit')).toBeNull();
+  });
+
+  it('右键标签出现分屏菜单，点「向右分屏」回调 (key, side)', () => {
+    const calls: Array<[string, string]> = [];
+    registerPanels([['ai-chat', 'AI 对话']]);
+    const { container } = render(
+      <DocTabsHeader onSplitRequest={(k, s) => calls.push([k, s])} />,
+    );
+    openPanels(['ai-chat'], 'ai-chat');
+
+    const tab = container.querySelectorAll<HTMLElement>('.shell-doctab')[1] as HTMLElement;
+    fireEvent.contextMenu(tab, { clientX: 120, clientY: 40 });
+
+    const menu = document.querySelector('.shell-doctab-ctx') as HTMLElement | null;
+    expect(menu).toBeTruthy();
+    const items = Array.from(menu!.querySelectorAll('button')).map((b) => b.textContent?.trim());
+    expect(items).toEqual(['向右分屏', '向左分屏']); // 未分屏 ⇒ 无「取消分屏」
+
+    fireEvent.click(menu!.querySelectorAll('button')[0] as HTMLElement);
+    expect(calls).toEqual([['ai-chat', 'right']]);
+    expect(document.querySelector('.shell-doctab-ctx')).toBeNull();
+  });
+});

@@ -35,11 +35,11 @@
   display: grid;
   align-items: center;
   flex: 0 0 auto;
-  /* ★ t6 尺寸对齐参考图：把实现渲染到参考图同尺寸（1489×931）后逐行实测，
-   * 参考图顶栏内容带 = 31px（y5..35，含 1px 下边线），原 35px 偏高 4px。
-   * 缩到 31px 后「顶栏 31 + 头部带 33 = 64」，与参考图正文面起点（y69 → 64）完全同节奏。 */
-  height: 31px;
-  padding: 0 10px;
+  /* ★ t6 尺寸对齐参考图：原按参考图（1489×931）实测顶栏内容带 = 31px。
+   * ★ 2026-10-27「VS Code 2026 密度」：作者要求整体收紧一档 ⇒ 31 → 29。
+   *   （VS Code 2026 的 Layout Density 反馈里，"更省空间"是明确诉求。） */
+  height: 29px;
+  padding: 0 var(--space-2);
   grid-template-columns: 1fr auto 1fr;
   background-color: var(--vscode-topBar-background);
   color: var(--vscode-titleBar-activeForeground);
@@ -50,7 +50,7 @@
 .shell-topbar-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -64,7 +64,7 @@
 
 /* 项目名：VS Code 标题栏文字量级 */
 .shell-topbar-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: -0.2px;
   color: var(--vscode-titleBar-activeForeground);
@@ -88,10 +88,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--space-0);
   height: 26px;
   min-width: 26px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -119,8 +119,8 @@
 .shell-user-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 1px 6px 1px 2px;
+  gap: var(--space-2);
+  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-0);
   border-radius: 10px;
   background-color: var(--vscode-activityBar-activeBackground);
   color: var(--vscode-sideBar-foreground);
@@ -133,14 +133,14 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--vscode-activityBarBadge-foreground);
   background-color: var(--vscode-activityBarBadge-background);
 }
 
 .shell-user-name {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--vscode-sideBar-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -178,22 +178,22 @@
      判据不是「目测边界」而是**文字墨迹位置**：参考图应用区状态栏文字墨迹落在
      y909..918（10 行），墨迹中心 913.5，而状态栏底边固定在 y924 ——
      反推条高 = (924 - 913.5) * 2 = 21px。原 19px 会让文字比参考图低 2.5px。 */
-  height: 21px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 0 8px;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
   background-color: var(--vscode-statusBar-background);
   color: var(--vscode-statusBar-foreground);
   border-top: 1px solid var(--vscode-statusBar-border);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .shell-statusbar-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -201,14 +201,14 @@
 .shell-statusbar-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 20px;
-  padding: 0 6px;
+  gap: var(--space-1);
+  height: 18px;
+  padding: 0 var(--space-2);
   border: 0;
   border-radius: 3px;
   background: transparent;
   color: inherit;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -259,17 +259,24 @@ button.shell-statusbar-item:active {
   min-width: 200px;
   max-height: 60vh;
   overflow-y: auto;
-  padding: 4px 0;
+  /* ★ 2026-10-27：四边都留 4px —— 菜单项改成圆角后需要内缩，
+     否则 hover 高亮会顶到菜单左右边缘（VS Code 直角菜单没这个问题）。 */
+  padding: var(--space-1);
   border: 1px solid var(--vscode-widget-border);
-  border-radius: 0;
+  /* ★ 2026-10-27「现代中性」：菜单从 VS Code 的**直角**改成 8px 圆角 + 双层投影。
+     直角菜单是 VS Code 桌面端的语言；网页端现代后台（shadcn 那一档）统一用圆角浮层。
+     圆角取本仓档位令牌（--r-sm = 8px），与按钮/卡片同源。 */
+  border-radius: var(--r-sm);
   background-color: var(--vscode-menu-background);
   color: var(--vscode-menu-foreground);
-  box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+  box-shadow:
+    0 1px 2px var(--vscode-widget-shadow),
+    0 8px 24px var(--vscode-widget-shadow);
 }
 
 .panel-menu-header {
-  padding: 4px 12px 6px;
-  font-size: 11px;
+  padding: var(--space-1) var(--space-5) var(--space-2);
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--vscode-descriptionForeground);
@@ -285,13 +292,16 @@ button.shell-statusbar-item:active {
 .panel-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 4px 12px;
+  padding: var(--space-1) var(--space-5);
   border: 0;
+  /* ★ 2026-10-27「现代中性」：菜单项加圆角（高亮块不再是整条直角），
+     与 .panel-menu-popover 的 8px 外圆角配套 —— 内缩由容器的 padding 提供。 */
+  border-radius: var(--r-xs);
   background: transparent;
   color: inherit;
-  font-size: 13px;
+  font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -341,9 +351,9 @@ button.shell-statusbar-item:active {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--space-5);
   height: 100vh;
-  padding: 24px;
+  padding: var(--space-8);
   text-align: center;
   background-color: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
@@ -352,17 +362,32 @@ button.shell-statusbar-item:active {
 /* ---------- 面板级加载态（Suspense fallback，见 shell/PanelFallback.tsx） ----------
    ★ 2026-10-07「跳转加载转圈」全修复：停靠面板 chunk 未到位时只在本面板框内转圈，
    不再冒泡到路由级 RouteFallback 吞掉整页。`dock-spin` 的 keyframes 在 dock-theme.css
-   （DockShell 静态引入 ⇒ ProjectLayout 侧也一定已加载）。 */
+   （DockShell 静态引入 ⇒ ProjectLayout 侧也一定已加载）。
+
+   ★ 2026-10-26 用户口径（「点开面板时闪一下加载，很影响体验」）：
+   chunk 常常在**一瞬**内就到位（命中预取 / 本地模块缓存），此时那一下转圈比什么都不显示
+   还刺眼。故加一段**延迟淡入**：前 220ms 完全不可见（`both` ⇒ 延迟期间停在 0% 关键帧），
+   之后 140ms 淡入。
+     · 快加载（常态，预取命中）：视觉上「面板直接出现」，没有任何加载感；
+     · 真慢加载：仍在面板框内给出「它在加载」的反馈，不会白着脸让人以为坏了。
+   DOM 契约不变 —— `.shell-panel-fallback` 依旧在挂起的第一帧就存在（`role="status"` /
+   既有单测断言 `.shell-panel-fallback` 出现，都不受影响）。 */
 .shell-panel-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
   height: 100%;
   min-height: 120px;
   color: var(--vscode-descriptionForeground);
   background-color: var(--vscode-panel-background);
+  animation: shell-fallback-in 140ms ease-out 220ms both;
+}
+
+@keyframes shell-fallback-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ---------- 工作台缺席占位（保留既有降级语义） ---------- */
@@ -371,9 +396,9 @@ button.shell-statusbar-item:active {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-4);
   height: 100vh;
-  padding: 24px;
+  padding: var(--space-8);
   text-align: center;
   background-color: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
@@ -389,9 +414,9 @@ button.shell-statusbar-item:active {
 .shell-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .shell-breadcrumb-root {
@@ -402,7 +427,7 @@ button.shell-statusbar-item:active {
   background: transparent;
   color: var(--vscode-titleBar-activeForeground);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: -0.2px;
   cursor: pointer;
@@ -438,22 +463,22 @@ button.shell-statusbar-item:active {
 .shell-topbar-divider {
   width: 1px;
   height: 16px;
-  margin: 0 4px;
+  margin: 0 var(--space-1);
   background-color: var(--vscode-titleBar-border);
 }
 
 .shell-topbar-text-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   height: 24px;
-  padding: 0 8px;
+  padding: 0 var(--space-3);
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--vscode-titleBar-activeForeground);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -498,12 +523,26 @@ button.shell-statusbar-item:active {
   flex: 0 0 auto;
   max-width: 220px;
   height: 100%;
-  padding: 0 4px 0 10px;
+  padding: 0 var(--space-1) 0 var(--space-4);
   border-right: 1px solid var(--vscode-panel-border);
   border-top: 2px solid transparent;
   color: var(--vscode-tab-inactiveForeground);
-  font-size: 12.5px;
+  font-size: 11.5px;
   white-space: nowrap;
+}
+
+/* ★ 2026-10-25 拖拽分屏：标签可拖到编辑区左右边缘 */
+.shell-doctab[draggable='true'] {
+  cursor: grab;
+}
+
+.shell-doctab[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* 拖拽中的标签半透明，明确「它正在被搬走」 */
+.shell-doctab[draggable='true']:has(.shell-doctab-main:active) {
+  opacity: 0.55;
 }
 
 .shell-doctab.is-active {
@@ -516,6 +555,9 @@ button.shell-statusbar-item:active {
 }
 
 .shell-doctab-main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   min-width: 0;
   height: 100%;
   padding: 0;
@@ -528,8 +570,31 @@ button.shell-statusbar-item:active {
 
 .shell-doctab-label {
   display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ★ 2026-10-26 分屏栏位角标：标签条一次列出所有栏的标签，
+   这个角标告诉用户「它现在在第几栏」；非聚焦栏的角标是弱色（点它可切过去）。 */
+.shell-doctab-group-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  font-size: 8.5px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-descriptionForeground);
+  background-color: var(--vscode-badge-background);
+}
+
+.shell-doctab-group-badge.is-active {
+  color: var(--vscode-badge-foreground);
+  background-color: var(--vscode-activityBarBadge-background);
 }
 
 .shell-doctab-close {
@@ -538,10 +603,10 @@ button.shell-statusbar-item:active {
   justify-content: center;
   width: 18px;
   height: 18px;
-  margin-left: 4px;
+  margin-left: var(--space-1);
   padding: 0;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -563,7 +628,7 @@ button.shell-statusbar-item:active {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  padding: 0 6px;
+  padding: 0 var(--space-2);
 }
 
 .shell-doctab-add {
@@ -574,13 +639,34 @@ button.shell-statusbar-item:active {
   height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   background: transparent;
   color: var(--vscode-tab-inactiveForeground);
   cursor: pointer;
 }
 
 .shell-doctab-add:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-editor-foreground);
+}
+
+/* ★ 2026-10-25：「合并分屏」——分屏态下才出现，不依赖具体标签 */
+.shell-doctab-unsplit,
+.shell-doctab-split {
+  height: 22px;
+  margin-right: var(--space-1);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--vscode-tab-inactiveForeground);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-doctab-unsplit:hover,
+.shell-doctab-split:hover {
   background-color: var(--vscode-toolbar-hoverBackground);
   color: var(--vscode-editor-foreground);
 }
@@ -598,31 +684,34 @@ button.shell-statusbar-item:active {
      ⇒ 超高时菜单自身滚动，不把浮层撑出屏幕。 */
   max-height: min(60vh, 420px);
   overflow-y: auto;
-  padding: 4px;
+  padding: var(--space-1);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 5px;
+  /* ★ 2026-10-27「现代中性」：与 .panel-menu 同口径（圆角 + 双层投影） */
+  border-radius: var(--r-sm);
   background-color: var(--vscode-menu-background);
   color: var(--vscode-menu-foreground);
-  box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+  box-shadow:
+    0 1px 2px var(--vscode-widget-shadow),
+    0 8px 24px var(--vscode-widget-shadow);
 }
 
 /* 基础标签（正文）与面板候选池之间的分隔线（正文不是功能面板，分组以示区别） */
 .shell-doctab-menu-sep {
   height: 1px;
-  margin: 4px 2px;
+  margin: var(--space-1) var(--space-0);
   background-color: var(--vscode-panel-border);
 }
 
 .shell-doctab-menu-item {
   display: block;
   width: 100%;
-  padding: 5px 8px;
+  padding: var(--space-1) var(--space-3);
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
@@ -635,8 +724,8 @@ button.shell-statusbar-item:active {
 /* 已打开的项：右侧灰字标记（::after 不参与 textContent，单测按标签文本断言不受影响） */
 .shell-doctab-menu-item.is-open::after {
   content: '已打开';
-  margin-left: 8px;
-  font-size: 10px;
+  margin-left: var(--space-3);
+  font-size: 9.5px;
   opacity: 0.55;
 }
 
@@ -649,15 +738,15 @@ button.shell-statusbar-item:active {
 
 /* ★ t4：把「N 条问题」的算法来源摊开（与细条同一份批注块计数） */
 .shell-bottom-blocks {
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: var(--space-2) var(--space-5);
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .shell-bottom-empty {
-  padding: 10px 12px;
-  font-size: 12px;
+  padding: var(--space-4) var(--space-5);
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
 }
 
@@ -670,9 +759,9 @@ button.shell-statusbar-item:active {
 .shell-bottom-issue {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 5px 12px;
-  font-size: 12px;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-5);
+  font-size: 11px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
@@ -690,7 +779,7 @@ button.shell-statusbar-item:active {
 
 /* ---------- 状态栏新增位：保存点 / 分隔线 / 动作提示 ---------- */
 .shell-save-dot {
-  font-size: 9px;
+  font-size: 8.5px;
   line-height: 1;
   color: var(--vscode-descriptionForeground);
 }
@@ -702,7 +791,7 @@ button.shell-statusbar-item:active {
 .shell-statusbar-divider {
   width: 1px;
   height: 12px;
-  margin: 0 4px;
+  margin: 0 var(--space-1);
   background-color: var(--vscode-statusBar-border);
 }
 

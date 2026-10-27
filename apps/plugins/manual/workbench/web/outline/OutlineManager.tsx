@@ -350,7 +350,7 @@ export function OutlineManager() {
             >
               <Plus size={12} /> 添加分区
             </button>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground">
               内容自动保存到本地 · 激活"大纲架构师"技能可与 AI 讨论并填入大纲
             </span>
           </div>
@@ -406,11 +406,11 @@ function TemplateSection({
         {templateCollapsed ? <ChevronRight size={14} style={{ color: 'hsl(var(--muted-foreground))' }} /> : <ChevronDown size={14} style={{ color: 'hsl(var(--muted-foreground))' }} />}
         <Target size={14} style={{ color: 'hsl(var(--muted-foreground))' }} />
         <h3 className="text-sm font-semibold text-foreground">网文大纲模板</h3>
-        <span className="text-[11px] text-muted-foreground ml-1">
+        <span className="text-[10px] text-muted-foreground ml-1">
           核心冲突 · 每章细节
         </span>
         <div className="flex-1" />
-        <span className="text-[11px] text-muted-foreground/50">点击{templateCollapsed ? '展开' : '折叠'}</span>
+        <span className="text-[10px] text-muted-foreground/50">点击{templateCollapsed ? '展开' : '折叠'}</span>
       </button>
 
       {!templateCollapsed && (
@@ -437,7 +437,7 @@ function TemplateSection({
               }}
               spellCheck={false}
             />
-            <div className="text-[11px] text-muted-foreground/50 mt-1 px-1">
+            <div className="text-[10px] text-muted-foreground/50 mt-1 px-1">
               {coreConflict.trim() ? `${coreConflict.trim().length} 字` : '空白'}
             </div>
           </div>
@@ -450,7 +450,7 @@ function TemplateSection({
                 style={{ background: 'hsl(var(--entity-outline))' }}
               />
               每章细节
-              <span className="text-[11px] text-muted-foreground font-normal ml-1">
+              <span className="text-[10px] text-muted-foreground font-normal ml-1">
                 （{chapters.length} 章）
               </span>
             </div>
@@ -491,7 +491,7 @@ function TemplateSection({
                           )}
                         </button>
                         <span
-                          className="text-[11px] font-mono px-1.5 py-0.5 rounded-md"
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded-md"
                           style={{
                             background: 'hsl(var(--foreground) / 0.1)',
                             color: 'hsl(var(--foreground))',
@@ -507,7 +507,7 @@ function TemplateSection({
                           {ch.title || '未命名章节'}
                         </button>
                         {detail.trim() && (
-                          <span className="text-[11px] text-muted-foreground/50">{detail.trim().length} 字</span>
+                          <span className="text-[10px] text-muted-foreground/50">{detail.trim().length} 字</span>
                         )}
                         {detail.trim() && (
                           <button
@@ -651,7 +651,7 @@ function SectionCard({
           spellCheck={false}
         />
         <div className="flex items-center justify-end mt-2">
-          <div className="text-[11px] text-muted-foreground/50">
+          <div className="text-[10px] text-muted-foreground/50">
             {isEmpty
               ? '空白'
               : `${section.content.trim().length} 字${charCount !== section.content.trim().length ? ` · ${charCount} 字符` : ''}`}
@@ -697,7 +697,7 @@ function IconButton({
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="text-center py-10">
+    <div className="text-center py-8">
       <p className="text-sm text-muted-foreground">还没有任何分区</p>
       <button
         onClick={onAdd}

@@ -19,7 +19,8 @@
     "verify:all": "node scripts/verify/verify-all.mjs",
     "verify:modes": "node scripts/verify/verify-plugin-mode-separation.mjs",
     "e2e:modes": "node scripts/e2e/e2e-mode-separation.mjs",
-    "e2e:ui": "node scripts/e2e/e2e-ui-integration.mjs"
+    "e2e:ui": "node scripts/e2e/e2e-ui-integration.mjs",
+    "verify:spacing": "node scripts/tools/spacing-audit.mjs ."
   },
   "engines": {
     "node": ">=24"
@@ -30,5 +31,24 @@
     "@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
     "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
     "@deepseek-ai/schemastery": "3.18.1"
+  },
+  "devDependencies": {
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-dropdown-menu": "^2.2.1",
+    "@radix-ui/react-label": "^2.1.17",
+    "@radix-ui/react-popover": "^1.3.1",
+    "@radix-ui/react-scroll-area": "^1.4.0",
+    "@radix-ui/react-select": "^2.4.1",
+    "@radix-ui/react-separator": "^1.2.0",
+    "@radix-ui/react-slot": "^1.5.0",
+    "@radix-ui/react-switch": "^1.4.1",
+    "@radix-ui/react-tabs": "^1.2.1",
+    "@radix-ui/react-tooltip": "^1.4.1",
+    "@radix-ui/react-visually-hidden": "^1.2.13",
+    "class-variance-authority": "~0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "tailwind-merge": "^2.6.1",
+    "tailwindcss-animate": "^1.0.7"
   }
 }

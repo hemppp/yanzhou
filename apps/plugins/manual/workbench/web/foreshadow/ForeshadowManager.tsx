@@ -109,7 +109,7 @@ export function ForeshadowManager() {
         <div className="flex items-center gap-1.5 mb-2">
           <config.Icon size={14} aria-hidden="true" className={config.groupIconClass} />
           <h3 className="text-xs font-semibold text-muted-foreground">{config.label}</h3>
-          <span className="text-[11px] text-muted-foreground bg-muted/60 rounded-full px-1.5 leading-4">
+          <span className="text-[10px] text-muted-foreground bg-muted/60 rounded-full px-1.5 leading-4">
             {items.length}
           </span>
         </div>
@@ -149,14 +149,14 @@ export function ForeshadowManager() {
                     {fs.description}
                   </span>
                 )}
-                <span className="shrink-0 text-[11px] text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5">
+                <span className="shrink-0 text-[10px] text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5">
                   第{fs.seedChapter}章
                 </span>
               </div>
 
               {expanded && (
                 <div className="px-3 pb-2.5 pt-2 border-t border-border space-y-2.5">
-                  <div className="text-[11px] text-muted-foreground flex items-center flex-wrap gap-x-1.5">
+                  <div className="text-[10px] text-muted-foreground flex items-center flex-wrap gap-x-1.5">
                     <span>{foreshadowTypeLabels[fs.type] ?? fs.type}</span>
                     <span>·</span>
                     <span>播种于第{fs.seedChapter}章</span>
@@ -177,7 +177,7 @@ export function ForeshadowManager() {
                   {Array.isArray(fs.tags) && fs.tags.length > 0 && (
                     <div className="flex gap-1.5 flex-wrap">
                       {fs.tags.map((tag) => (
-                        <span key={tag} className="text-[11px] text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5">
+                        <span key={tag} className="text-[10px] text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5">
                           {tag}
                         </span>
                       ))}
@@ -192,7 +192,7 @@ export function ForeshadowManager() {
                         <button
                           key={s}
                           onClick={() => handleStatusChange(fs.id, s)}
-                          className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-colors cursor-pointer ${
+                          className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors cursor-pointer ${
                             active
                               ? `${sc.activeClass} font-medium`
                               : 'border-border text-muted-foreground hover:bg-accent'
@@ -241,7 +241,7 @@ export function ForeshadowManager() {
           <Bookmark size={14} aria-hidden="true" className="text-primary" />
           伏笔管理
         </h2>
-        <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+        <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
           在编辑器中选中文字，点「添加伏笔」来创建
         </p>
       </div>
@@ -273,15 +273,15 @@ export function ForeshadowManager() {
               <p className="mb-3">在编辑器中创建伏笔：</p>
               <ol className="space-y-1.5 list-none">
                 <li className="flex items-start gap-2">
-                  <span className="shrink-0 w-4 h-4 rounded-full bg-muted/80 text-[11px] flex items-center justify-center">1</span>
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-muted/80 text-[10px] flex items-center justify-center">1</span>
                   <span>选中要标记的文字内容</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="shrink-0 w-4 h-4 rounded-full bg-muted/80 text-[11px] flex items-center justify-center">2</span>
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-muted/80 text-[10px] flex items-center justify-center">2</span>
                   <span>在划词菜单中点「添加伏笔」</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="shrink-0 w-4 h-4 rounded-full bg-muted/80 text-[11px] flex items-center justify-center">3</span>
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-muted/80 text-[10px] flex items-center justify-center">3</span>
                   <span>填写描述与类型后确认创建</span>
                 </li>
               </ol>

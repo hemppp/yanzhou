@@ -159,7 +159,7 @@ function TypographyPanel() {
               onClick={() => update({ ...settings, weight: w.value })}
               style={{
                 fontWeight: w.value,
-                padding: '8px 4px',
+                padding: 'var(--space-3) var(--space-1)',
                 // ★ 内联样式优先级最高、与特异性无关 —— 主题里的
                 //   外层主题层的 `button { border-radius: … }` 压不过它。
                 //   所以走变量引用 + 原值 fallback：未定义该变量时保持原圆角。
@@ -331,7 +331,7 @@ function TypographySettingsSection() {
             onClick={() => persist({ ...settings, weight: w.value })}
             style={{
               fontWeight: w.value,
-              padding: '8px 4px',
+              padding: 'var(--space-3) var(--space-1)',
               borderRadius: 'var(--r-2xs, 8px)',
               // 拆长写，别用 `border` 简写（会重置 border-image，笔触就没了）
               borderWidth: '0.5px',

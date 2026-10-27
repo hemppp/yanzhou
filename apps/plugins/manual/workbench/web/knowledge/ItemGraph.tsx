@@ -189,7 +189,7 @@ export function ItemGraph() {
           label: '持有',
           type: 'bubble',
           style: { stroke: itemColor, strokeWidth: 1.5, strokeOpacity: 0.4 },
-          labelStyle: { fill: itemColor, fontSize: 10, fontWeight: 600, opacity: 0 },
+          labelStyle: { fill: itemColor, fontSize: 9.5, fontWeight: 600, opacity: 0 },
           labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
@@ -236,7 +236,7 @@ export function ItemGraph() {
             strokeOpacity: 0.4,
             strokeDasharray: rel.type === 'related_to' ? '4 2' : undefined,
           },
-          labelStyle: { fill: color, fontSize: 10, fontWeight: 600, opacity: 0 },
+          labelStyle: { fill: color, fontSize: 9.5, fontWeight: 600, opacity: 0 },
           labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
@@ -290,7 +290,7 @@ export function ItemGraph() {
             label: '同属',
             type: 'bubble',
             style: { stroke: color, strokeWidth: 1, strokeOpacity: 0.25 },
-            labelStyle: { fill: color, fontSize: 9, fontWeight: 500, opacity: 0 },
+            labelStyle: { fill: color, fontSize: 8.5, fontWeight: 500, opacity: 0 },
             labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.7 },
             labelBgPadding: [3, 1] as [number, number],
             labelBgBorderRadius: 4,
@@ -464,16 +464,16 @@ export function ItemGraph() {
     <>
       <div className="flex items-center gap-1.5">
         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--entity-character))' }} />
-        <span className="text-[11px] text-muted-foreground">角色</span>
+        <span className="text-[10px] text-muted-foreground">角色</span>
       </div>
       <div className="flex items-center gap-1.5">
         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--muted-foreground))' }} />
-        <span className="text-[11px] text-muted-foreground">物品（按类型染色）</span>
+        <span className="text-[10px] text-muted-foreground">物品（按类型染色）</span>
       </div>
       {Object.entries(itemRelationColors).map(([type, color]) => (
         <div key={type} className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-[11px] text-muted-foreground">{itemRelationLabels[type as ItemRelationType]}</span>
+          <span className="text-[10px] text-muted-foreground">{itemRelationLabels[type as ItemRelationType]}</span>
         </div>
       ))}
     </>

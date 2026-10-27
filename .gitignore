@@ -160,3 +160,6 @@ security_best_practices_report.md
 #   提交它会造成双重真源漂移（两套解析结果可能不一致，且 CI 无法同时校验）。
 # 故禁止入库；文件**保留在磁盘上**（.gitignore 只影响索引，不等于删除）。
 apps/desktop/package-lock.json
+
+# UI 改造过程截图（仅本地参考，不入库）
+docs/reports/ui-refactor-preview/

@@ -52,10 +52,10 @@ export function WorkbenchMissing({ mode, onBack }: WorkbenchMissingProps) {
       >
         <Puzzle size={26} style={{ color: '#aeaeb2' }} />
       </div>
-      <div className="text-[15px] font-medium" style={{ color: 'var(--nm-text-primary, #1d1d1f)' }}>
+      <div className="text-[14px] font-medium" style={{ color: 'var(--nm-text-primary, #1d1d1f)' }}>
         {label}未安装
       </div>
-      <div className="text-[13px] max-w-[280px]" style={{ color: '#8e8e93' }}>
+      <div className="text-[12px] max-w-[280px]" style={{ color: '#8e8e93' }}>
         该创作模式对应的模块未启用。启用后刷新即可使用。
       </div>
     </div>

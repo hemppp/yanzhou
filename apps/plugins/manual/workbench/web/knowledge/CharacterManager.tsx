@@ -98,7 +98,7 @@ function CharacterCard({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 56,
+            fontSize: 52,
             fontWeight: 700,
             fontFamily: "'Noto Serif SC', serif",
             color: 'rgba(255,255,255,0.92)',
@@ -116,22 +116,22 @@ function CharacterCard({
           top: 0,
           left: 0,
           right: 0,
-          padding: '10px 10px 20px',
+          padding: 'var(--space-4) var(--space-4) var(--space-7)',
           background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%)',
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          gap: 6,
+          gap: 'var(--space-4)',
         }}
       >
         {Array.isArray(character.tags) && character.tags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: '70%' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', maxWidth: '70%' }}>
             {character.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
                 style={{
-                  fontSize: 10,
-                  padding: '2px 6px',
+                  fontSize: 9.5,
+                  padding: 'var(--space-0) var(--space-2)',
                   borderRadius: 'var(--r-md)',
                   fontWeight: 500,
                   background: 'rgba(255,255,255,0.28)',
@@ -148,15 +148,15 @@ function CharacterCard({
               </span>
             ))}
             {character.tags.length > 2 && (
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)' }}>+{character.tags.length - 2}</span>
+              <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.8)' }}>+{character.tags.length - 2}</span>
             )}
           </div>
         )}
         {roleBadge && (
           <span
             style={{
-              fontSize: 10,
-              padding: '2px 6px',
+              fontSize: 9.5,
+              padding: 'var(--space-0) var(--space-2)',
               borderRadius: 'var(--r-md)',
               fontWeight: 600,
               background: roleBadge.bg,
@@ -177,13 +177,13 @@ function CharacterCard({
           bottom: 0,
           left: 0,
           right: 0,
-          padding: '28px 12px 12px',
+          padding: 'var(--space-8) var(--space-5) var(--space-5)',
           background: 'linear-gradient(0deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0) 100%)',
         }}
       >
         <div
           style={{
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 600,
             fontFamily: "'Noto Serif SC', serif",
             color: 'rgba(255,255,255,0.98)',
@@ -198,12 +198,12 @@ function CharacterCard({
         {character.aliases && character.aliases.length > 0 && (
           <div
             style={{
-              fontSize: 11,
+              fontSize: 10,
               color: 'rgba(255,255,255,0.75)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              marginTop: 2,
+              marginTop: 'var(--space-0)',
             }}
           >
             {character.aliases.join(' · ')}
@@ -494,7 +494,7 @@ export function CharacterManager() {
 
               {/* Character 卡片网格 */}
               <div className="flex-1 overflow-y-auto px-3 pb-3 mc-scrollbar" role="listbox" aria-label="角色列表">
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-5)' }}>
                   {filtered.map((char, i) => (
                     <CharacterCard
                       key={char.id}
@@ -506,7 +506,7 @@ export function CharacterManager() {
                   ))}
                 </div>
                 {filtered.length === 0 && (
-                  <div className="px-4 py-12 text-center">
+                  <div className="px-4 py-8 text-center">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'hsl(var(--mist-pale))' }}>
                       <Users size={20} style={{ color: 'hsl(var(--mountain-deep))' }} />
                     </div>

@@ -129,13 +129,13 @@ export const EntityNode = memo(function EntityNode({ data }: NodeProps) {
           aria-hidden="true"
           style={{ width: 3, flex: '0 0 3px', background: ink, opacity: 0.9 }}
         />
-        <div className="flex-1 min-w-0 flex items-center gap-2" style={{ padding: '7px 9px' }}>
+        <div className="flex-1 min-w-0 flex items-center gap-2" style={{ padding: 'var(--space-3)' }}>
           <div className="min-w-0 flex-1">
             <div
               className="truncate"
               style={{
                 fontFamily: "'Noto Serif SC', serif",
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 600,
                 color: 'hsl(var(--ink))',
               }}
@@ -146,7 +146,7 @@ export const EntityNode = memo(function EntityNode({ data }: NodeProps) {
             {d.sub && (
               <div
                 className="truncate"
-                style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 1 }}
+                style={{ fontSize: 9.5, color: 'hsl(var(--muted-foreground))', marginTop: 'var(--space-0)' }}
                 title={d.sub}
               >
                 {d.sub}
@@ -157,8 +157,8 @@ export const EntityNode = memo(function EntityNode({ data }: NodeProps) {
             <span
               className="shrink-0 tabular-nums"
               style={{
-                fontSize: 9.5,
-                padding: '1px 5px',
+                fontSize: 9,
+                padding: 'var(--space-0) var(--space-1)',
                 borderRadius: 'var(--r-pill)',
                 color: ink,
                 border: `0.5px solid ${ink}`,

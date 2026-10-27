@@ -32,7 +32,7 @@ export function AppearancePanel() {
       <section className="nm-card p-6">
         <h2 className="nm-section-title">主题</h2>
         <p
-          className="text-[12px] leading-relaxed mb-4"
+          className="text-[11px] leading-relaxed mb-4"
           style={{ color: 'hsl(var(--muted-foreground))' }}
         >
           换肤只改颜色与形态的变量层，组件代码不动 —— 所以所有页面与插件面板会一起换。
@@ -75,10 +75,10 @@ export function AppearancePanel() {
                     <Check size={14} className="ml-auto" style={{ color: 'hsl(var(--primary))' }} />
                   )}
                 </div>
-                <div className="text-[13px] font-medium mb-0.5" style={{ color: 'hsl(var(--ink))' }}>
+                <div className="text-[12px] font-medium mb-0.5" style={{ color: 'hsl(var(--ink))' }}>
                   {t.name}
                 </div>
-                <div className="text-[11px] leading-snug" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <div className="text-[10px] leading-snug" style={{ color: 'hsl(var(--muted-foreground))' }}>
                   {t.desc}
                 </div>
               </button>
@@ -101,7 +101,7 @@ export function AppearancePanel() {
                 onClick={() => setMode(m.key)}
                 aria-pressed={active}
                 disabled={disabled}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] transition-colors disabled:opacity-35"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] transition-colors disabled:opacity-35"
                 style={{
                   background: active ? 'rgb(var(--glass-tint) / 0.6)' : 'transparent',
                   border: active
@@ -118,7 +118,7 @@ export function AppearancePanel() {
           })}
         </div>
         {modeLocked && (
-          <p className="text-[11px] mt-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <p className="text-[10px] mt-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
             「{current?.name}」自带固定明暗，切换明暗对它无效。
           </p>
         )}

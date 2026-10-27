@@ -112,6 +112,40 @@ export interface DockShellApi {
   floatPanel(key: string): void;
   /** 恢复为停靠 */
   dockPanel(key: string, slot: DockAreaSlot): void;
+  /**
+   * ★ 2026-10-25 分屏：把某面板拆到编辑区**左侧 / 右侧的新组**（两栏并排）。
+   *
+   * `key` 既接受业务面板 key，也接受基础标签的保留 key（`doc:chapter`）。
+   *
+   * ⚠️ 实现要点（dockview 8.4.0 实测，勿凭直觉改写）：
+   *   **panel 级** `panel.api.moveTo({ position })` **不会建组** —— 不传 `group` 时
+   *   目标组回落为当前组、`position` 被强制 `'center'`，结果是 no-op（实测 groups 恒为 1）。
+   *   能建组的是 **group 级** `group.api.moveTo`，它才在内部调 `addGroup({direction})`。
+   *   故 DockShell 的做法是：`api.addGroup({ direction, referenceGroup })` 先建空组
+   *   → `panel.api.moveTo({ group: newGroup, position: 'center' })` 把面板移进去。
+   *
+   * 语义：**只移动这一个面板**（`moveGroupOrPanel` 的 panel 分支，不带原组其他面板）；
+   * `openKeys` 不变（分屏不改变「打开了什么」，只改变「摆在哪」）。
+   */
+  splitPanel(key: string, side: 'left' | 'right'): void;
+  /** ★ 2026-10-25：取消分屏 —— 把某面板移回中心组，空出来的组由 dockview 自动回收。 */
+  unsplitPanel(key: string): void;
+  /**
+   * ★ 2026-10-25：把**所有**组的面板并回中心组（一键退出分屏）。
+   *
+   * 为什么需要它：分屏后顶部标签条只显示**聚焦组**的标签，另一组的标签不在视野里，
+   * 用户无法通过「右键某个标签 → 取消分屏」把那一组收回来 —— 必须有一个不依赖
+   * 具体标签的出口。空组由 dockview 自动回收。
+   */
+  unsplitAll(): void;
+  /** ★ 2026-10-25：当前是否处于分屏态（组数 > 1）。 */
+  isSplit(): boolean;
+  /**
+   * ★ 2026-10-26：把焦点切到某面板**所在的那一栏**（分屏后点另一栏的标签用）。
+   *   与 `openPanel` 的区别：openPanel 只保证面板存在并聚焦，若它已在别的组里，
+   *   焦点会跟着 dockview 的默认行为走；这里显式 `group.api.setActive()` 再聚焦面板。
+   */
+  focusPanel(key: string): void;
 }
 
 /**

@@ -135,7 +135,7 @@ export const ProjectIndexPage: React.FC = () => {
           style={{
             maxWidth: 460,
             width: '90%',
-            padding: '40px 32px',
+            padding: 'var(--space-9)',
             background: 'hsla(0, 0%, 98%, 0.62)',
             backdropFilter: 'blur(12px) saturate(140%)',
             WebkitBackdropFilter: 'blur(12px) saturate(140%)',
@@ -148,10 +148,10 @@ export const ProjectIndexPage: React.FC = () => {
           <h2
             style={{
               fontFamily: "'Noto Serif SC', serif",
-              fontSize: 18,
+              fontSize: 16.5,
               fontWeight: 600,
               color: 'hsl(var(--ink))',
-              margin: '0 0 6px',
+              margin: '0 0 var(--space-2)',
             }}
           >
             还没有打开任何书
@@ -159,9 +159,9 @@ export const ProjectIndexPage: React.FC = () => {
           <p
             style={{
               fontFamily: "'Noto Serif SC', serif",
-              fontSize: 13,
+              fontSize: 12,
               color: 'hsl(var(--ink-light))',
-              margin: '0 0 20px',
+              margin: '0 0 var(--space-7)',
             }}
           >
             从书架挑一本继续写，或新建一本
@@ -172,7 +172,7 @@ export const ProjectIndexPage: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2 rounded-md transition-all"
             style={{
               fontFamily: "'Noto Serif SC', serif",
-              fontSize: 13,
+              fontSize: 12,
               color: 'hsl(var(--card))',
               background: 'hsl(var(--mountain-deep))',
               // ★ 这里原本有内联 `border: 'none'`（2026-09-19 删）：
@@ -188,10 +188,10 @@ export const ProjectIndexPage: React.FC = () => {
           </button>
 
           {shelf.length > 0 && (
-            <div className="w-full" style={{ marginTop: 26 }}>
-              <div className="flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))', marginBottom: 10 }}>
+            <div className="w-full" style={{ marginTop: 'var(--space-8)' }}>
+              <div className="flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))', marginBottom: 'var(--space-4)' }}>
                 <span style={{ flex: 1, height: 1, background: 'hsl(var(--border) / 0.6)' }} />
-                <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 11, letterSpacing: '0.1em' }}>
+                <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 10, letterSpacing: '0.1em' }}>
                   书架里的书
                 </span>
                 <span style={{ flex: 1, height: 1, background: 'hsl(var(--border) / 0.6)' }} />
@@ -206,7 +206,7 @@ export const ProjectIndexPage: React.FC = () => {
                     className="nm-nav-item w-full px-3 py-2 rounded-md transition-all text-left truncate"
                     style={{
                       fontFamily: "'Noto Serif SC', serif",
-                      fontSize: 13,
+                      fontSize: 12,
                       color: 'hsl(var(--ink))',
                       background: 'hsl(var(--card) / 0.6)',
                       // ★ 拆长写：让豁免完全由 nm-nav-item 显式承担，
@@ -238,7 +238,7 @@ export const ProjectIndexPage: React.FC = () => {
       >
         <div
           className="flex items-center gap-2"
-          style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 13 }}
+          style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 12 }}
         >
           <Sparkles size={14} style={{ color: 'hsl(var(--mountain-deep))' }} />
           正在打开《{currentProject.name}》的编辑器…
@@ -258,7 +258,7 @@ export const ProjectIndexPage: React.FC = () => {
         style={{
           maxWidth: 440,
           width: '90%',
-          padding: '40px 32px',
+          padding: 'var(--space-9)',
           background: 'hsla(0, 0%, 98%, 0.62)',
           backdropFilter: 'blur(12px) saturate(140%)',
           WebkitBackdropFilter: 'blur(12px) saturate(140%)',
@@ -271,10 +271,10 @@ export const ProjectIndexPage: React.FC = () => {
         <h2
           style={{
             fontFamily: "'Noto Serif SC', serif",
-            fontSize: 18,
+            fontSize: 16.5,
             fontWeight: 600,
             color: 'hsl(var(--ink))',
-            margin: '0 0 6px',
+            margin: '0 0 var(--space-2)',
           }}
         >
           《{currentProject.name}》还没有章节
@@ -282,9 +282,9 @@ export const ProjectIndexPage: React.FC = () => {
         <p
           style={{
             fontFamily: "'Noto Serif SC', serif",
-            fontSize: 13,
+            fontSize: 12,
             color: 'hsl(var(--ink-light))',
-            margin: '0 0 20px',
+            margin: '0 0 var(--space-7)',
           }}
         >
           创建第一章，开始你的写作之旅
@@ -302,7 +302,7 @@ export const ProjectIndexPage: React.FC = () => {
             className="flex-1 px-3 py-2 rounded-md outline-none transition-all"
             style={{
               fontFamily: "'Noto Serif SC', serif",
-              fontSize: 13,
+              fontSize: 12,
               color: 'hsl(var(--ink))',
               background: 'hsl(var(--card))',
               border: '1px solid hsl(var(--mountain-deep) / 0.3)',
@@ -314,7 +314,7 @@ export const ProjectIndexPage: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2 rounded-md transition-all disabled:opacity-50"
             style={{
               fontFamily: "'Noto Serif SC', serif",
-              fontSize: 13,
+              fontSize: 12,
               color: 'hsl(var(--card))',
               background: 'hsl(var(--mountain-deep))',
               // 同「去书架」按钮：删掉内联 `border: 'none'`，否则主题层外框穿不上

@@ -179,7 +179,7 @@ export function AdminPage() {
             </button>
             <Shield size={20} style={{ color: 'hsl(var(--mountain-cyan))' }} />
             <h1
-              className="text-[20px] font-semibold"
+              className="text-[18.5px] font-semibold"
               style={{ color: 'hsl(var(--ink))', letterSpacing: '0.02em' }}
             >
               管理员后台
@@ -187,7 +187,7 @@ export function AdminPage() {
           </div>
           <button
             onClick={() => navigate('/')}
-            className="nm-btn-outline-pill text-[12px]"
+            className="nm-btn-outline-pill text-[11px]"
             /* ★ 修一个**原有布局 bug**（2026-09-19 实测，与主题无关）：
                `.nm-btn-outline-pill` 在 globals.css 里写了 `width: 100%`
                （Login/Register 拿它当整行提交按钮，所以那里是对的）。
@@ -223,7 +223,7 @@ export function AdminPage() {
             }}
           >
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <span className="text-[13px]">{error}</span>
+            <span className="text-[12px]">{error}</span>
           </div>
         )}
 
@@ -235,14 +235,14 @@ export function AdminPage() {
             style={{ borderBottom: '1px solid hsl(var(--border) / 0.3)' }}
           >
             <h2
-              className="text-[15px] font-semibold"
+              className="text-[14px] font-semibold"
               style={{ color: 'hsl(var(--ink))' }}
             >
               用户管理
             </h2>
             <button
               onClick={() => navigate('/register')}
-              className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg transition-colors hover:bg-black/5"
+              className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg transition-colors hover:bg-black/5"
               style={{ color: 'hsl(var(--mountain-cyan))' }}
             >
               <UserPlus size={13} />
@@ -251,17 +251,17 @@ export function AdminPage() {
           </div>
 
           {loading ? (
-            <div className="px-5 py-12 flex items-center justify-center gap-2 text-[13px]" style={{ color: 'hsl(var(--ink-light))' }}>
+            <div className="px-5 py-8 flex items-center justify-center gap-2 text-[12px]" style={{ color: 'hsl(var(--ink-light))' }}>
               <Loader2 size={14} className="animate-spin" />
               加载中...
             </div>
           ) : users.length === 0 ? (
-            <div className="px-5 py-12 text-center text-[13px]" style={{ color: 'hsl(var(--ink-light))' }}>
+            <div className="px-5 py-8 text-center text-[12px]" style={{ color: 'hsl(var(--ink-light))' }}>
               暂无用户
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[12px]">
                 <thead>
                   <tr style={{ borderBottom: '1px solid hsl(var(--border) / 0.2)' }}>
                     <Th>用户名</Th>
@@ -284,7 +284,7 @@ export function AdminPage() {
                         </span>
                         {u.id === currentUser?.id && (
                           <span
-                            className="ml-2 text-[11px] px-1.5 py-0.5 rounded"
+                            className="ml-2 text-[10px] px-1.5 py-0.5 rounded"
                             style={{
                               background: 'hsl(var(--mountain-cyan) / 0.12)',
                               color: 'hsl(var(--mountain-cyan))',
@@ -298,7 +298,7 @@ export function AdminPage() {
                       <Td>
                         {u.isAdmin ? (
                           <span
-                            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
+                            className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
                             style={{
                               background: 'hsl(var(--ochre) / 0.12)',
                               color: 'hsl(var(--ochre))',
@@ -369,11 +369,11 @@ export function AdminPage() {
           >
             <div className="flex items-center gap-2 mb-4">
               <KeyRound size={16} style={{ color: 'hsl(var(--mountain-cyan))' }} />
-              <h3 className="text-[16px] font-semibold" style={{ color: 'hsl(var(--ink))' }}>
+              <h3 className="text-[15px] font-semibold" style={{ color: 'hsl(var(--ink))' }}>
                 重置密码
               </h3>
             </div>
-            <p className="text-[12px] mb-4" style={{ color: 'hsl(var(--ink-light))' }}>
+            <p className="text-[11px] mb-4" style={{ color: 'hsl(var(--ink-light))' }}>
               将为用户「<span style={{ color: 'hsl(var(--ink))', fontWeight: 500 }}>{resetTarget.username}</span>」
               设置新密码，旧密码将立即失效。
             </p>
@@ -389,7 +389,7 @@ export function AdminPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setResetTarget(null)}
-                className="nm-btn-outline-pill flex-1 text-[13px]"
+                className="nm-btn-outline-pill flex-1 text-[12px]"
                 disabled={actionLoading}
               >
                 取消
@@ -397,7 +397,7 @@ export function AdminPage() {
               <button
                 onClick={handleResetPassword}
                 disabled={actionLoading || newPassword.length < 6}
-                className="nm-btn-primary-pill flex-1 text-[13px]"
+                className="nm-btn-primary-pill flex-1 text-[12px]"
               >
                 {actionLoading ? '提交中...' : '确认重置'}
               </button>
@@ -428,10 +428,10 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
     <div className="nm-card p-5">
       <div className="flex items-center gap-2 mb-2" style={{ color: 'hsl(var(--ink-light))' }}>
         {icon}
-        <span className="text-[12px]">{label}</span>
+        <span className="text-[11px]">{label}</span>
       </div>
       <div
-        className="text-[28px] font-semibold tabular-nums"
+        className="text-[26px] font-semibold tabular-nums"
         style={{ color: 'hsl(var(--ink))' }}
       >
         {value}
@@ -443,7 +443,7 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
   return (
     <th
-      className="px-4 py-3 text-[11px] font-medium uppercase tracking-wider"
+      className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider"
       style={{
         color: 'hsl(var(--ink-light))',
         textAlign: align,
@@ -490,7 +490,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={label}
-      className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/5"
+      className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/5"
       style={{
         color: danger
           ? 'hsl(var(--vermilion))'

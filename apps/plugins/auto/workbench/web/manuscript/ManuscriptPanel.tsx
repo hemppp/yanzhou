@@ -79,7 +79,7 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
   // ---- 无项目：宿主还没选书 ----
   if (!projectId) {
     return (
-      <div className="h-full flex items-center justify-center text-[12px] px-6 text-center"
+      <div className="h-full flex items-center justify-center text-[11px] px-6 text-center"
         style={{ color: 'hsl(var(--muted-foreground))' }} data-panel="manuscript">
         先在左上角选一本书，这里才会显示它写出来的正文。
       </div>
@@ -89,9 +89,9 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
   const header = (
     <div className="flex items-center gap-2 flex-wrap">
       <BookOpenText size={14} style={{ color: 'hsl(var(--primary))' }} aria-hidden="true" />
-      <span className="text-[12px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>正文阅读</span>
+      <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>正文阅读</span>
       {stats.count > 0 && (
-        <span className="text-[10.5px] text-muted-foreground" data-stat="summary">
+        <span className="text-[10px] text-muted-foreground" data-stat="summary">
           共 {stats.count} 章 · 总 {fmtNum(stats.totalWords)} 字 · 平均 {fmtNum(stats.avgWords)} 字/章
         </span>
       )}
@@ -100,7 +100,7 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
         onClick={() => void load()}
         disabled={loading}
         aria-label="刷新章节"
-        className="ml-auto flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded"
+        className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded"
         style={{
           background: 'transparent',
           borderWidth: '0.5px',
@@ -117,9 +117,9 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
   );
 
   const errorBar = error && (
-    <div className="text-[11.5px] rounded-lg px-3 py-2 flex items-start gap-1.5"
+    <div className="text-[10.5px] rounded-lg px-3 py-2 flex items-start gap-1.5"
       style={{ background: 'hsl(var(--destructive) / 0.08)', color: 'hsl(var(--destructive))' }}>
-      <AlertTriangle size={12} className="shrink-0" style={{ marginTop: 2 }} aria-hidden="true" />
+      <AlertTriangle size={12} className="shrink-0" style={{ marginTop: 'var(--space-0)' }} aria-hidden="true" />
       <span className="min-w-0">读取章节失败：{error}</span>
     </div>
   );
@@ -127,16 +127,16 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
   // ---- 空态：没有章节（这是最该把话说清楚的一屏）----
   if (chapters.length === 0) {
     return (
-      <div className="h-full flex flex-col gap-2.5 p-3.5" data-panel="manuscript">
+      <div className="h-full flex flex-col gap-2.5 p-3" data-panel="manuscript">
         {header}
         {errorBar}
         {!error && (
           <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-center px-6">
             <BookOpenText size={22} style={{ color: 'hsl(var(--muted-foreground) / 0.5)' }} aria-hidden="true" />
-            <div className="text-[12px]" style={{ color: 'hsl(var(--foreground))' }}>
+            <div className="text-[11px]" style={{ color: 'hsl(var(--foreground))' }}>
               这本书还没有章节
             </div>
-            <div className="text-[11px] leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <div className="text-[10px] leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
               去「流水线」面板跑到长跑（试写 / 长跑），写出来的章会一章一章出现在这里。
             </div>
           </div>
@@ -148,7 +148,7 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
   return (
     <div className="h-full flex flex-col" data-panel="manuscript">
       {/* ── 头部：面板名 + 全书统计 + 刷新 ── */}
-      <div className="shrink-0 px-3.5 pt-3 pb-3 flex flex-col gap-2"
+      <div className="shrink-0 px-3 pt-3 pb-3 flex flex-col gap-3"
         style={{ borderBottom: '0.5px solid hsl(var(--border) / 0.5)' }}>
         {header}
         {errorBar}
@@ -179,18 +179,18 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
                 }}
               >
                 <span className="flex items-baseline gap-1.5 min-w-0">
-                  <span className="shrink-0 text-[10.5px] tabular-nums"
+                  <span className="shrink-0 text-[10px] tabular-nums"
                     style={{ color: on ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}>
                     {chapterLabel(c.order)}
                   </span>
                   {words > 0 && (
-                    <span className="ml-auto shrink-0 text-[10px] tabular-nums"
+                    <span className="ml-auto shrink-0 text-[9.5px] tabular-nums"
                       style={{ color: 'hsl(var(--muted-foreground))' }}>
                       {fmtNum(words)}字
                     </span>
                   )}
                 </span>
-                <span className="text-[11px] truncate"
+                <span className="text-[10px] truncate"
                   style={{ color: on ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>
                   {c.title || '（无标题）'}
                 </span>
@@ -203,11 +203,11 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
         <section className="flex-1 min-h-0 overflow-y-auto" aria-label="正文">
           {selected ? (
             <div className="mx-auto px-6 py-5" style={{ maxWidth: READING_MAX_WIDTH }}>
-              <h2 className="text-[13px] font-semibold"
+              <h2 className="text-[12px] font-semibold"
                 style={{ color: 'hsl(var(--foreground))', fontFamily: "'Noto Serif SC', serif" }}>
                 {chapterLabel(selected.order)}　{selected.title || '（无标题）'}
               </h2>
-              <div className="mt-1 text-[10.5px] text-muted-foreground" data-selected-words>
+              <div className="mt-1 text-[10px] text-muted-foreground" data-selected-words>
                 {fmtNum(selected.wordCount > 0 ? selected.wordCount : selected.content.replace(/\s/g, '').length)} 字
                 {selected.status ? ` · ${selected.status}` : ''}
               </div>
@@ -215,19 +215,19 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
                 // whitespace-pre-wrap：正文里作者/模型自己带的空行与缩进必须原样保留
                 // （这是读小说的排版，不是代码块，所以用 pre-wrap 而不是 pre）
                 <div
-                  className="mt-3 text-[12.5px] whitespace-pre-wrap break-words leading-relaxed"
+                  className="mt-3 text-[11.5px] whitespace-pre-wrap break-words leading-relaxed"
                   style={{ color: 'hsl(var(--foreground) / 0.92)' }}
                 >
                   {selected.content}
                 </div>
               ) : (
-                <p className="mt-3 text-[11.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <p className="mt-3 text-[10.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                   这一章还没正文（只有章节条目）—— 长跑交付后才会有内容。
                 </p>
               )}
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-[11.5px]"
+            <div className="h-full flex items-center justify-center text-[10.5px]"
               style={{ color: 'hsl(var(--muted-foreground))' }}>
               从左边选一章开始读。
             </div>

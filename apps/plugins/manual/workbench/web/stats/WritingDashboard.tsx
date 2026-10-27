@@ -181,7 +181,7 @@ export function WritingDashboard() {
 
   return (
     <div ref={containerRef} className="h-full overflow-y-auto" style={{ background: 'transparent' }}>
-      <div className="max-w-4xl mx-auto px-8 py-10 space-y-8">
+      <div className="max-w-4xl mx-auto px-8 py-8 space-y-8">
         {/* Header */}
         <h2
           className="text-2xl font-semibold text-foreground"

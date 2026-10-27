@@ -147,7 +147,7 @@ export function ReferenceReader() {
               key={item.key}
               onClick={() => setNav(item.key)}
               title={item.title}
-              className="w-14 py-2 flex flex-col items-center gap-1 rounded-2xl text-[11px] transition-all"
+              className="w-14 py-2 flex flex-col items-center gap-1 rounded-2xl text-[10px] transition-all"
               style={active
                 ? { background: 'rgba(35,131,199,0.12)', color: ACCENT, fontWeight: 600 }
                 : { color: 'rgba(55,53,47,0.45)' }}
@@ -211,7 +211,7 @@ export function ReferenceReader() {
                 {reportChapterIdx >= 0 && (
                   <button
                     onClick={() => setCurrentChapter(activeBook.id, reportChapterIdx)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] transition-colors"
                     style={{ background: 'rgba(35,131,199,0.1)', color: ACCENT }}
                     title="跳转到本书的拆书报告章节"
                   >
@@ -277,7 +277,7 @@ export function ReferenceReader() {
           )}
 
           {!activeBook && (
-            <div className="shrink-0 px-4 py-2 text-center text-[11px]" style={{ color: 'rgba(55,53,47,0.15)' }}>
+            <div className="shrink-0 px-4 py-2 text-center text-[10px]" style={{ color: 'rgba(55,53,47,0.15)' }}>
               拆书请到「AI 对话」选择扫榜收藏的书 · 报告会回存本书
             </div>
           )}

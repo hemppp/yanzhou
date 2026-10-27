@@ -40,6 +40,16 @@ export interface FloatingPanelDef {
   key: string;
   /** any：面板组件可声明自己的 props（如 AI 对话的 controls），宿主按 key 决定是否透传 */
   Component: React.ComponentType<any>;
+  /**
+   * 该面板 chunk 的**预取**入口（可选，与 `Component` 用同一个 `import()` 说明符）。
+   *
+   * 为什么需要它：面板组件几乎都是 `React.lazy`，chunk 只在**首次渲染**那一刻才开始下载
+   * ⇒ 冷路径点开面板必然先闪一下「加载中…」（`PanelFallback`）。
+   * 宿主在「用户意图已出现、点击尚未发生」的时刻调它一发 —— 活动栏 / 气泡悬停与聚焦、
+   * 进项目后的空闲时间片 —— 把「点击后才开始下载」变成「点击即命中模块缓存」。
+   * 未声明 ⇒ 宿主静默跳过（第三方插件不受影响，也不会因为缺这个字段被当成错误）。
+   */
+  preload?: () => Promise<unknown>;
   width?: number;
   height?: number;
   order?: number;

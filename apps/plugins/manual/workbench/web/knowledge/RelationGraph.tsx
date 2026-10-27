@@ -180,7 +180,7 @@ export function CharacterGraph() {
           },
           labelStyle: {
             fill: lineColor,
-            fontSize: 10,
+            fontSize: 9.5,
             fontWeight: 500,
             opacity: 0,
           },
@@ -237,7 +237,7 @@ export function CharacterGraph() {
           },
           labelStyle: {
             fill: HOLD_EDGE_COLOR,
-            fontSize: 10,
+            fontSize: 9.5,
             fontWeight: 500,
             opacity: 0,
           },
@@ -317,7 +317,7 @@ export function CharacterGraph() {
         return {
           ...edge,
           style: { ...edge.style, strokeWidth, strokeOpacity },
-          labelStyle: { ...edge.labelStyle, opacity: showLabel ? 1 : 0, fontSize: 10 },
+          labelStyle: { ...edge.labelStyle, opacity: showLabel ? 1 : 0, fontSize: 9.5 },
           labelBgStyle: { ...edge.labelBgStyle, opacity: showLabel ? 0.95 : 0 },
           zIndex: isHovered || isSelected || isEdgeHovered ? 10 : 1,
         };
@@ -417,7 +417,7 @@ export function CharacterGraph() {
       {Object.entries(roleColors).filter(([key]) => ['protagonist', 'femaleLead', 'supporting', 'minor', 'antagonist'].includes(key)).map(([key, color]) => (
         <div key={key} className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-[11px] text-muted-foreground">{roleLabels[key]}</span>
+          <span className="text-[10px] text-muted-foreground">{roleLabels[key]}</span>
         </div>
       ))}
     </>
@@ -444,7 +444,7 @@ export function CharacterGraph() {
           <div>
             <h3 className="font-bold">{selectedChar.name}</h3>
             {selectedChar.role && (
-              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">
                 {roleLabels[selectedChar.role] || selectedChar.role}
               </span>
             )}
@@ -517,7 +517,7 @@ export function CharacterGraph() {
           </div>
           <div>
             <h3 className="font-bold">{selectedItem.name}</h3>
-            <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">
               {itemLabels[selectedItem.type?.toLowerCase() || 'other'] || '物品'}
             </span>
           </div>

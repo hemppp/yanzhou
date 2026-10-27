@@ -136,7 +136,7 @@ export function BookScanDirectory({ onGoLibrary }: { onGoLibrary: () => void }) 
               setBoard(s.boards[0]?.key ?? '');
               setItems([]);
             }}
-            className="px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors"
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors"
             style={sourceId === s.id
               ? { background: ACCENT, color: '#fff' }
               : { background: 'rgba(0,0,0,0.04)', color: 'rgba(55,53,47,0.6)' }}
@@ -179,7 +179,7 @@ export function BookScanDirectory({ onGoLibrary }: { onGoLibrary: () => void }) 
               onClick={() => setBoard(b.key)}
               // ★ 选择控件（板块切换），选中态靠 border/bg 表达 → 加 aria-pressed 让选中态语义显式可读
               aria-pressed={board === b.key}
-              className="px-2 py-0.5 rounded-full text-[11px] transition-colors"
+              className="px-2 py-0.5 rounded-full text-[10px] transition-colors"
               style={board === b.key
                 ? { background: 'rgba(35,131,199,0.14)', color: ACCENT, border: `1px solid rgba(35,131,199,0.4)` }
                 : { background: 'transparent', color: 'rgba(55,53,47,0.5)', border: '1px solid rgba(0,0,0,0.08)' }}
@@ -191,7 +191,7 @@ export function BookScanDirectory({ onGoLibrary }: { onGoLibrary: () => void }) 
       )}
 
       {/* 状态行 */}
-      <div className="shrink-0 px-3 pb-1 text-[11px]" style={{ color: 'rgba(55,53,47,0.35)' }}>
+      <div className="shrink-0 px-3 pb-1 text-[10px]" style={{ color: 'rgba(55,53,47,0.35)' }}>
         {loading && '抓取中…'}
         {!loading && stale && <span className="text-amber-600">缓存数据（站点抓取失败）</span>}
         {!loading && !stale && fetchedAt && `更新于 ${new Date(fetchedAt).toLocaleTimeString()}`}
@@ -213,26 +213,26 @@ export function BookScanDirectory({ onGoLibrary }: { onGoLibrary: () => void }) 
             <div key={item.novelId} className="rounded-xl border px-2.5 py-1.5 transition-colors" style={{ borderColor: 'rgba(0,0,0,0.07)' }}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="w-5 shrink-0 text-center font-semibold" style={{ color: 'rgba(55,53,47,0.3)' }}>{item.rank}</span>
-                <span className="truncate font-medium text-[12px]" style={{ color: '#37352f' }} title={item.intro || item.title}>{item.title}</span>
-                {item.status && <span className="shrink-0 px-1 rounded text-[11px]" style={{ background: 'rgba(0,0,0,0.05)', color: 'rgba(55,53,47,0.5)' }}>{item.status}</span>}
-                {item.meta && <span className="shrink-0 text-[11px]" style={{ color: 'rgba(55,53,47,0.4)' }}>{item.meta}</span>}
-                <span className="ml-auto shrink-0 truncate max-w-16 text-[11px]" style={{ color: 'rgba(55,53,47,0.4)' }}>{item.author}</span>
+                <span className="truncate font-medium text-[11px]" style={{ color: '#37352f' }} title={item.intro || item.title}>{item.title}</span>
+                {item.status && <span className="shrink-0 px-1 rounded text-[10px]" style={{ background: 'rgba(0,0,0,0.05)', color: 'rgba(55,53,47,0.5)' }}>{item.status}</span>}
+                {item.meta && <span className="shrink-0 text-[10px]" style={{ color: 'rgba(55,53,47,0.4)' }}>{item.meta}</span>}
+                <span className="ml-auto shrink-0 truncate max-w-16 text-[10px]" style={{ color: 'rgba(55,53,47,0.4)' }}>{item.author}</span>
               </div>
               {item.intro && (
                 <div
-                  className={`mt-0.5 pl-6.5 leading-5 cursor-pointer ${isOpen ? '' : 'line-clamp-2'}`}
-                  style={{ paddingLeft: 26, color: 'rgba(55,53,47,0.6)' }}
+                  className={`mt-0.5 pl-6 leading-5 cursor-pointer ${isOpen ? '' : 'line-clamp-2'}`}
+                  style={{ paddingLeft: 'var(--space-8)', color: 'rgba(55,53,47,0.6)' }}
                   onClick={() => setExpanded(isOpen ? null : item.novelId)}
                   title={isOpen ? '收起文案' : '展开文案'}
                 >
                   {item.intro}
                 </div>
               )}
-              <div className="mt-1 flex items-center gap-1.5" style={{ paddingLeft: 26 }}>
+              <div className="mt-1 flex items-center gap-1.5" style={{ paddingLeft: 'var(--space-8)' }}>
                 <button
                   onClick={() => handleCollect(item)}
                   disabled={collected || isCollecting || processing}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-90"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-90"
                   style={collected
                     ? { background: 'hsl(0 0% 32% / 0.08)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'hsl(0 0% 32% / 0.22)', color: 'hsl(0 0% 30%)' }
                     : { background: 'rgba(35,131,199,0.08)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'rgba(35,131,199,0.22)', color: ACCENT }}
@@ -244,7 +244,7 @@ export function BookScanDirectory({ onGoLibrary }: { onGoLibrary: () => void }) 
                 {collected && (
                   <button
                     onClick={onGoLibrary}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] transition-colors hover:bg-black/5"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] transition-colors hover:bg-black/5"
                     style={{ color: 'rgba(55,53,47,0.5)' }}
                     title="前往书架查看"
                   >
@@ -260,7 +260,7 @@ export function BookScanDirectory({ onGoLibrary }: { onGoLibrary: () => void }) 
         )}
       </div>
 
-      <div className="shrink-0 px-3 py-1.5 border-t text-[11px] text-center" style={{ borderColor: 'rgba(0,0,0,0.06)', color: 'rgba(55,53,47,0.3)' }}>
+      <div className="shrink-0 px-3 py-1.5 border-t text-[10px] text-center" style={{ borderColor: 'rgba(0,0,0,0.06)', color: 'rgba(55,53,47,0.3)' }}>
         收藏后到「AI 对话」发起拆书，拆完的报告会回到书架，点击即可查看
       </div>
     </div>

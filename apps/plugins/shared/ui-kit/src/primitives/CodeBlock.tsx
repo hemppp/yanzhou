@@ -58,7 +58,7 @@ export function CodeBlock({
   return (
     <figure className={cn('overflow-hidden rounded-card bg-paper shadow-hairline', className)}>
       <figcaption className="flex items-center gap-2 border-b border-paper-line px-2.5 py-1.5">
-        {filename && <span className="truncate text-[11.5px] font-medium text-tone-2">{filename}</span>}
+        {filename && <span className="truncate text-[10.5px] font-medium text-tone-2">{filename}</span>}
         {language && <span className="mc-eyebrow">{language}</span>}
         <button
           type="button"
@@ -82,7 +82,7 @@ export function CodeBlock({
         className="mc-scroll overflow-auto"
         style={maxHeight ? { maxHeight } : undefined}
       >
-        <pre className="m-0 flex min-w-full text-[11.5px] leading-[1.55]">
+        <pre className="m-0 flex min-w-full text-[10.5px] leading-[1.55]">
           {/* 行号槽：select-none，避免被一起选中复制 */}
           <span
             aria-hidden="true"

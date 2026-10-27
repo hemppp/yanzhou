@@ -24,7 +24,7 @@
 //   这两颗按钮会先落库（文案也随之变为「保存并测试」），否则测的是旧配置、结果会骗人。
 // ============================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AlertTriangle, Bot, Check, Loader2, RefreshCw, Save, Trash2, Zap } from 'lucide-react';
 import {
@@ -68,7 +68,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       <span className="nm-label">{label}</span>
       {children}
       {hint && (
-        <span className="block text-[11px] mt-1" style={{ color: MUTED }}>{hint}</span>
+        <span className="block text-[10px] mt-1" style={{ color: MUTED }}>{hint}</span>
       )}
     </div>
   );
@@ -90,6 +90,43 @@ export function AIConfigPanel() {
   const [models, setModels] = useState<AIModelItem[]>([]);
   const [modelListError, setModelListError] = useState('');
   const [fetchingModels, setFetchingModels] = useState(false);
+  /** 自绘模型下拉的展开态（原生 datalist 不会自动弹，见下方 Field 里的注释） */
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const modelBoxRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * 过滤词：**只有用户真的在打字时**才过滤（null = 不过滤，列全部）。
+   * 为什么要区分：输入框里通常已经存着一个模型名，若一律按它过滤，
+   * 拉取成功后只会列出"和当前值匹配的那一条"，看着像"只拉到一个"（实测踩到）。
+   * 点按钮 / 点输入框 / 按 ↓ 打开时一律 null ⇒ 看到的是**拉到的一整份列表**。
+   */
+  const [modelQuery, setModelQuery] = useState<string | null>(null);
+
+  const filteredModels = useMemo(() => {
+    if (modelQuery === null) return models;
+    const q = modelQuery.trim().toLowerCase();
+    if (!q) return models;
+    return models.filter(
+      (m) => m.id.toLowerCase().includes(q) || (m.name ?? '').toLowerCase().includes(q),
+    );
+  }, [models, modelQuery]);
+
+  // 点面板外 / Esc 关掉下拉（与仓内其它浮层同款处理）
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    const onDown = (ev: MouseEvent) => {
+      if (modelBoxRef.current?.contains(ev.target as Node)) return;
+      setModelMenuOpen(false);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') setModelMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [modelMenuOpen]);
 
   const [testResult, setTestResult] = useState<AITestResult | null>(null);
   const [busy, setBusy] = useState<'save' | 'test' | null>(null);
@@ -182,6 +219,8 @@ export function AIConfigPanel() {
       if (result.ok) {
         setModels(result.models);
         if (result.models.length === 0) setModelListError('服务端返回了空模型列表，请手动填写模型名');
+        // ★ 拉到了就**直接摊开**（原生 datalist 不弹，用户以为"没显示"）
+        else { setModelQuery(null); setModelMenuOpen(true); }
       } else {
         setModels([]);
         setModelListError(result.error);
@@ -198,7 +237,7 @@ export function AIConfigPanel() {
     return (
       <section className="nm-card p-6">
         <h2 className="nm-section-title">AI 设置</h2>
-        <p className="text-[12px] inline-flex items-center gap-2" style={{ color: MUTED }}>
+        <p className="text-[11px] inline-flex items-center gap-2" style={{ color: MUTED }}>
           <Loader2 size={14} className="animate-spin" /> 正在读取配置…
         </p>
       </section>
@@ -209,7 +248,7 @@ export function AIConfigPanel() {
     return (
       <section className="nm-card p-6">
         <h2 className="nm-section-title">AI 设置</h2>
-        <p className="text-[12px] inline-flex items-center gap-2" style={{ color: 'hsl(var(--destructive))' }}>
+        <p className="text-[11px] inline-flex items-center gap-2" style={{ color: 'hsl(var(--destructive))' }}>
           <AlertTriangle size={14} /> {loadError}
         </p>
         <button type="button" onClick={() => setReloadToken((t) => t + 1)} className={`${BTN_SOFT} mt-4`}>
@@ -228,14 +267,14 @@ export function AIConfigPanel() {
         <h2 className="nm-section-title flex items-center gap-2">
           <Bot size={15} /> 模型提供商
         </h2>
-        <p className="text-[12px] leading-relaxed" style={{ color: MUTED }}>
+        <p className="text-[11px] leading-relaxed" style={{ color: MUTED }}>
           配置保存在本机数据库。API Key 只存服务端、从不回传明文 —— 界面上看到的
           {' '}<code style={{ color: INK }}>***xxxx</code>{' '}
           是后 4 位脱敏提示。
         </p>
 
         {(sourceNote || keyMissing) && (
-          <div className="mt-4 rounded-lg px-3 py-2 text-[12px] leading-relaxed"
+          <div className="mt-4 rounded-lg px-3 py-2 text-[11px] leading-relaxed"
             style={{
               background: 'rgb(var(--glass-tint) / 0.35)',
               border: `0.5px solid ${BORDER}`,
@@ -263,7 +302,7 @@ export function AIConfigPanel() {
                   type="button"
                   onClick={() => setProvider(key)}
                   aria-pressed={active}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] transition-colors"
                   style={{
                     background: active ? 'rgb(var(--glass-tint) / 0.6)' : 'transparent',
                     border: active ? '1px solid hsl(var(--ring) / 0.7)' : `0.5px solid ${BORDER}`,
@@ -277,7 +316,7 @@ export function AIConfigPanel() {
               );
             })}
           </div>
-          <span className="block text-[11px] mt-1.5" style={{ color: MUTED }}>{preset.hint}</span>
+          <span className="block text-[10px] mt-1.5" style={{ color: MUTED }}>{preset.hint}</span>
         </div>
 
         <Field
@@ -330,19 +369,66 @@ export function AIConfigPanel() {
 
         <Field label="模型" hint="拉取列表失败时可直接手填（部分中转站不开放 /models）">
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              list="nm-ai-model-options"
-              className={INPUT_CLASS}
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="gpt-4o-mini"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <datalist id="nm-ai-model-options">
-              {models.map((m) => <option key={m.id} value={m.id} />)}
-            </datalist>
+            <div className="relative flex-1 min-w-0" ref={modelBoxRef}>
+              <input
+                type="text"
+                className={INPUT_CLASS}
+                value={model}
+                onChange={(e) => { setModel(e.target.value); setModelQuery(e.target.value); setModelMenuOpen(true); }}
+                onFocus={() => { setModelQuery(null); if (models.length > 0) setModelMenuOpen(true); }}
+                // ★ 用 onClick 而不是只靠 onFocus：选完一项后菜单关掉、但输入框**没失焦**，
+                //   再点它不会再触发 focus ⇒ 想换一个模型时列表不弹（实测发现）。
+                onClick={() => { setModelQuery(null); if (models.length > 0) setModelMenuOpen(true); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setModelMenuOpen(false);
+                  // ↓ 直接拉出列表（原生 datalist 的老习惯，保留）：列全部，不做过滤
+                  if (e.key === 'ArrowDown' && models.length > 0) { e.preventDefault(); setModelQuery(null); setModelMenuOpen(true); }
+                }}
+                placeholder="gpt-4o-mini"
+                spellCheck={false}
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={modelMenuOpen}
+                aria-controls="nm-ai-model-menu"
+                aria-autocomplete="list"
+              />
+              {/* ★ 2026-10-26 自绘下拉（替代原生 <datalist>）：
+                  原生 datalist 只在「点进输入框 + 打字/按 ↓」时才弹 —— 点「拉取列表」
+                  拉到了模型也**看不到任何东西**（用户口径"获取模型下拉没有显示"）。
+                  自绘列表在**拉取成功后自动展开**，点一项即填入，且支持输入即过滤。 */}
+              {modelMenuOpen && filteredModels.length > 0 && (
+                <ul
+                  id="nm-ai-model-menu"
+                  role="listbox"
+                  aria-label="可用模型"
+                  className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border py-1 shadow-lg"
+                  style={{ background: 'hsl(var(--card))', borderColor: BORDER }}
+                >
+                  {filteredModels.map((m) => (
+                    <li key={m.id} role="option" aria-selected={m.id === model}>
+                      <button
+                        type="button"
+                        // mousedown 阻止默认：否则输入框先失焦，click 还没落地列表就被关掉
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setModel(m.id); setModelQuery(null); setModelMenuOpen(false); }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-[hsl(var(--mist-pale))]"
+                        style={{ color: INK }}
+                      >
+                        <Check
+                          size={12}
+                          aria-hidden="true"
+                          style={{ color: m.id === model ? 'hsl(var(--primary))' : 'transparent' }}
+                        />
+                        <span className="truncate">{m.name || m.id}</span>
+                        {m.name && m.name !== m.id && (
+                          <span className="ml-auto shrink-0 truncate text-[9.5px]" style={{ color: MUTED }}>{m.id}</span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <button type="button" className={`${BTN_TINY} shrink-0`}
               onClick={handleFetchModels} disabled={busy !== null || fetchingModels}>
               <span className="inline-flex items-center gap-1">
@@ -352,8 +438,13 @@ export function AIConfigPanel() {
             </button>
           </div>
           {modelListError && (
-            <span className="block text-[11px] mt-1.5" style={{ color: 'hsl(var(--destructive) / 0.9)' }}>
+            <span className="block text-[10px] mt-1.5" style={{ color: 'hsl(var(--destructive) / 0.9)' }}>
               {modelListError}
+            </span>
+          )}
+          {!modelListError && models.length > 0 && (
+            <span className="block text-[10px] mt-1.5" style={{ color: MUTED }}>
+              已拉取 {models.length} 个模型 —— 点输入框（或按 ↓）挑一个；打字可过滤，也可直接手填
             </span>
           )}
         </Field>
@@ -367,11 +458,11 @@ export function AIConfigPanel() {
             {busy === 'test' ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
             {dirty ? '保存并测试连接' : '测试连接'}
           </button>
-          {dirty && <span className="text-[11px]" style={{ color: MUTED }}>有未保存的改动</span>}
+          {dirty && <span className="text-[10px]" style={{ color: MUTED }}>有未保存的改动</span>}
         </div>
 
         {notice && (
-          <p className="text-[12px] mt-3 leading-relaxed"
+          <p className="text-[11px] mt-3 leading-relaxed"
             style={{
               color: notice.kind === 'err'
                 ? 'hsl(var(--destructive) / 0.9)'
@@ -383,7 +474,7 @@ export function AIConfigPanel() {
         )}
 
         {testResult?.connected && (
-          <div className="mt-3 rounded-lg px-3 py-2 text-[11px] font-mono break-all"
+          <div className="mt-3 rounded-lg px-3 py-2 text-[10px] font-mono break-all"
             style={{ background: 'rgb(var(--glass-tint) / 0.35)', border: `0.5px solid ${BORDER}`, color: MUTED }}>
             模型回包：{testResult.response || '（空）'}
           </div>
@@ -392,7 +483,7 @@ export function AIConfigPanel() {
 
       <section className="nm-card p-6 mt-6">
         <h2 className="nm-section-title">生成参数</h2>
-        <p className="text-[12px] leading-relaxed" style={{ color: MUTED }}>
+        <p className="text-[11px] leading-relaxed" style={{ color: MUTED }}>
           留空 = 不干预，由服务商默认值决定（不是 0）。已填的数值保存后对所有 AI 请求生效。
         </p>
 
@@ -403,7 +494,7 @@ export function AIConfigPanel() {
               <div key={key}>
                 <span className="nm-label">
                   {spec.label}
-                  <span className="ml-1.5 font-normal text-[11px]" style={{ color: MUTED }}>{spec.hint}</span>
+                  <span className="ml-1.5 font-normal text-[10px]" style={{ color: MUTED }}>{spec.hint}</span>
                 </span>
                 <div className="flex items-center gap-2">
                   <input
@@ -423,7 +514,7 @@ export function AIConfigPanel() {
                     清空
                   </button>
                 </div>
-                <span className="block text-[11px] mt-1" style={{ color: MUTED }}>
+                <span className="block text-[10px] mt-1" style={{ color: MUTED }}>
                   范围 {spec.min} ~ {spec.max}
                 </span>
               </div>
@@ -436,7 +527,7 @@ export function AIConfigPanel() {
             {busy === 'save' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             保存
           </button>
-          {dirty && <span className="text-[11px]" style={{ color: MUTED }}>有未保存的改动</span>}
+          {dirty && <span className="text-[10px]" style={{ color: MUTED }}>有未保存的改动</span>}
         </div>
       </section>
     </>

@@ -555,7 +555,7 @@ export function PipelineGraphPanel({
 
   if (!projectId) {
     return (
-      <div className="p-6 text-[12px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+      <div className="p-6 text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
         未加载项目 —— 设定流水线需要一个项目上下文。
       </div>
     );
@@ -576,13 +576,13 @@ export function PipelineGraphPanel({
       ] as Array<[StageVisualStatus, string]>).map(([st, label]) => (
         <span key={st} className="flex items-center gap-1.5">
           <span className="rounded-full" style={{ width: 7, height: 7, background: statusInk(st) }} aria-hidden="true" />
-          <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</span>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</span>
         </span>
       ))}
       <span className="flex items-center gap-1.5">
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>◈ 闸门</span>
-        <span className="text-[11px]" style={{ color: 'hsl(var(--state-blocked))' }}>过期</span>
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>×N 打回</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>◈ 闸门</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--state-blocked))' }}>过期</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>×N 打回</span>
       </span>
     </>
   );
@@ -591,7 +591,7 @@ export function PipelineGraphPanel({
   const detail = (
     <>
       {loading && (
-        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           <Loader2 size={11} className="animate-spin" /> 读取状态…
         </div>
       )}
@@ -601,17 +601,17 @@ export function PipelineGraphPanel({
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-full" style={{ width: 7, height: 7, background: statusInk(current.status as StageVisualStatus) }} aria-hidden="true" />
-              <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 13, fontWeight: 600, color: 'hsl(var(--ink))' }}>
+              <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 12, fontWeight: 600, color: 'hsl(var(--ink))' }}>
                 {current.label || STAGE_LABEL_UI[current.key] || current.key}
               </span>
               {current.gated && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }} title="这一段跑完会停下等你确认">
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }} title="这一段跑完会停下等你确认">
                   ◈ 闸门
                 </span>
               )}
             </div>
             {STAGE_ARTIFACT[current.key] && (
-              <div className="text-[10.5px] mt-0.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <div className="text-[10px] mt-0.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 产出《{STAGE_ARTIFACT[current.key]}》
               </div>
             )}
@@ -619,7 +619,7 @@ export function PipelineGraphPanel({
 
           {current.artifact && (
             <div
-              className="rounded-lg px-2.5 py-2 text-[11px] leading-[1.75] whitespace-pre-wrap"
+              className="rounded-lg px-2.5 py-2 text-[10px] leading-[1.75] whitespace-pre-wrap"
               style={{
                 background: 'hsl(var(--card) / 0.6)',
                 border: '0.5px solid hsl(var(--border) / 0.6)',
@@ -633,7 +633,7 @@ export function PipelineGraphPanel({
           )}
 
           {current.status === 'failed' && current.error && (
-            <div className="text-[11px] leading-[1.7]" style={{ color: 'hsl(var(--destructive))' }}>
+            <div className="text-[10px] leading-[1.7]" style={{ color: 'hsl(var(--destructive))' }}>
               {current.error}
             </div>
           )}
@@ -645,7 +645,7 @@ export function PipelineGraphPanel({
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
                 placeholder="要打回就写清楚哪里不对（打回必须写）；通过可以不填"
-                className="w-full resize-none rounded-lg px-2.5 py-2 text-[11px] leading-[1.6] outline-none"
+                className="w-full resize-none rounded-lg px-2.5 py-2 text-[10px] leading-[1.6] outline-none"
                 style={{ background: 'hsl(var(--card) / 0.6)', border: '0.5px solid hsl(var(--border) / 0.8)', color: 'hsl(var(--foreground))' }}
               />
               <button
@@ -653,7 +653,7 @@ export function PipelineGraphPanel({
                 onClick={() => void handleDecide(current.key, 'approve')}
                 disabled={busy}
                 className="inline-flex items-center justify-center gap-1 rounded-md disabled:opacity-40"
-                style={{ padding: '6px 12px', fontSize: 12, background: 'hsl(var(--state-done))', color: 'hsl(var(--card))', border: 'none', cursor: 'pointer' }}
+                style={{ padding: 'var(--space-2) var(--space-5)', fontSize: 11, background: 'hsl(var(--state-done))', color: 'hsl(var(--card))', border: 'none', cursor: 'pointer' }}
               >
                 {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 通过并落库
@@ -664,7 +664,7 @@ export function PipelineGraphPanel({
                 disabled={busy || !note.trim()}
                 title={note.trim() ? '带着批注重跑这一段' : '先写批注'}
                 className="inline-flex items-center justify-center gap-1 rounded-md disabled:opacity-40"
-                style={{ padding: '6px 12px', fontSize: 12, background: 'transparent', color: 'hsl(var(--primary))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--primary) / 0.5)', cursor: 'pointer' }}
+                style={{ padding: 'var(--space-2) var(--space-5)', fontSize: 11, background: 'transparent', color: 'hsl(var(--primary))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--primary) / 0.5)', cursor: 'pointer' }}
               >
                 <X size={12} />
                 打回重跑
@@ -675,12 +675,12 @@ export function PipelineGraphPanel({
                 disabled={busy}
                 title="方向就错了：退回上一段重立（本段与更晚的产出作废）"
                 className="rounded-md disabled:opacity-40"
-                style={{ padding: '6px 12px', fontSize: 12, background: 'transparent', color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.5)', cursor: 'pointer' }}
+                style={{ padding: 'var(--space-2) var(--space-5)', fontSize: 11, background: 'transparent', color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.5)', cursor: 'pointer' }}
               >
                 退回上一段
               </button>
               {current.revision > 0 && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                   已打回 {current.revision} 次
                 </span>
               )}
@@ -693,21 +693,21 @@ export function PipelineGraphPanel({
                 disabled={busy || !current.implemented}
                 title={current.implemented ? `跑这一段（${COST_PER_STAGE}）` : '这一段尚未实现'}
                 className="inline-flex items-center justify-center gap-1 rounded-md disabled:opacity-40"
-                style={{ padding: '6px 12px', fontSize: 12, background: 'hsl(var(--primary) / 0.92)', color: 'hsl(var(--card))', border: 'none', cursor: 'pointer' }}
+                style={{ padding: 'var(--space-2) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.92)', color: 'hsl(var(--card))', border: 'none', cursor: 'pointer' }}
               >
                 {busy ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                 {current.status === 'failed' ? '重试这一段' : `跑「${current.label}」`}
               </button>
               {!current.implemented && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                   这一段（{current.label}）尚未实现
                 </span>
               )}
               {busy && phase && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--primary))' }}>{phase}</span>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{phase}</span>
               )}
               {!busy && current.implemented && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{COST_PER_STAGE}</span>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{COST_PER_STAGE}</span>
               )}
             </div>
           )}
@@ -716,7 +716,7 @@ export function PipelineGraphPanel({
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
-              className="self-start rounded-md text-[11px] px-2 py-0.5"
+              className="self-start rounded-md text-[10px] px-2 py-0.5"
               style={{ color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.4)', background: 'transparent', cursor: 'pointer' }}
             >
               停止
@@ -729,27 +729,27 @@ export function PipelineGraphPanel({
               className="flex flex-col gap-1.5 rounded-lg px-2.5 py-2"
               style={{ background: 'hsl(var(--primary) / 0.06)', border: '0.5px solid hsl(var(--primary) / 0.25)' }}
             >
-              <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--primary))' }}>
+              <span className="text-[10px] font-medium" style={{ color: 'hsl(var(--primary))' }}>
                 长跑：一次授权，一直往下写
               </span>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>写到第</span>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>写到第</span>
                 <input
                   type="number"
                   min={1}
                   value={longRunTarget}
                   onChange={(e) => setLongRunTarget(Math.max(1, Number(e.target.value) || 1))}
                   disabled={longRunning}
-                  className="rounded-md text-[11px] outline-none"
-                  style={{ width: 68, padding: '3px 6px', background: 'rgb(var(--glass-tint) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.7)', color: 'hsl(var(--foreground))' }}
+                  className="rounded-md text-[10px] outline-none"
+                  style={{ width: 68, padding: 'var(--space-0) var(--space-2)', background: 'rgb(var(--glass-tint) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.7)', color: 'hsl(var(--foreground))' }}
                 />
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>章（当前已写 {view?.lastDelivered ?? 0} 章）</span>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>章（当前已写 {view?.lastDelivered ?? 0} 章）</span>
                 <button
                   type="button"
                   onClick={() => void handleLongRun()}
                   disabled={longRunning || busy}
                   className="inline-flex items-center gap-1 rounded-full disabled:opacity-40"
-                  style={{ padding: '5px 14px', fontSize: 12, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
                 >
                   {longRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                   {longRunning ? '长跑中…' : '开始长跑'}
@@ -758,7 +758,7 @@ export function PipelineGraphPanel({
                   <button
                     type="button"
                     onClick={() => abortRef.current?.abort()}
-                    className="rounded-full text-[11px] px-2.5 py-0.5"
+                    className="rounded-full text-[10px] px-2.5 py-0.5"
                     style={{ color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.4)', background: 'transparent', cursor: 'pointer' }}
                   >
                     停止
@@ -766,9 +766,9 @@ export function PipelineGraphPanel({
                 )}
               </div>
               {longRunMsg && (
-                <span className="text-[11px]" style={{ color: 'hsl(var(--primary))' }}>{longRunMsg}</span>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{longRunMsg}</span>
               )}
-              <span className="text-[10.5px] leading-[1.6]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <span className="text-[10px] leading-[1.6]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 每批 5 章，批间自动确认；监工判「需停下」或轨迹明显跑偏时会停（避免带病往下写）。可随时「停止」，进度会存下，再点接着跑。
               </span>
             </div>
@@ -779,13 +779,13 @@ export function PipelineGraphPanel({
       {/* 最近决策台账：谁在什么时候批了什么、批注是什么 */}
       {view && view.decisions.length > 0 && (
         <div className="flex flex-col gap-1 pt-2" style={{ borderTop: '0.5px solid hsl(var(--border) / 0.5)' }}>
-          <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
             最近决策
           </span>
           {(view.decisions ?? []).slice(0, 6).map((d, i) => (
             <div
               key={`${d.at}-${i}`}
-              className="flex items-baseline gap-1.5 text-[11px] min-w-0"
+              className="flex items-baseline gap-1.5 text-[10px] min-w-0"
               style={{ color: 'hsl(var(--muted-foreground))' }}
             >
               <span className="shrink-0" style={{ color: ACTION_COLOR[d.action] }}>{ACTION_TEXT[d.action]}</span>
@@ -802,7 +802,7 @@ export function PipelineGraphPanel({
       {/* 轨迹确认台账（长跑每 N 章一条）—— 回放用：哪几章确认过、判定是什么、补丁是什么 */}
       {view && (view.tracks?.length ?? 0) > 0 && (
         <div className="flex flex-col gap-1 pt-2" style={{ borderTop: '0.5px solid hsl(var(--border) / 0.5)' }}>
-          <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
             轨迹确认
           </span>
           {(view.tracks ?? []).slice(0, 4).map((t, i) => {
@@ -810,7 +810,7 @@ export function PipelineGraphPanel({
               : t.verdict === 'minor_drift' ? 'hsl(var(--primary))' : 'hsl(var(--state-done))';
             const label = t.verdict === 'on_track' ? '在轨' : t.verdict === 'minor_drift' ? '小幅偏离' : '明显跑偏';
             return (
-              <div key={`${t.at}-${i}`} className="flex items-baseline gap-1.5 text-[11px] min-w-0" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <div key={`${t.at}-${i}`} className="flex items-baseline gap-1.5 text-[10px] min-w-0" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 <span className="shrink-0" style={{ color }}>{label}</span>
                 <span className="shrink-0" style={{ color: 'hsl(var(--foreground) / 0.78)' }}>第 {t.from}–{t.to} 章</span>
                 <span className="shrink-0" style={{ opacity: 0.7 }}>{fmtDecisionTime(t.at)}</span>
@@ -822,7 +822,7 @@ export function PipelineGraphPanel({
       )}
 
       {!view && !loading && (
-        <div className="text-[11px] leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <div className="text-[10px] leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           还没有流水线状态 —— 先「开始立设定」。
         </div>
       )}
@@ -834,7 +834,7 @@ export function PipelineGraphPanel({
       {/* 顶部条：没有开书设定 / 未启动 时才出现（有状态时让位给图谱） */}
       {!hasBrief && (
         <div
-          className="rounded-lg px-3 py-2 text-[11px] leading-[1.7] shrink-0"
+          className="rounded-lg px-3 py-2 text-[10px] leading-[1.7] shrink-0"
           style={{ background: 'hsl(var(--destructive) / 0.08)', border: '0.5px solid hsl(var(--destructive) / 0.3)', color: 'hsl(var(--destructive))' }}
         >
           <AlertTriangle size={11} className="inline mr-1" aria-hidden="true" />
@@ -849,7 +849,7 @@ export function PipelineGraphPanel({
           style={{ background: 'hsl(var(--card) / 0.6)', border: '0.5px solid hsl(var(--border) / 0.6)' }}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] leading-[1.7] mb-1.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <p className="text-[10px] leading-[1.7] mb-1.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
               从开书设定出发，依次立起：角色与节奏 → 世界观与势力 → 剧情总纲。
               每段都会停下等你确认，确认后才落库、才进下一段。
               <span style={{ color: 'hsl(var(--muted-foreground))' }}>（{COST_TOTAL}）</span>
@@ -859,7 +859,7 @@ export function PipelineGraphPanel({
               onChange={(e) => setNote(e.target.value)}
               rows={2}
               placeholder="有什么要额外交代的？（可留空）例如：不要太慢热；女主别写成工具人"
-              className="w-full resize-none rounded-lg px-2.5 py-2 text-[11px] leading-[1.6] outline-none"
+              className="w-full resize-none rounded-lg px-2.5 py-2 text-[10px] leading-[1.6] outline-none"
               style={{ background: 'hsl(var(--card) / 0.7)', border: '0.5px solid hsl(var(--border) / 0.8)', color: 'hsl(var(--foreground))' }}
             />
           </div>
@@ -868,7 +868,7 @@ export function PipelineGraphPanel({
             onClick={handleStart}
             disabled={busy}
             className="shrink-0 inline-flex items-center gap-1 rounded-md disabled:opacity-40"
-            style={{ padding: '6px 14px', fontSize: 12, background: 'hsl(var(--primary) / 0.92)', color: 'hsl(var(--card))', border: 'none', cursor: 'pointer' }}
+            style={{ padding: 'var(--space-2) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.92)', color: 'hsl(var(--card))', border: 'none', cursor: 'pointer' }}
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
             开始立设定
@@ -876,8 +876,8 @@ export function PipelineGraphPanel({
           <button
             type="button"
             onClick={() => void refresh()}
-            className="shrink-0 inline-flex items-center gap-1 rounded-md text-[11px]"
-            style={{ padding: '6px 10px', background: 'transparent', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--border) / 0.8)', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
+            className="shrink-0 inline-flex items-center gap-1 rounded-md text-[10px]"
+            style={{ padding: 'var(--space-2) var(--space-4)', background: 'transparent', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--border) / 0.8)', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
             aria-label="重新读取流水线状态"
           >
             <RefreshCw size={11} /> 重新读取

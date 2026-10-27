@@ -627,7 +627,7 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
         <>
           {/* 右上角提示 */}
           <div className="absolute top-3 left-3 pointer-events-none select-none">
-            <span className="text-[11px] text-muted-foreground/70 bg-background/60 backdrop-blur px-2 py-1 rounded-lg border border-border/50">
+            <span className="text-[10px] text-muted-foreground/70 bg-background/60 backdrop-blur px-2 py-1 rounded-lg border border-border/50">
               拖拽旋转 · 滚轮缩放 · 点击节点查看详情
             </span>
           </div>
@@ -635,7 +635,7 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
           <div className="absolute bottom-3 right-3 flex gap-1.5">
             <button
               onClick={toggleAutoRotate}
-              className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
+              className={`px-2.5 py-1 text-[10px] rounded-lg border transition-colors ${
                 autoRotate
                   ? 'bg-primary text-white border-primary'
                   : 'bg-card text-muted-foreground border-border hover:bg-accent'
@@ -646,7 +646,7 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
             </button>
             <button
               onClick={resetView}
-              className="px-2.5 py-1 text-[11px] rounded-lg border border-border bg-card text-muted-foreground hover:bg-accent transition-colors"
+              className="px-2.5 py-1 text-[10px] rounded-lg border border-border bg-card text-muted-foreground hover:bg-accent transition-colors"
               aria-label="重置视角"
             >
               重置视角

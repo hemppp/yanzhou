@@ -192,7 +192,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
 
   return (
     <div ref={containerRef}
-      className="relative flex items-center gap-3 px-4 py-3 pr-10 min-w-[280px] max-w-[400px]"
+      className="relative flex items-center gap-3 px-4 py-3 pr-8 min-w-[280px] max-w-[400px]"
       style={{
         borderRadius: 'var(--r-md)',
         background: 'rgb(var(--glass-tint) / 0.7)',
@@ -222,7 +222,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         style={{
           fontFamily: "'Noto Serif SC', serif",
           color: 'hsl(var(--foreground))',
-          fontSize: '13px',
+          fontSize: '12px',
           lineHeight: '1.55',
           letterSpacing: '0.2px',
         }}
@@ -263,7 +263,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         }}
         aria-label="关闭通知"
       >
-        <span style={{ fontSize: '14px', lineHeight: 1 }}>&times;</span>
+        <span style={{ fontSize: '13px', lineHeight: 1 }}>&times;</span>
       </button>
     </div>
   );

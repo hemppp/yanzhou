@@ -206,7 +206,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
         target: nodeId,
         type: 'default',
         label: parts || '无往来',
-        labelStyle: { fill: stat.denied > 0 ? ALERT_INK : MUTED_INK, fontSize: 9.5, opacity: 0 },
+        labelStyle: { fill: stat.denied > 0 ? ALERT_INK : MUTED_INK, fontSize: 9, opacity: 0 },
         labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.92 },
         labelBgPadding: [4, 2] as [number, number],
         labelBgBorderRadius: 4,
@@ -250,7 +250,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
         target: nodeId,
         type: 'default',
         label: '同批冲突',
-        labelStyle: { fill: ALERT_INK, fontSize: 9.5, opacity: 0 },
+        labelStyle: { fill: ALERT_INK, fontSize: 9, opacity: 0 },
         labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.92 },
         labelBgPadding: [4, 2] as [number, number],
         labelBgBorderRadius: 4,
@@ -330,10 +330,10 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
           className="rounded-lg px-3 py-2"
           style={{ border: `0.5px solid ${ALERT_INK}` }}
         >
-          <div className="text-[11.5px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>
+          <div className="text-[10.5px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>
             {selectedConflict.slot}
           </div>
-          <div className="text-[11px] mt-1 leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <div className="text-[10px] mt-1 leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             已在库：<span style={{ color: 'hsl(var(--foreground))' }}>{selectedConflict.existing ?? '—'}</span>
             <span className="mx-1.5">✗</span>
             本批：<span style={{ color: 'hsl(var(--foreground))' }}>{selectedConflict.incoming ?? '—'}</span>
@@ -351,7 +351,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
                 type="button"
                 onClick={() => void resolveConflict(selectedConflict.id, decision)
                   .then((r) => { setHint(r?.hint ?? null); return load(); })}
-                className="text-[10.5px] px-2 py-1 rounded"
+                className="text-[10px] px-2 py-1 rounded"
                 style={{ background: 'transparent', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
               >
                 {label}
@@ -362,21 +362,21 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
       )}
 
       {hint && (
-        <div className="text-[11px] rounded-lg px-3 py-2" style={{ background: 'hsl(var(--primary) / 0.08)', color: 'hsl(var(--primary))' }}>
+        <div className="text-[10px] rounded-lg px-3 py-2" style={{ background: 'hsl(var(--primary) / 0.08)', color: 'hsl(var(--primary))' }}>
           {hint}
         </div>
       )}
 
       {selectedAgentId ? (
         <section>
-          <div className="text-[11.5px] font-medium mb-1.5" style={{ color: 'hsl(var(--foreground))' }}>
+          <div className="text-[10.5px] font-medium mb-1.5" style={{ color: 'hsl(var(--foreground))' }}>
             {ROLE_LABEL[selectedAgentId] ?? selectedAgentId} · 审计 {selectedAgentAudit.length} 条
           </div>
           <div className="flex flex-col">
             {selectedAgentAudit.slice(0, 20).map((a) => (
               <div
                 key={a.id}
-                className="flex items-start gap-1.5 py-1 text-[10.5px]"
+                className="flex items-start gap-1.5 py-1 text-[10px]"
                 style={{ borderBottom: '0.5px dashed hsl(var(--border) / 0.6)' }}
               >
                 <span className="shrink-0 tabular-nums" style={{ color: 'hsl(var(--muted-foreground))' }}>
@@ -392,7 +392,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
               </div>
             ))}
             {selectedAgentAudit.length === 0 && (
-              <div className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <div className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 这个智能体还没有审计记录。
               </div>
             )}
@@ -401,10 +401,10 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
       ) : (
         <section>
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[11.5px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>
+            <span className="text-[10.5px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>
               审计流水
             </span>
-            <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
               近 {view?.audit.length ?? 0} 条
               {denied.length > 0 && ` · 其中被拒 ${denied.length}`}
             </span>
@@ -413,7 +413,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
             {(view?.audit ?? []).slice(0, 16).map((a) => (
               <div
                 key={a.id}
-                className="flex items-start gap-1.5 py-1 text-[10.5px]"
+                className="flex items-start gap-1.5 py-1 text-[10px]"
                 style={{ borderBottom: '0.5px dashed hsl(var(--border) / 0.6)' }}
               >
                 <span className="shrink-0 tabular-nums" style={{ color: 'hsl(var(--muted-foreground))' }}>
@@ -432,7 +432,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
               </div>
             ))}
             {view && view.audit.length === 0 && (
-              <div className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <div className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 还没有审计记录 —— 跑一段讨论或流水线就会出现。
               </div>
             )}
@@ -446,17 +446,17 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
     <>
       <span className="flex items-center gap-1.5">
         <span className="rounded-full" style={{ width: 7, height: 7, background: kindInk('agent') }} aria-hidden="true" />
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>智能体</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>智能体</span>
       </span>
       <span className="flex items-center gap-1.5">
         <span className="rounded-full" style={{ width: 7, height: 7, background: kindInk('memory') }} aria-hidden="true" />
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>记忆</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>记忆</span>
       </span>
       <span className="flex items-center gap-1.5">
         <span style={{ width: 14, height: 0, borderTop: `1.5px dashed ${ALERT_INK}` }} aria-hidden="true" />
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>被拒 / 冲突</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>被拒 / 冲突</span>
       </span>
-      <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+      <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
         点节点看明细 · 冲突节点可裁决 · 打开「边标签」看读写次数
       </span>
     </>
@@ -464,7 +464,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
 
   if (!projectId) {
     return (
-      <div className="p-6 text-[12px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+      <div className="p-6 text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
         未加载项目 —— 记忆审计需要一个项目上下文。
       </div>
     );
@@ -474,27 +474,27 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
     <div className="h-full flex flex-col gap-3">
       {/* 顶部条：说明 + 刷新 + 错误。刻意**不轮询** —— 读三张表，不是实时指标 */}
       <div
-        className="shrink-0 rounded-lg px-3 py-2 flex items-center gap-2"
+        className="shrink-0 rounded-lg px-3 py-2 flex items-center gap-3"
         style={{ background: 'hsl(var(--card) / 0.6)', border: '0.5px solid hsl(var(--border) / 0.6)' }}
       >
         <ShieldCheck size={14} style={{ color: 'hsl(var(--primary))' }} aria-hidden="true" />
-        <span className="text-[11.5px]" style={{ color: 'hsl(var(--foreground))' }}>记忆审计</span>
-        <span className="text-[10.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <span className="text-[10.5px]" style={{ color: 'hsl(var(--foreground))' }}>记忆审计</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           谁在什么用途下读了全局记忆 · 谁的私记最多 · 哪条事实冲突还没裁
         </span>
         {view && !view.available && (
-          <span className="text-[10.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             项目库还没建（先跑一次讨论或立设定，审计才会有内容）
           </span>
         )}
         {error && (
-          <span className="text-[11px]" style={{ color: ALERT_INK }}>读取失败：{error}</span>
+          <span className="text-[10px]" style={{ color: ALERT_INK }}>读取失败：{error}</span>
         )}
         <button
           type="button"
           onClick={() => void load()}
           aria-label="刷新"
-          className="ml-auto flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded"
+          className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded"
           style={{ background: 'transparent', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
         >
           {loading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
@@ -504,7 +504,7 @@ export function MemoryGraphPanel({ projectId }: { projectId?: string | null }) {
 
       {view && view.conflicts.length > 0 && (
         <div
-          className="shrink-0 rounded-lg px-3 py-2 flex items-center gap-2 text-[11px]"
+          className="shrink-0 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px]"
           style={{ background: 'hsl(var(--destructive) / 0.07)', border: `0.5px solid ${ALERT_INK}` }}
         >
           <AlertTriangle size={12} style={{ color: ALERT_INK }} aria-hidden="true" />

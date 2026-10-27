@@ -23,11 +23,24 @@ import type { FloatingPanelDef } from '@/plugin/types';
 //   这里统一经 lazyPanel 登记：谁被 React.lazy 包装，谁就自动进入预取列表。
 const panelLoaders: Array<() => Promise<unknown>> = [];
 
+/**
+ * 一个面板的「懒组件 + 预取入口」对。
+ *
+ * ★ 2026-10-26：`preload` 一并带出去（挂到 `FloatingPanelDef.preload`）——
+ *   宿主在**悬停活动栏图标**（意图已出现、点击尚未发生）时调它，把「点击后才开始下载
+ *   chunk、先闪一下加载中」变成「点击即命中模块缓存」。两者共用同一个 import()
+ *   说明符（这里只登记一次），不会各写一遍后漂移。
+ */
+interface LazyPanelEntry<T extends React.ComponentType<any>> {
+  Component: React.LazyExoticComponent<T>;
+  preload: () => Promise<unknown>;
+}
+
 function lazyPanel<T extends React.ComponentType<any>>(
   load: () => Promise<{ default: T }>,
-): React.LazyExoticComponent<T> {
+): LazyPanelEntry<T> {
   panelLoaders.push(load);
-  return React.lazy(load);
+  return { Component: React.lazy(load), preload: load as () => Promise<unknown> };
 }
 
 const ReferenceReader = lazyPanel(() => import('./editor/ReferenceReader').then((m) => ({ default: m.ReferenceReader })));
@@ -59,20 +72,20 @@ export function preloadPanels(): void {
  * 12 个工作台面板均属**手写台**（modes: ['manual']）。
  */
 export const BUILTIN_PANELS: FloatingPanelDef[] = [
-  { icon: BookText, label: '参考书', key: 'reference', Component: ReferenceReader, width: 560, height: 800, modes: ['manual'] },
-  { icon: StickyNote, label: '笔记', key: 'notes', Component: NoteManager, width: 900, height: 800, modes: ['manual'] },
-  { icon: BarChart3, label: '统计', key: 'stats', Component: WritingDashboard, width: 900, height: 800, modes: ['manual'] },
-  { icon: AlignLeft, label: '大纲', key: 'outline', Component: OutlinePage, width: 900, height: 800, modes: ['manual'] },
-  { icon: Clock, label: '时间线', key: 'timeline', Component: TimelinePage, width: 900, height: 800, modes: ['manual'] },
-  { icon: Users, label: '角色', key: 'characters', Component: CharacterManager, width: 900, height: 800, modes: ['manual'] },
-  { icon: MapPin, label: '地点', key: 'locations', Component: LocationManager, width: 900, height: 800, modes: ['manual'] },
-  { icon: Lightbulb, label: '伏笔', key: 'foreshadows', Component: ForeshadowManager, width: 900, height: 800, modes: ['manual'] },
-  { icon: Database, label: '物品', key: 'items', Component: ItemManager, width: 900, height: 800, modes: ['manual'] },
+  { icon: BookText, label: '参考书', key: 'reference', Component: ReferenceReader.Component, preload: ReferenceReader.preload, width: 560, height: 800, modes: ['manual'] },
+  { icon: StickyNote, label: '笔记', key: 'notes', Component: NoteManager.Component, preload: NoteManager.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: BarChart3, label: '统计', key: 'stats', Component: WritingDashboard.Component, preload: WritingDashboard.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: AlignLeft, label: '大纲', key: 'outline', Component: OutlinePage.Component, preload: OutlinePage.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: Clock, label: '时间线', key: 'timeline', Component: TimelinePage.Component, preload: TimelinePage.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: Users, label: '角色', key: 'characters', Component: CharacterManager.Component, preload: CharacterManager.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: MapPin, label: '地点', key: 'locations', Component: LocationManager.Component, preload: LocationManager.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: Lightbulb, label: '伏笔', key: 'foreshadows', Component: ForeshadowManager.Component, preload: ForeshadowManager.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: Database, label: '物品', key: 'items', Component: ItemManager.Component, preload: ItemManager.preload, width: 900, height: 800, modes: ['manual'] },
   // ★ 关系图是「重画布」面板：打开时**抢占中心编辑区**（ADR §1.6）——
   //   声明 `dock:{ center: true, slot: 'center' }` ⇒ DockShell 把它渲染到中心替换槽，
   //   而不是挤进右侧辅助侧栏（900×800 的图谱在侧栏里没法用）。
   //   `center` 是显式布尔（裁定见 ADR §1.4），`slot:'center'` 只是建议落位，二者分工不同。
-  { icon: Network, label: '关系图', key: 'relationGraph', Component: RelationGraph, width: 900, height: 800, modes: ['manual'], dock: { center: true, slot: 'center' } },
-  { icon: Map, label: '地图', key: 'storyMap', Component: StoryMap, width: 900, height: 800, modes: ['manual'] },
-  { icon: Download, label: '导出', key: 'export', Component: ExportDialog, width: 800, height: 700, modes: ['manual'] },
+  { icon: Network, label: '关系图', key: 'relationGraph', Component: RelationGraph.Component, preload: RelationGraph.preload, width: 900, height: 800, modes: ['manual'], dock: { center: true, slot: 'center' } },
+  { icon: Map, label: '地图', key: 'storyMap', Component: StoryMap.Component, preload: StoryMap.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: Download, label: '导出', key: 'export', Component: ExportDialog.Component, preload: ExportDialog.preload, width: 800, height: 700, modes: ['manual'] },
 ] as FloatingPanelDef[];

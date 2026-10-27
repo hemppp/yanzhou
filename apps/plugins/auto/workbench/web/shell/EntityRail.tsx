@@ -40,7 +40,7 @@ interface EntityRailProps {
  *   那套参数就表现为「一片平铺的文本、看不出分区」。现在：
  *   · 背景改为**不透明** card —— 卡片边界才立得住
  *   · 边框 1px、加极轻投影 —— 在纸白底上给一层"浮起"
- *   · 标题栏加浅底 + 字号 12.5px、内边距 px-3.5 py-3
+ *   · 标题栏加浅底 + 字号 12.5px、内边距 px-3 py-3
  */
 function RailCard({ icon: Icon, title, count, color, children }: {
   icon: typeof Users;
@@ -59,30 +59,30 @@ function RailCard({ icon: Icon, title, count, color, children }: {
       }}
     >
       <header
-        className="flex items-center gap-2 px-3.5 py-2.5"
+        className="flex items-center gap-2 px-3 py-2.5"
         style={{
           borderBottom: '1px solid hsl(var(--border) / 0.5)',
           background: 'hsl(var(--muted) / 0.5)',
         }}
       >
         <Icon size={13} style={{ color }} aria-hidden="true" />
-        <span className="text-[12.5px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
+        <span className="text-[11.5px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
           {title}
         </span>
         {typeof count === 'number' && (
-          <span className="ml-auto text-[12px] tabular-nums" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="ml-auto text-[11px] tabular-nums" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {count}
           </span>
         )}
       </header>
-      <div className="px-3.5 py-3">{children}</div>
+      <div className="px-3 py-3">{children}</div>
     </section>
   );
 }
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="text-[12px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+    <div className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
       {text}
     </div>
   );
@@ -118,7 +118,7 @@ export function EntityRail({ projectId }: EntityRailProps) {
             { label: '物品', n: pItems.length, c: 'var(--entity-item)' },
             { label: '伏笔', n: pFsh.length, c: 'var(--entity-foreshadow)' },
           ].map((row) => (
-            <li key={row.label} className="flex items-center gap-1.5 text-[12px]">
+            <li key={row.label} className="flex items-center gap-1.5 text-[11px]">
               <span
                 className="rounded-full"
                 style={{ width: 5, height: 5, background: `hsl(${row.c})` }}
@@ -139,12 +139,12 @@ export function EntityRail({ projectId }: EntityRailProps) {
         ) : (
           <ul className="space-y-1">
             {pLocs.slice(0, 8).map((l) => (
-              <li key={l.id} className="text-[12px] truncate" style={{ color: 'hsl(var(--ink-light))' }} title={l.name}>
+              <li key={l.id} className="text-[11px] truncate" style={{ color: 'hsl(var(--ink-light))' }} title={l.name}>
                 {l.name}
               </li>
             ))}
             {pLocs.length > 8 && (
-              <li className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <li className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 还有 {pLocs.length - 8} 处…
               </li>
             )}
@@ -160,10 +160,10 @@ export function EntityRail({ projectId }: EntityRailProps) {
             {pItems.slice(0, 6).map((it) => {
               const last = (it.states ?? []).slice().sort((a, b) => b.chapter - a.chapter)[0];
               return (
-                <li key={it.id} className="text-[12px] truncate" style={{ color: 'hsl(var(--ink-light))' }} title={`${it.name}${last ? ` · Ch${last.chapter} ${last.newValue}` : ''}`}>
+                <li key={it.id} className="text-[11px] truncate" style={{ color: 'hsl(var(--ink-light))' }} title={`${it.name}${last ? ` · Ch${last.chapter} ${last.newValue}` : ''}`}>
                   {it.name}
                   {last && (
-                    <span className="text-[11px] ml-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                    <span className="text-[10px] ml-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
                       {last.newValue}
                     </span>
                   )}
@@ -185,7 +185,7 @@ export function EntityRail({ projectId }: EntityRailProps) {
         ) : (
           <>
             {openFsh > 0 && (
-              <div className="text-[11px] mb-1.5" style={{ color: 'hsl(var(--state-running))' }}>
+              <div className="text-[10px] mb-1.5" style={{ color: 'hsl(var(--state-running))' }}>
                 {openFsh} 条未回收
               </div>
             )}
@@ -193,12 +193,12 @@ export function EntityRail({ projectId }: EntityRailProps) {
               {pFsh.slice(0, 6).map((f) => {
                 const open = f.status !== 'payed_off' && f.status !== 'abandoned';
                 return (
-                  <li key={f.id} className="flex items-baseline gap-1 text-[12px]">
+                  <li key={f.id} className="flex items-baseline gap-1 text-[11px]">
                     <span className="truncate" style={{ color: 'hsl(var(--ink-light))' }} title={f.description}>
                       {f.description}
                     </span>
                     <span
-                      className="ml-auto shrink-0 text-[11px]"
+                      className="ml-auto shrink-0 text-[10px]"
                       style={{ color: open ? 'hsl(var(--state-running))' : 'hsl(var(--state-done))' }}
                     >
                       {open ? `Ch${f.seedChapter}` : '✓'}
@@ -218,10 +218,10 @@ export function EntityRail({ projectId }: EntityRailProps) {
         ) : (
           <ul className="space-y-1">
             {pChars.slice(0, 6).map((c) => (
-              <li key={c.id} className="flex items-baseline gap-1 text-[12px]">
+              <li key={c.id} className="flex items-baseline gap-1 text-[11px]">
                 <span className="truncate" style={{ color: 'hsl(var(--ink-light))' }}>{c.name}</span>
                 {c.role && (
-                  <span className="ml-auto shrink-0 text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  <span className="ml-auto shrink-0 text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                     {c.role === 'protagonist' ? '主角' : c.role === 'femaleLead' ? '女主' : c.role === 'supporting' ? '配角' : '路人'}
                   </span>
                 )}

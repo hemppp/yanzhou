@@ -311,13 +311,13 @@ export function AiChatPanel() {
           y31..63（原 `h-9` = 36px 偏高 3px）；且参考图右栏 y63 无分隔线（`#fdfdfd`），
           故不画 `border-b` —— 全应用只有中心栏组头在 y63 有一条 `#dcdcdc` 细线。 */}
       <div className="flex h-[33px] shrink-0 items-center justify-between px-3">
-        <span className="flex items-center gap-1.5 text-[12px] font-semibold text-tone">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-tone">
           <Sparkles size={12} aria-hidden="true" className="text-tone-3" />
           AI 对话
         </span>
         <span className="flex items-center gap-1.5">
           <span
-            className="text-[11px] text-tone-3"
+            className="text-[10px] text-tone-3"
             title={`当前智能体：${activeAgent.name}（${activeAgent.id}）`}
           >
             {activeAgent.name}
@@ -348,7 +348,7 @@ export function AiChatPanel() {
         className="flex-1 min-h-0 overflow-y-auto mc-scrollbar px-3 py-3 space-y-3"
       >
         {messages.length === 0 ? (
-          <p className="pt-6 text-center text-[11.5px] leading-[1.7] text-tone-3">
+          <p className="pt-6 text-center text-[10.5px] leading-[1.7] text-tone-3">
             问点什么，开始与 AI 讨论这一章。
           </p>
         ) : (
@@ -397,7 +397,7 @@ function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end" data-message-role="user" aria-label="用户消息">
       <div
-        className="max-w-[86%] whitespace-pre-wrap rounded-window px-2.5 py-1.5 text-[12.5px] leading-[1.6] text-tone"
+        className="max-w-[86%] whitespace-pre-wrap rounded-window px-2.5 py-1.5 text-[11.5px] leading-[1.6] text-tone"
         style={{ background: 'hsl(var(--paper-hover-2))' }}
       >
         {text}
@@ -422,24 +422,24 @@ function AssistantBlock({
       <div className="flex items-center gap-1.5">
         <span
           aria-hidden="true"
-          className="flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-paper"
+          className="flex size-4 shrink-0 items-center justify-center rounded-full text-[9.5px] font-medium text-paper"
           style={{ background: agent.color ?? 'hsl(var(--tone-3))' }}
         >
           {agent.short ?? '·'}
         </span>
-        <span className="text-[11px] font-medium text-tone-2">{agent.name}</span>
-        <span className="mc-num text-[10.5px] text-tone-3" title="智能体 id">
+        <span className="text-[10px] font-medium text-tone-2">{agent.name}</span>
+        <span className="mc-num text-[10px] text-tone-3" title="智能体 id">
           {agent.id}
         </span>
       </div>
 
       {message.thinking.length > 0 &&
         (message.content.length > 0 ? (
-          <div className="mc-num text-[11px] text-tone-3">
+          <div className="mc-num text-[10px] text-tone-3">
             已思考 {message.thinking.length} 字
           </div>
         ) : (
-          <div className="whitespace-pre-wrap text-[11.5px] leading-[1.6] text-tone-3">
+          <div className="whitespace-pre-wrap text-[10.5px] leading-[1.6] text-tone-3">
             {message.thinking}
           </div>
         ))}
@@ -447,12 +447,12 @@ function AssistantBlock({
       {message.content.length > 0 ? (
         <StreamingText
           streaming={message.status === 'streaming'}
-          className="whitespace-pre-wrap text-[12.5px] leading-[1.65] text-tone"
+          className="whitespace-pre-wrap text-[11.5px] leading-[1.65] text-tone"
         >
           {message.content}
         </StreamingText>
       ) : message.status === 'streaming' ? (
-        <StreamingText streaming className="text-[12.5px] text-tone-3">
+        <StreamingText streaming className="text-[11.5px] text-tone-3">
           正在思考…
         </StreamingText>
       ) : null}
@@ -462,7 +462,7 @@ function AssistantBlock({
           {message.tools.map((t) => (
             <span
               key={t}
-              className="mc-num rounded-chip border px-1.5 py-0.5 text-[10.5px] text-tone-3"
+              className="mc-num rounded-chip border px-1.5 py-0.5 text-[10px] text-tone-3"
               style={{ borderColor: 'hsl(var(--paper-line))' }}
             >
               {t}
@@ -473,14 +473,14 @@ function AssistantBlock({
 
       {message.status === 'error' && (
         <div role="alert" className="space-y-1">
-          <div className="text-[11.5px] leading-[1.6] text-sig-stop">
+          <div className="text-[10.5px] leading-[1.6] text-sig-stop">
             发送失败：{message.error ?? '未知错误'}
           </div>
           <button
             type="button"
             onClick={onRetry}
             disabled={!canRetry}
-            className="inline-flex items-center gap-1 rounded-chip px-1.5 py-0.5 text-[11px] text-tone-2 transition-colors hover:text-tone disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-chip px-1.5 py-0.5 text-[10px] text-tone-2 transition-colors hover:text-tone disabled:opacity-50"
           >
             <RotateCcw size={11} aria-hidden="true" />
             重试

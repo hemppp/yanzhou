@@ -120,7 +120,7 @@ function Gallery() {
           onApprove={() => {}}
           onReject={() => {}}
           preview={
-            <div className="whitespace-pre-wrap p-2.5 text-[11.5px] leading-relaxed text-tone-2">
+            <div className="whitespace-pre-wrap p-2.5 text-[10.5px] leading-relaxed text-tone-2">
               {'- 他握紧了铜镜，指节发白。\n+ 他握紧了铜镜 —— 冰凉的镜面贴住掌心，像一句迟到的回答。'}
             </div>
           }
@@ -129,7 +129,7 @@ function Gallery() {
 
       <Block title="StreamingText + 尾部光标 + 来源堆叠 + 行内动作">
         <StreamingText streaming className="max-w-[34rem]">
-          <p className="m-0 text-[12.5px] leading-relaxed text-tone">
+          <p className="m-0 text-[11.5px] leading-relaxed text-tone">
             铜镜在火光里转了一下，映出的不是他的脸，而是三年前那场雨。
           </p>
         </StreamingText>
@@ -179,10 +179,10 @@ function Gallery() {
 
       <Block title="墨阶文字三档（对比度实测：tone-2 ≥4.61:1 / tone-3 仅装饰）">
         <div className="space-y-1">
-          <p className="text-[12.5px] text-tone">tone —— 正文 / 用户需要读的一切</p>
-          <p className="text-[12.5px] text-tone-2">tone-2 —— 标签 / 说明 / 表格 meta</p>
-          <p className="text-[12.5px] text-tone-3">tone-3 —— placeholder / disabled / 装饰</p>
-          <p className="mc-num text-[12.5px] text-tone-2">等宽数位 mc-num：1,234 字 · 56 秒 · 98.7%</p>
+          <p className="text-[11.5px] text-tone">tone —— 正文 / 用户需要读的一切</p>
+          <p className="text-[11.5px] text-tone-2">tone-2 —— 标签 / 说明 / 表格 meta</p>
+          <p className="text-[11.5px] text-tone-3">tone-3 —— placeholder / disabled / 装饰</p>
+          <p className="mc-num text-[11.5px] text-tone-2">等宽数位 mc-num：1,234 字 · 56 秒 · 98.7%</p>
         </div>
       </Block>
 
@@ -191,22 +191,22 @@ function Gallery() {
             拼接出来的类名它看不见、不会生成 —— 那样这里会全渲染成直角，
             验证就成了假阴性（而且会让人误以为是 CSS 没生效）。 */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-chip bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-hairline">chip 6px</div>
-          <div className="rounded-control bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-hairline">control 8px</div>
-          <div className="rounded-card bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-hairline">card 10px</div>
-          <div className="rounded-window bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-hairline">window 14px</div>
+          <div className="rounded-chip bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-hairline">chip 6px</div>
+          <div className="rounded-control bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-hairline">control 8px</div>
+          <div className="rounded-card bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-hairline">card 10px</div>
+          <div className="rounded-window bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-hairline">window 14px</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <div className="rounded-card bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-hairline">hairline</div>
-          <div className="rounded-card bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-card">card</div>
-          <div className="rounded-card bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-raised">raised</div>
-          <div className="rounded-card bg-paper px-3 py-2 text-[11.5px] text-tone-2 shadow-overlay">overlay</div>
+          <div className="rounded-card bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-hairline">hairline</div>
+          <div className="rounded-card bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-card">card</div>
+          <div className="rounded-card bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-raised">raised</div>
+          <div className="rounded-card bg-paper px-3 py-2 text-[10.5px] text-tone-2 shadow-overlay">overlay</div>
         </div>
       </Block>
 
-      <Block title="字号地板（text-[10.5px] 应被抬到 11.5px）">
-        <p className="text-[10.5px] text-tone-2">这行写的是 text-[10.5px]</p>
+      <Block title="字号地板（text-[10px] 应被抬到 11.5px）">
         <p className="text-[10px] text-tone-2">这行写的是 text-[10px]</p>
+        <p className="text-[9.5px] text-tone-2">这行写的是 text-[9.5px]</p>
         <p className="text-[8px] text-tone-2">这行写的是 text-[8px]</p>
       </Block>
     </div>
@@ -235,7 +235,7 @@ function App() {
               key={t}
               onClick={() => setTheme(t)}
               data-theme-btn={t}
-              className={`mc-press rounded-control px-2.5 py-1 text-[11.5px] ${
+              className={`mc-press rounded-control px-2.5 py-1 text-[10.5px] ${
                 theme === t ? 'bg-primary text-primary-foreground' : 'bg-paper-hover-2 text-tone-2'
               }`}
             >

@@ -27,6 +27,11 @@ export interface WorkbenchPanel {
   /** 'live' = 写作中（实时运转的数据）/ 'data' = 资料 */
   group: 'live' | 'data';
   Component: PanelComponent;
+  /**
+   * ★ 2026-10-26：该看板 chunk 的**预取**入口（随 `FloatingPanelDef.preload` 带下来，见其注释）。
+   *   气泡列在**悬停气泡**（意图已出现、点击尚未发生）时调它 ⇒ 点开看板不再先闪加载中。
+   */
+  preload?: () => Promise<unknown>;
 }
 
 /** 正文主视图的最小宽 —— 低于它就把分页区挪到下方（**任何情况都不覆盖正文**） */

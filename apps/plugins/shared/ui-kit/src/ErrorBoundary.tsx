@@ -152,7 +152,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
                   style={{
                     background: 'hsl(var(--foreground) / 0.06)',
                     borderRadius: 'var(--r-sm)',
-                    fontSize: '11px',
+                    fontSize: '10px',
                     lineHeight: '1.6',
                     maxHeight: '200px',
                     overflowY: 'auto',

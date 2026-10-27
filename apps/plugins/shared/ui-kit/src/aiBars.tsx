@@ -177,13 +177,13 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
       <div className="space-y-2">
         {QUICK_PROMPTS.map((group) => (
           <div key={group.category} role="group" aria-label={group.category}>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-1">{group.category}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1">{group.category}</div>
             <div className="flex flex-wrap gap-1">
               {group.items.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => onPick(prompt)}
-                  className="px-2 py-1 text-[11px] rounded-full transition-all hover:scale-105 active:scale-95"
+                  className="px-2 py-1 text-[10px] rounded-full transition-all hover:scale-105 active:scale-95"
                   style={chipStyle(group.color)}
                   title={prompt}
                 >
@@ -202,7 +202,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
       <div className="flex items-center gap-1.5 mb-1.5">
         <button
           onClick={() => setExpanded(v => !v)}
-          className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 rounded-xl transition-colors px-1.5 py-0.5"
+          className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 rounded-xl transition-colors px-1.5 py-0.5"
           aria-expanded={expanded}
           aria-label={expanded ? '收起快捷语' : '展开快捷语'}
         >
@@ -221,7 +221,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
             <button
               key={prompt}
               onClick={() => onPick(prompt)}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[12px] transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
               style={chipStyle(color)}
               title={prompt}
             >
@@ -248,7 +248,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
             return (
               <div key={group.category} role="group" aria-label={group.category}>
                 <div
-                  className="text-[11px] uppercase tracking-wider mb-1 px-0.5 flex items-center gap-1"
+                  className="text-[10px] uppercase tracking-wider mb-1 px-0.5 flex items-center gap-1"
                   style={{ color: group.color, opacity: 0.85 }}
                 >
                   <Icon size={10} aria-hidden="true" />
@@ -259,7 +259,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
                     <button
                       key={prompt}
                       onClick={() => { onPick(prompt); setExpanded(false); }}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[12px] transition-all hover:scale-105 active:scale-95"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] transition-all hover:scale-105 active:scale-95"
                       style={chipStyle(group.color)}
                       title={prompt}
                     >
@@ -361,7 +361,7 @@ export function SkillsBar({
   });
 
   const emptyHint = skills.length === 0 ? (
-    <div className="col-span-2 py-3 text-center text-[11px] text-muted-foreground" role="status">
+    <div className="col-span-2 py-3 text-center text-[10px] text-muted-foreground" role="status">
       {loading ? '技能列表加载中…' : '暂无可用技能'}
     </div>
   ) : null;
@@ -394,10 +394,10 @@ export function SkillsBar({
               >
                 <Icon size={14} style={{ color: skill.color }} className="shrink-0 mt-0.5" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12px] font-semibold truncate" style={{ color: skill.color }}>
+                  <div className="text-[11px] font-semibold truncate" style={{ color: skill.color }}>
                     {skill.name}
                   </div>
-                  <div className="text-[11px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">
+                  <div className="text-[10px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">
                     {skill.description}
                   </div>
                 </div>
@@ -412,7 +412,7 @@ export function SkillsBar({
             onClick={onOpenSettings}
             // ★ nm-no-brush：这个按钮用 dashed 表达「还没启用」，边框是装饰性的，
             //   刻意不加装饰性外框。显式加类，别依赖「inline border 简写重置 border-image」的副作用。
-            className="nm-no-brush w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all hover:scale-[1.02] active:scale-95"
+            className="nm-no-brush w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-medium transition-all hover:scale-[1.02] active:scale-95"
             style={{
               background: 'rgb(var(--glass-tint) / 0.4)',
               backdropFilter: 'blur(20px) saturate(180%)',
@@ -437,7 +437,7 @@ export function SkillsBar({
         {showToggle && (
           <button
             onClick={() => setExpanded(v => !v)}
-            className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 rounded-xl transition-colors px-1.5 py-0.5"
+            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 rounded-xl transition-colors px-1.5 py-0.5"
             aria-expanded={expanded}
             aria-label={expanded ? '收起技能' : '展开技能'}
           >
@@ -448,7 +448,7 @@ export function SkillsBar({
         )}
         {activeSkill && (
           <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
             style={chipStyle(activeSkill.color, true)}
           >
             <activeSkill.icon size={10} style={{ color: activeSkill.color }} aria-hidden="true" />
@@ -498,10 +498,10 @@ export function SkillsBar({
                 >
                   <Icon size={14} style={{ color: skill.color }} className="shrink-0 mt-0.5" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[12px] font-semibold truncate" style={{ color: skill.color }}>
+                    <div className="text-[11px] font-semibold truncate" style={{ color: skill.color }}>
                       {skill.name}
                     </div>
-                    <div className="text-[11px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">
+                    <div className="text-[10px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">
                       {skill.description}
                     </div>
                   </div>
@@ -515,7 +515,7 @@ export function SkillsBar({
             <button
               onClick={() => { onOpenSettings(); setExpanded(false); }}
               // ★ nm-no-brush：同上，dashed 引导按钮刻意不穿笔触（显式标记，不靠副作用）
-              className="nm-no-brush w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all hover:scale-[1.02] active:scale-95"
+              className="nm-no-brush w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-medium transition-all hover:scale-[1.02] active:scale-95"
               style={{
                 background: 'rgb(var(--glass-tint) / 0.4)',
                 backdropFilter: 'blur(20px) saturate(180%)',

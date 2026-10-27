@@ -2,6 +2,7 @@ import { useMemo, useRef, useCallback } from 'react';
 import { useTimelineStore, useCharacterStore, useChapterStore } from '@novel-plugins/data-core/stores';
 import { useChapterJumpStore } from '../stores/chapterJumpStore';
 import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
+import { openChapterInEditor } from '../utils/openChapter';
 import { CalendarClock, ArrowUpRight } from 'lucide-react';
 import type { TimelineEvent } from '@novel/shared';
 
@@ -51,7 +52,6 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
   const events = useTimelineStore((s) => s.events);
   const characters = useCharacterStore((s) => s.characters);
   const chapters = useChapterStore((s) => s.chapters);
-  const setCurrentChapter = useChapterStore((s) => s.setCurrentChapter);
   const triggerJumpHighlight = useChapterJumpStore((s) => s.triggerJumpHighlight);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -94,7 +94,9 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
     const target = projectChapters.find((c) => c.order === order)
       ?? projectChapters.slice().sort((a, b) => a.order - b.order)[0];
     if (target) {
-      setCurrentChapter(target.id);
+      // ★ 2026-10-26：跳章必须走 openChapterInEditor —— 时间线面板本身也占着中心区，
+      //   只 setCurrentChapter 的话用户看不到编辑器（表现为"点了没反应"）。
+      openChapterInEditor(target.id);
       triggerJumpHighlight(JSON.stringify({
         title: title ?? '',
         desc: description ?? '',
@@ -107,7 +109,7 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
         chars: charNames ?? [],
       }));
     }
-  }, [projectChapters, setCurrentChapter, triggerJumpHighlight]);
+  }, [projectChapters, triggerJumpHighlight]);
 
   if (!projectId) {
     return (
@@ -169,10 +171,10 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
                   borderLeft: selectedChapter === 'all'
                     ? `3px solid ${accent}60`
                     : 'none',
-                  paddingLeft: selectedChapter === 'all' ? '12px' : '0',
-                  paddingTop: '8px',
-                  paddingBottom: '8px',
-                  paddingRight: '8px',
+                  paddingLeft: selectedChapter === 'all' ? 'var(--space-5)' : '0',
+                  paddingTop: 'var(--space-3)',
+                  paddingBottom: 'var(--space-3)',
+                  paddingRight: 'var(--space-3)',
                 }}
               >
                 {/* 统一宽度容器：单章视图时居中限宽，全部视图时占满 */}
@@ -221,7 +223,7 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
                   >
                     {group.chapterTitle || `第${group.chapter}章`}
                   </div>
-                  <div className="text-[11px] mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  <div className="text-[10px] mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
                     {group.events.length} 个事件
                   </div>
                 </button>
@@ -290,19 +292,19 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
 
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span
-                                className="text-[11px] px-1.5 py-0.5 rounded-xl font-medium shrink-0"
+                                className="text-[10px] px-1.5 py-0.5 rounded-xl font-medium shrink-0"
                                 style={{ background: `${accent}18`, color: accent }}
                               >
                                 第{ev.chapter}章
                               </span>
                               <span
-                                className="text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0"
+                                className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
                                 style={{ background: `${color}18`, color }}
                               >
                                 {typeLabels[ev.type] || ev.type}
                               </span>
                               {ev.timestamp && (
-                                <span className="text-[11px] shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                                <span className="text-[10px] shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }}>
                                   {ev.timestamp}
                                 </span>
                               )}
@@ -311,7 +313,7 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
                                   {eventChars.slice(0, 2).map((c) => (
                                     <span
                                       key={c.id}
-                                      className="text-[11px] px-1.5 py-0.5 rounded-full"
+                                      className="text-[10px] px-1.5 py-0.5 rounded-full"
                                       style={{
                                         background: `${c.color || '#8b5cf6'}15`,
                                         color: c.color || '#8b5cf6',
@@ -321,7 +323,7 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
                                     </span>
                                   ))}
                                   {eventChars.length > 2 && (
-                                    <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                                    <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                                       +{eventChars.length - 2}
                                     </span>
                                   )}
@@ -397,7 +399,7 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
                         <span className="text-xs truncate flex-1" style={{ color: 'hsl(var(--foreground))' }}>
                           第{group.chapter}章
                         </span>
-                        <span className="text-[11px] shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        <span className="text-[10px] shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }}>
                           {group.events.length}
                         </span>
                       </button>

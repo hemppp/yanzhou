@@ -29,6 +29,12 @@ import {
   ALL_ROUTE_LOADERS,
 } from './routes/prefetch';
 
+// ★ 2026-10-27 UI 改造对照页：**仅开发环境**注册（生产构建里这条 lazy 不会被构造，
+//   也不会进包）。它只做"看长相"，不接 store、不调 API —— 见该文件头注。
+const UiPreviewPage = import.meta.env.DEV
+  ? React.lazy(() => import('./dev/UiPreviewPage').then((m) => ({ default: m.UiPreviewPage })))
+  : null;
+
 const ProjectLayout = lazyRoute(loadProjectLayout);
 const ProjectIndexPage = lazyRoute(loadProjectIndex);
 // ★ D44：manual 模块缺席 ⇒ loadChapterEditor 为 null ⇒ 不构造 lazy 路由（不伪造兜底）
@@ -201,6 +207,8 @@ const AppRoutes: React.FC = () => {
         {ChapterEditor && <Route path=':bookId/:chapterId' element={<ChapterEditor />} />}
       </Route>
       <Route path={PATHS.settings} element={<ProtectedRoute><PageFade><SettingsPage /></PageFade></ProtectedRoute>} />
+      {/* ★ UI 改造对照页（仅 dev）：不需要登录 —— 它不读任何业务数据 */}
+      {UiPreviewPage && <Route path='/dev/ui-preview' element={<React.Suspense fallback={null}><UiPreviewPage /></React.Suspense>} />}
       <Route path={PATHS.admin} element={<ProtectedRoute requireAdmin><PageFade><AdminPage /></PageFade></ProtectedRoute>} />
       <Route path={PATHS.login} element={<PageFade><LoginPage /></PageFade>} />
       <Route path={PATHS.register} element={<PageFade><RegisterPage /></PageFade>} />

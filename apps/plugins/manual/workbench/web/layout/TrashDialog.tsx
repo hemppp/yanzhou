@@ -104,7 +104,7 @@ export function TrashDialog({ visible, onClose }: TrashDialogProps) {
             <button
               onClick={handleEmptyAll}
               disabled={busy}
-              className="text-[11px] px-2 py-1 rounded-xl transition-colors hover:bg-[hsl(var(--cinnabar-pale) / 0.6)] disabled:opacity-40"
+              className="text-[10px] px-2 py-1 rounded-xl transition-colors hover:bg-[hsl(var(--cinnabar-pale) / 0.6)] disabled:opacity-40"
               style={{ color: 'hsl(var(--cinnabar))' }}
               title="清空回收站"
               aria-label="清空回收站"
@@ -134,9 +134,9 @@ export function TrashDialog({ visible, onClose }: TrashDialogProps) {
         {/* 列表 */}
         <div className="nm-modal-body px-2 py-2 space-y-1.5">
           {trashed.length === 0 ? (
-            <div className="py-10 text-center">
+            <div className="py-8 text-center">
               <div className="text-3xl mb-2 opacity-50">🗑️</div>
-              <p className="text-[12px]" style={{ color: 'hsl(var(--ink-pale))' }}>
+              <p className="text-[11px]" style={{ color: 'hsl(var(--ink-pale))' }}>
                 {loading ? '加载中...' : '回收站为空'}
               </p>
             </div>
@@ -147,10 +147,10 @@ export function TrashDialog({ visible, onClose }: TrashDialogProps) {
                 className="nm-modal-item"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-medium truncate" style={{ color: 'hsl(var(--foreground))' }}>
+                  <div className="text-[11px] font-medium truncate" style={{ color: 'hsl(var(--foreground))' }}>
                     {ch.title || '未命名章节'}
                   </div>
-                  <div className="text-[11px] mt-0.5 flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))' }}>
+                  <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))' }}>
                     <span>{ch.wordCount.toLocaleString()} 字</span>
                     {ch.deletedAt && (
                       <span>· 删除于 {new Date(ch.deletedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
@@ -160,7 +160,7 @@ export function TrashDialog({ visible, onClose }: TrashDialogProps) {
                 <button
                   onClick={() => handleRestore(ch.id)}
                   disabled={busy}
-                  className="shrink-0 flex items-center gap-1 px-2 py-1 text-[11px] rounded-xl transition-colors hover:bg-[hsl(var(--willow-pale) / 0.7)] disabled:opacity-40"
+                  className="shrink-0 flex items-center gap-1 px-2 py-1 text-[10px] rounded-xl transition-colors hover:bg-[hsl(var(--willow-pale) / 0.7)] disabled:opacity-40"
                   style={{ color: 'hsl(var(--willow))' }}
                   title="还原章节"
                   aria-label="还原章节"
@@ -187,7 +187,7 @@ export function TrashDialog({ visible, onClose }: TrashDialogProps) {
         {trashed.length > 0 && (
           <div className="nm-modal-footer" style={{ justifyContent: 'flex-start' }}>
             <AlertTriangle size={11} style={{ color: 'hsl(var(--ochre))' }} aria-hidden="true" />
-            <span className="text-[11px]" style={{ color: 'hsl(var(--ink-pale))' }}>
+            <span className="text-[10px]" style={{ color: 'hsl(var(--ink-pale))' }}>
               软删除的章节可随时还原；点击"彻底删除"将永久移除。
             </span>
           </div>

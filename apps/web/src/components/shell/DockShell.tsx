@@ -56,7 +56,13 @@ import {
 } from './dock/DockPanelContent';
 import { CenterGraphPanel } from './dock/CenterGraphPanel';
 // ★ t6 去层：中心组头渲染「文档标签行」（原先顶栏之下的独立 30px 横条）
-import { DocTabsHeader } from './DocTabs';
+import { DocTabsHeader, type DocTabsGroupScope } from './DocTabs';
+// ★ 2026-10-25 分屏：拖拽标签到编辑区左右边缘的落点层
+import {
+  DocSplitDropZone,
+  subscribeSplitDrag,
+  type SplitSide,
+} from './dock/DocSplitDropZone';
 import {
   CENTER_DEFAULT_PANEL_ID,
   DOCK_PANEL_COMPONENT_ID,
@@ -218,12 +224,35 @@ function ActivityBar({
   openKeys,
   onSelect,
 }: {
-  items: { key: string; label: string; icon: React.ComponentType<{ size?: number }> }[];
+  items: {
+    key: string;
+    label: string;
+    icon: React.ComponentType<{ size?: number }>;
+    /** ★ 面板 chunk 预取入口（见 `FloatingPanelDef.preload`）：悬停即预热 */
+    preload?: () => Promise<unknown>;
+  }[];
   activeKey: string | null;
   /** 当前已打开的面板 key（受控集合；用于开关态的 aria-pressed 与提示文案） */
   openKeys: readonly string[];
   onSelect: (key: string) => void;
 }) {
+  /**
+   * ★ 2026-10-26（用户口径「点开面板时闪一下加载，很影响体验」）：**意图预取**。
+   *   鼠标移到图标上 / 键盘聚焦到图标上 = 用户意图已经出现，但点击还没发生 ——
+   *   这就是下载这个面板 chunk 的最佳时机（人手的悬停→点击通常有 200ms 以上）。
+   *   每个 key 只发一次；失败一律静默（预热坏掉绝不能影响正常打开面板）。
+   *   与模块入口的 idle 预取共用同一个 import() 说明符 ⇒ 重复调用是廉价 no-op。
+   */
+  const warmed = useRef<Set<string>>(new Set());
+  const warm = useCallback(
+    (it: { key: string; preload?: () => Promise<unknown> }) => {
+      if (!it.preload || warmed.current.has(it.key)) return;
+      warmed.current.add(it.key);
+      void it.preload().catch(() => {});
+    },
+    [],
+  );
+
   return (
     <nav className="dock-activity-bar" aria-label="活动栏">
       {items.map((it) => {
@@ -238,6 +267,8 @@ function ActivityBar({
             title={open ? `${it.label}（点击收起）` : `${it.label}（点击打开）`}
             aria-label={it.label}
             aria-pressed={open}
+            onMouseEnter={() => warm(it)}
+            onFocus={() => warm(it)}
             onClick={() => onSelect(it.key)}
           >
             {/* ★ t6 尺寸对齐参考图：参考图条目内图标墨迹实测 ~15×10（≈18px lucide），原 22px 偏大。 */}
@@ -285,6 +316,27 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
   /** ★ t1：底部面板细条的展开态（Ctrl+J / 点击左端标题切换）。 */
   const [bottomOpen, setBottomOpen] = useState(false);
   /**
+   * ★ 2026-10-25 分屏：
+   *   · `splitScope` —— 顶部标签条据此只显示「聚焦那一栏」的标签；
+   *   · `dragging`   —— 标签拖拽中才挂载落点层（非拖拽态不留透明覆盖层）。
+   * 两者都是**视图态**，不进 store：分屏不改变「打开了什么」，只改变「摆在哪」。
+   */
+  const [splitScope, setSplitScope] = useState<DocTabsGroupScope | null>(null);
+  /**
+   * ★ 2026-10-25：拖拽态由 `DocSplitDropZone` 的模块级单例驱动（起点在标签条、
+   * 落点在编辑区，跨组件）。这里只订阅「是否在拖 + 拖的是谁」。
+   */
+  const [dragState, setDragState] = useState<{ key: string } | null>(null);
+
+  useEffect(() => {
+    return subscribeSplitDrag((state) => {
+      setDragState((prev) => {
+        if (!state) return prev === null ? prev : null;
+        return prev?.key === state.key ? prev : { key: state.key };
+      });
+    });
+  }, []);
+  /**
    * ★ 底部面板分区（插件注册的栏目）。
    *   细条右侧渲染各分区的 `ThinEntry`（入口 / 计数），展开区先渲染各分区
    *   的 `Component`（一栏），再渲染调用方给的 `bottomPanel.children`（问题清单）。
@@ -324,21 +376,43 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
     // 仅在首次挂载 / panels 身份变化时重算（外部受控时以 openKeys 为准）
   }, [panels, openKeys]);
 
-  /** 把当前 dockview 面板集合回写成业务 key 数组（中心默认面板不算业务面板）。 */
+  /**
+   * 把当前 dockview 面板集合回写成业务 key 数组（中心默认面板不算业务面板）。
+   *
+   * ★ 2026-10-25 分屏：`dock.panels` 的顺序是 **组序 × 组内序**
+   *   （`DockviewComponent.panels = groups.flatMap(g => g.panels)`）。
+   *   分屏会把面板挪到后建的组里，于是**下一次**上报的顺序会整体重排 ——
+   *   而 store 的 `keys` 语义是「**打开顺序**」（标签条顺序、localStorage 持久化都用它），
+   *   不该被「摆在哪一栏」改写。
+   *
+   *   故上报时以**受控的 `openKeys` 顺序为基准**（仍存在的保持原位），
+   *   只把**新出现**的 key 按 dockview 顺序追加到末尾。
+   *   单栏（无分屏）时该变换等价于「按打开顺序」，行为与改造前一致。
+   */
   const emitOpenChange = useCallback((dock: DockviewApi) => {
-    // ★ 防御性去重（保留**首次出现**顺序）：`keyOfPanel` 把 `nm-center:<key>` 与
-    //   `nm-panel:<key>` 映射成**同一个**业务 key，故实例一旦重复，同一个 key 会被
-    //   写进宿主 store 两次，污染「打开顺序」与状态栏计数。
-    //   单一所有者修好之后重复本不该发生，但 store 不该被内核的瞬时状态污染。
+    // 防御性去重（保留**首次出现**顺序）：`keyOfPanel` 把 `nm-center:<key>` 与
+    // `nm-panel:<key>` 映射成**同一个**业务 key，故实例一旦重复，同一个 key 会被
+    // 写进宿主 store 两次，污染「打开顺序」与状态栏计数。
     const seen = new Set<string>();
-    const keys: string[] = [];
+    const inView: string[] = [];
     for (const p of dock.panels) {
       const k = keyOfPanel(p);
       if (k === null || seen.has(k)) continue;
       seen.add(k);
-      keys.push(k);
+      inView.push(k);
     }
-    propsRef.current.onOpenChange?.(keys);
+
+    const present = new Set(inView);
+    const base = propsRef.current.openKeys;
+    if (!base) {
+      // 非受控：没有「打开顺序」的宿主真源，只能按视图顺序上报
+      propsRef.current.onOpenChange?.(inView);
+      return;
+    }
+    const kept = base.filter((k) => present.has(k));
+    const keptSet = new Set(kept);
+    const appended = inView.filter((k) => !keptSet.has(k));
+    propsRef.current.onOpenChange?.([...kept, ...appended]);
   }, []);
 
   // ---- 能力 1/3/4/7：初始布局（多面板 + 四区 + 标签堆叠在运行时由拖拽达成） ----
@@ -408,6 +482,66 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
     setReady(true);
   }, []);
 
+  // ---- ★ 2026-10-25 分屏：跟踪「聚焦组」→ 顶部标签条只显示该组的标签 ----
+  //
+  // 单组时 scope 为 null（DocTabs 回落全量，行为与改造前逐字节一致）；
+  // 多组时给出 { panelKeys, hasBase, split: true }，DocTabs 按它过滤。
+  // 订阅组的新增/移除/激活变化 —— 拖拽分屏、关掉某组最后一个面板都会触发。
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!ready || !api) return;
+
+    const recompute = () => {
+      const groups = api.groups;
+      if (groups.length <= 1) {
+        setSplitScope(null);
+        return;
+      }
+      const active = api.activeGroup ?? groups[0];
+      if (!active) {
+        setSplitScope(null);
+        return;
+      }
+      // ★ 2026-10-26：**每一栏**的标签都收集（左→右），不只聚焦栏。
+      //   原口径只给聚焦栏 ⇒ 分屏后顶部标签条只剩另一半，用户以为「章节正文不见了」。
+      const perGroup = groups.map((g) => {
+        const keys: string[] = [];
+        let hasBase = false;
+        for (const p of g.panels) {
+          if (p.id === CENTER_DEFAULT_PANEL_ID) {
+            hasBase = true;
+            continue;
+          }
+          const k = panelKeyFromInstanceId(p.id);
+          if (!keys.includes(k)) keys.push(k);
+        }
+        return { panelKeys: keys, hasBase, active: g.id === active.id };
+      });
+      const focused = perGroup.find((g) => g.active) ?? perGroup[0]!;
+      setSplitScope({
+        // 聚焦栏（向后兼容旧字段）
+        panelKeys: focused.panelKeys,
+        hasBase: focused.hasBase,
+        split: true,
+        // 全部栏（新：标签条一次看全）
+        groups: perGroup,
+      });
+    };
+
+    recompute();
+    const disposables = [
+      api.onDidActiveGroupChange(recompute),
+      api.onDidAddGroup(recompute),
+      api.onDidRemoveGroup(recompute),
+      api.onDidAddPanel(recompute),
+      api.onDidRemovePanel(recompute),
+      api.onDidActivePanelChange(recompute),
+    ];
+    return () => {
+      for (const d of disposables) d.dispose();
+    };
+  }, [ready]);
+
   // ---- 路由切换：程序化更新根面板承载的 centerDefault ----
   // ★ 2026-10-11 单列布局：不再有「center 面板抢占中心替换槽」——所有面板都以标签
   //   形式堆在中心组里，根面板恒为章节编辑器出口。故此处只剩「更新参数」。
@@ -429,7 +563,9 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
     //   （用户关掉了「章节正文」标签），true 时恢复显示。用 dockview 面板的
     //   `api.setVisible()`：面板仍留在中心组（**不拆组**），只是不可见。
     //   （实测：`removePanel` + 重新 `addPanel` 会把多面板的组拆成两个 —— 即用户说的
-    //    「叠加」；`setVisible` 不触碰网格结构，全程 groups 恒为 1。）
+    //    「叠加」；`setVisible` 不触碰网格结构，只切可见性。
+    //    ★ 2026-10-25：本路径**不再**保证「groups 恒为 1」—— 分屏（splitPanel）会
+    //      主动建第二个组；这里只保证关/开基础标签**本身**不引起拆组。）
     //
     //   ⚠️ 类型：`DockviewPanelApi` 接口**故意** `Omit<GridviewPanelApi, 'setVisible'>`
     //      （panelApi.d.ts:24），但运行时 `DockviewPanelApiImpl` 继承自 `GridviewPanelApiImpl`
@@ -551,11 +687,23 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
       focusPanel(key: string) {
         const a = apiRef.current;
         if (!a) return;
-        a.getPanel(panelInstanceId(key))?.api.setActive();
+        // ★ 2026-10-26：支持基础标签（'doc:chapter' → 中心默认面板），
+        //   且分屏时**先把焦点切到它所在的那一栏**再激活面板 —— 否则点另一栏的标签，
+        //   视口还停在原栏，用户会觉得"点了没反应"（实测反馈）。
+        const p = resolvePanel(a, key);
+        if (!p) return;
+        p.api.group?.api.setActive();
+        p.api.setActive();
       },
       focusBase() {
         // 基础标签（章节正文）= 中心编辑区面板本身（不在 openKeys 里）。
-        apiRef.current?.getPanel(CENTER_DEFAULT_PANEL_ID)?.api.setActive();
+        const p = apiRef.current?.getPanel(CENTER_DEFAULT_PANEL_ID);
+        if (!p) return;
+        // ★ 2026-10-26：分屏时还要把它所在的**那一栏**设为聚焦栏 ——
+        //   否则编辑区在另一栏时，setActive 不会把焦点/高亮带过去，
+        //   表现为"点章节进了正文，但看不到哪一栏是当前栏"。
+        p.api.group?.api.setActive();
+        p.api.setActive();
       },
       listPanels() {
         const a = apiRef.current;
@@ -583,9 +731,53 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
         if (!a) return;
         const p = a.getPanel(panelInstanceId(key));
         if (!p) return;
-        // 能力 3：恢复停靠 = 用面板公开 API 把标签移到目标 dock area。
-        // `position` 用 dockview 的 Position 字面量（'bottom' 而非 'below'）。
-        p.api.moveTo({ position: slotToPosition(slot) });
+        // ⚠️ 2026-10-25 修正：原实现是 `p.api.moveTo({ position: slot })` —— 那是**panel 级**
+        //   moveTo，**不建组**（不传 group 时目标组回落为当前组、position 被强制 center），
+        //   实测是 no-op。改用与 splitPanel 同一条正确路径（addGroup + moveTo({group})）。
+        splitPanelToSide(a, p, slotToPosition(slot));
+      },
+      // ★ 2026-10-25 分屏（见 types.ts 的契约注释）
+      splitPanel(key: string, side: SplitSide) {
+        const a = apiRef.current;
+        if (!a) return;
+        const p = resolvePanel(a, key);
+        if (!p) return;
+        splitPanelToSide(a, p, side);
+      },
+      unsplitPanel(key: string) {
+        const a = apiRef.current;
+        if (!a) return;
+        const p = resolvePanel(a, key);
+        if (!p) return;
+        // 移回「中心组」= 含 CENTER_DEFAULT_PANEL_ID 的那一组（若中心组已被移走，
+        // 就回落到第一个组）。位置 center ⇒ 作为该组的一个标签，不再另开新组。
+        const centerGroup = a.groups.find((g) =>
+          g.panels.some((x) => x.id === CENTER_DEFAULT_PANEL_ID),
+        );
+        const target = centerGroup ?? a.groups[0];
+        if (!target) return;
+        if (p.api.group?.id === target.id) {
+          p.api.setActive();
+          return;
+        }
+        p.api.moveTo({ group: target, position: 'center' });
+      },
+      unsplitAll() {
+        const a = apiRef.current;
+        if (!a || a.groups.length <= 1) return;
+        const centerGroup =
+          a.groups.find((g) => g.panels.some((x) => x.id === CENTER_DEFAULT_PANEL_ID)) ?? a.groups[0];
+        if (!centerGroup) return;
+        // 收集时要先快照：移动过程中 groups/panels 会实时变化
+        const movers = a.groups
+          .filter((g) => g.id !== centerGroup.id)
+          .flatMap((g) => [...g.panels]);
+        for (const p of movers) {
+          p.api.moveTo({ group: centerGroup, position: 'center' });
+        }
+      },
+      isSplit() {
+        return (apiRef.current?.groups.length ?? 1) > 1;
       },
     }),
     [activeKey],
@@ -602,6 +794,8 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
         key: d.key,
         label: d.label,
         icon: d.icon as unknown as React.ComponentType<{ size?: number }>,
+        // ★ 意图预取入口随定义一并带下来（见 ActivityBar 的悬停预热）
+        preload: d.preload,
       })),
     [panels],
   );
@@ -650,11 +844,29 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
           dockview 组头里的 tabComponent —— 那样宽度会被标签挤窄）。它表达「打开了什么」：
           基础标签「章节正文」+ 每个已打开面板一张标签，× 关闭、+ 打开。 */}
       <div className="dock-docbar">
-        <DocTabsHeader />
+        <DocTabsHeader
+          groupScope={splitScope ?? undefined}
+          onSplitRequest={(key, side) => api.splitPanel(key, side)}
+          onUnsplitRequest={(key) => api.unsplitPanel(key)}
+          onUnsplitAll={() => api.unsplitAll()}
+          splitActive={splitScope?.split === true}
+          // ★ 2026-10-26：点非聚焦栏的标签 → 把焦点切到那一栏（否则"点了没反应"）
+          onFocusGroupRequest={(tab) => {
+            const key = tab.kind === 'chapter' ? 'doc:chapter' : tab.panelKey;
+            if (key) api.focusPanel(key);
+          }}
+        />
       </div>
 
       {/* 中心：dockview（单列 —— 全部面板以标签形式堆叠在中心组；组头由 CSS 隐藏） */}
       <main className="dock-main" aria-label="编辑区">
+        {/* ★ 2026-10-25：拖拽标签时的左右落区层（只在拖拽中挂载，平时不吞事件） */}
+        <DocSplitDropZone
+          active={dragState !== null}
+          draggingKey={dragState?.key ?? null}
+          onSplit={(key, side) => api.splitPanel(key, side)}
+          onDragEnd={() => setDragState(null)}
+        />
         {ready ? null : <div className="dock-booting">正在初始化停靠系统…</div>}
         <DockviewReact
           className="dockview-host"
@@ -738,6 +950,83 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
 });
 
 // ---- 工具 ---------------------------------------------------------------
+
+/**
+ * ★ 2026-10-25：把一个面板拆到 `side` 方向的新组（分屏 / 恢复停靠共用）。
+ *
+ * ⚠️ 实测关键（dockview 8.4.0，勿凭直觉改写）：
+ *   **panel 级** `panel.api.moveTo({ position })` **不会新建组** —— 它走
+ *   `_doMoveGroupOrPanel` 的非 center 分支，语义是「挪到相邻组的边缘」，要求目标组
+ *   已存在；不传 `group` 时目标组回落为**当前组**、`position` 被强制 `'center'`，
+ *   结果恒为 no-op（实测 `groups` 保持 1）。
+ *   真正能建组的是 **group 级** `moveTo`（`addGroup` 在其内部）。
+ *
+ * 正确配方：① `api.addGroup({ direction, referenceGroup })` 建一个空组
+ *          → ② `panel.api.moveTo({ group: emptyGroup, position: 'center' })` 移入
+ *          → ③ 原组若因此空了，dockview 自动回收（无需手动 removeGroup）。
+ */
+function splitPanelToSide(
+  api: DockviewApi,
+  panel: IDockviewPanel,
+  side: 'left' | 'right' | 'bottom',
+): void {
+  const source = panel.api.group;
+  if (!source) return;
+
+  // 已是「该侧的唯一组」⇒ 再拆无意义，只聚焦
+  if (source.panels.length === 1 && locationSide(api, panel) === side) {
+    panel.api.setActive();
+    return;
+  }
+
+  // 参考组 = 中心组（含中心默认面板）优先，否则用面板所在组
+  const reference =
+    api.groups.find((g) => g.panels.some((x) => x.id === CENTER_DEFAULT_PANEL_ID)) ?? source;
+
+  const newGroup = api.addGroup({
+    // ⚠️ `addGroup` 收的是 dockview 的 `Direction`（'below'），而 `moveTo` 收的是
+    //    `Position`（'bottom'）—— 两套字面量，这里必须转换。
+    direction: side === 'bottom' ? 'below' : side,
+    referenceGroup: reference,
+  });
+  panel.api.moveTo({ group: newGroup, position: 'center' });
+  // 组/面板事件（onDidAddGroup / onDidAddPanel）会驱动 splitScope 重算，无需额外触发
+}
+
+/**
+ * ★ 2026-10-25：把「业务 key 或基础标签保留 key」解析成真实的 dockview 面板。
+ * 基础标签（`doc:chapter` / `BASE_TAB_KEY`）对应中心默认面板，不在 `nm-panel:*` 命名空间里。
+ */
+function resolvePanel(
+  api: DockviewApi,
+  key: string,
+): IDockviewPanel | undefined {
+  // 'doc:chapter' 与 DOC_BASE_TAB.id 同值；这里不 import 以避免 shell ↔ store 的循环
+  if (key === 'doc:chapter') return api.getPanel(CENTER_DEFAULT_PANEL_ID);
+  return api.getPanel(panelInstanceId(key));
+}
+
+/**
+ * ★ 2026-10-25：判断一个面板当前所在组的**位置侧**。
+ * dockview 没有公开「组的方位」API，只能按几何相对位置推断：
+ * 与面板自身所在组的矩形比较，取另一个组的水平中心相对本组中心的方向。
+ * 仅用于「重复分屏到同一侧」的幂等短路；推断失败返回 null（照常执行 moveTo）。
+ */
+function locationSide(api: DockviewApi, panel: IDockviewPanel): 'left' | 'right' | null {
+  const group = panel.api.group;
+  if (!group) return null;
+  const self = group.element?.getBoundingClientRect();
+  if (!self) return null;
+  const others = api.groups.filter((g) => g.id !== group.id);
+  if (others.length !== 1) return null;
+  const other = others[0]?.element?.getBoundingClientRect();
+  if (!other) return null;
+  const selfCenter = self.left + self.width / 2;
+  const otherCenter = other.left + other.width / 2;
+  if (otherCenter < selfCenter) return 'left';
+  if (otherCenter > selfCenter) return 'right';
+  return null;
+}
 
 /** 从 dockview 面板对象反解业务 key（中心默认面板返回 null）。 */
 function keyOfPanel(p: IDockviewPanel): string | null {

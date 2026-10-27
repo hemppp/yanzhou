@@ -6,7 +6,7 @@
 //   · auto 模式走工作台分支 ⇒ 降级占位自带「小返回键」，点它回书架（m04040）
 //   · 文档标签行渲染在中心 dock 组的组头内（t6 去层：不再是顶栏之下的一条独立横带）
 //   · 底部细条：左「底部面板」+ 右「N 条问题 Ctrl+J」
-//   · 通栏状态栏：真实保存态 / 项目总字数 / 当前模式 + 主题档位与时间
+//   · 通栏状态栏：真实保存态 / 项目总字数 / 当前模式 + 本机时间（主题档位已于 2026-10-27 删除）
 //   · 「夜间」即时切到暗色（<html>.dark + color-scheme），再点回亮色
 //
 // ⚠️ 这里只补**机制**证据；数据真实性与 API 契约由 acceptance 逐条说明。
@@ -237,7 +237,7 @@ describe('ProjectLayout 外壳（t1 截图形态）', () => {
     expect(container.querySelector('.dock-bottom-area')?.getAttribute('data-open')).toBe('false');
   });
 
-  it('通栏状态栏：真实保存态 / 项目总字数 / 当前模式 + 主题档位与时间', () => {
+  it('通栏状态栏：真实保存态 / 项目总字数 / 当前模式 + 本机时间', () => {
     const { container } = renderShell();
     const groups = container.querySelectorAll('.shell-statusbar-group');
     expect(groups.length).toBe(2);
@@ -247,9 +247,12 @@ describe('ProjectLayout 外壳（t1 截图形态）', () => {
     expect(left).toContain('12,480 字'); // Project.currentWordCount（真实字段）
     expect(left).toContain('手写模式'); // project.mode
 
+    // ★ 2026-10-27 用户口径：右侧那个「主题名 · 亮/暗」指示**已删除**
+    //   （与顶栏「夜间」按钮信息重复）。这里改成反向断言 —— 它不该再回来。
     const right = groups[1]?.textContent ?? '';
-    expect(right).toContain('VS Code Modern'); // THEMES 里的主题名
-    expect(right).toContain('亮色');
+    expect(right).not.toContain('VS Code Modern');
+    expect(right).not.toContain('亮色');
+    expect(right).not.toContain('暗色');
     expect(right).toMatch(/\d{2}:\d{2}/); // useClock 的本机时间
   });
 });

@@ -313,7 +313,7 @@ export function ChapterPlanGraphPanel({
           target: nodeId,
           type: 'default',
           label: text.slice(0, 20),
-          labelStyle: { fill: 'hsl(var(--muted-foreground))', fontSize: 9, opacity: 0 },
+          labelStyle: { fill: 'hsl(var(--muted-foreground))', fontSize: 8.5, opacity: 0 },
           labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
@@ -402,21 +402,21 @@ export function ChapterPlanGraphPanel({
     <>
       {selectedStage ? (
         <div className="space-y-2">
-          <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 13, fontWeight: 600, color: 'hsl(var(--ink))' }}>
+          <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 12, fontWeight: 600, color: 'hsl(var(--ink))' }}>
             {selectedStage.label}
           </div>
-          <p className="text-[11px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <p className="text-[10px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {selectedStage.hint}
           </p>
         </div>
       ) : selectedChangeRows.length > 0 ? (
         <div>
-          <div className="text-[11.5px] font-medium mb-1.5" style={{ color: 'hsl(var(--ink))' }}>
+          <div className="text-[10.5px] font-medium mb-1.5" style={{ color: 'hsl(var(--ink))' }}>
             变动 {selectedChangeRows.length} 条
           </div>
           <ul className="space-y-1.5">
             {selectedChangeRows.map((c) => (
-              <li key={c.key} className="flex items-baseline gap-1.5 text-[11px]">
+              <li key={c.key} className="flex items-baseline gap-1.5 text-[10px]">
                 <span className="shrink-0 tabular-nums" style={{ color: 'hsl(var(--muted-foreground))', minWidth: 30 }}>
                   Ch{c.chapter}
                 </span>
@@ -436,17 +436,17 @@ export function ChapterPlanGraphPanel({
         <>
           {/* 本章结论 —— 契约，结构化展示；格式跑偏就原样显示，绝不丢内容 */}
           <div>
-            <div className="text-[11.5px] font-medium mb-1.5" style={{ color: 'hsl(var(--ink))' }}>
+            <div className="text-[10.5px] font-medium mb-1.5" style={{ color: 'hsl(var(--ink))' }}>
               本章结论
             </div>
             {!conclusion ? (
-              <p className="text-[11px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              <p className="text-[10px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 还没有结论。在左侧对智能体说明这一章要写什么，讨论收敛出的「本章结论」会落在这里 ——
                 它既是写作官的输入，也是复核时的对照物。
               </p>
             ) : fields.length === 0 ? (
               <pre
-                className="text-[11px] leading-[1.75] whitespace-pre-wrap"
+                className="text-[10px] leading-[1.75] whitespace-pre-wrap"
                 style={{ color: 'hsl(var(--ink-light))', margin: 0, fontFamily: 'inherit' }}
               >
                 {conclusion}
@@ -455,10 +455,10 @@ export function ChapterPlanGraphPanel({
               <dl className="space-y-1.5">
                 {fields.map((f) => (
                   <div key={f.key} className="flex gap-2">
-                    <dt className="shrink-0 text-[11px] font-medium" style={{ color: 'hsl(var(--primary) / 0.9)', minWidth: 48 }}>
+                    <dt className="shrink-0 text-[10px] font-medium" style={{ color: 'hsl(var(--primary) / 0.9)', minWidth: 48 }}>
                       {f.key}
                     </dt>
-                    <dd className="text-[11px] leading-[1.7] whitespace-pre-wrap" style={{ margin: 0, minWidth: 0, color: 'hsl(var(--ink-light))' }}>
+                    <dd className="text-[10px] leading-[1.7] whitespace-pre-wrap" style={{ margin: 0, minWidth: 0, color: 'hsl(var(--ink-light))' }}>
                       {f.value}
                     </dd>
                   </div>
@@ -468,7 +468,7 @@ export function ChapterPlanGraphPanel({
           </div>
 
           {selectedId && (
-            <p className="text-[10.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <p className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
               再点一下刚选中的节点可以取消选中。
             </p>
           )}
@@ -477,12 +477,12 @@ export function ChapterPlanGraphPanel({
 
       {changes.length > 0 && (
         <div className="pt-2" style={{ borderTop: '0.5px solid hsl(var(--border) / 0.5)' }}>
-          <div className="text-[11px] mb-1" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
+          <div className="text-[10px] mb-1" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
             最近变动（全量 {changes.length} 条）
           </div>
           <ul className="space-y-1">
             {changes.slice(0, 12).map((c) => (
-              <li key={c.key} className="flex items-baseline gap-1.5 text-[10.5px]">
+              <li key={c.key} className="flex items-baseline gap-1.5 text-[10px]">
                 <span className="shrink-0 tabular-nums" style={{ color: 'hsl(var(--muted-foreground))', minWidth: 28 }}>
                   Ch{c.chapter}
                 </span>
@@ -512,11 +512,11 @@ export function ChapterPlanGraphPanel({
       ] as Array<[StageVisualStatus, string]>).map(([st, label]) => (
         <span key={st} className="flex items-center gap-1.5">
           <span className="rounded-full" style={{ width: 7, height: 7, background: statusInk(st) }} aria-hidden="true" />
-          <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</span>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</span>
         </span>
       ))}
       <span className="flex items-center gap-1.5">
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>圆节点＝章号 · 方块＝被改动的实体 · 徽标数字＝变动条数</span>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>圆节点＝章号 · 方块＝被改动的实体 · 徽标数字＝变动条数</span>
       </span>
     </>
   );

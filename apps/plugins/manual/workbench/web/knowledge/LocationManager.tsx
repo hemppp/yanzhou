@@ -175,7 +175,7 @@ export function LocationManager() {
               {/* Location 列表 */}
               <div className="flex-1 overflow-y-auto px-2 pb-2" role="listbox" aria-label="地点列表">
                 {filtered.length === 0 ? (
-                  <div className="px-4 py-12 text-center">
+                  <div className="px-4 py-8 text-center">
                     <div className="w-12 h-12 rounded-full bg-foreground/5 flex items-center justify-center mx-auto mb-3">
                       <MapPin size={20} className="text-muted-foreground" />
                     </div>
@@ -213,12 +213,12 @@ export function LocationManager() {
                       {Array.isArray(loc.tags) && loc.tags.length > 0 && (
                         <div className="flex gap-1 mt-1.5 ml-[42px] flex-wrap">
                           {loc.tags.slice(0, 3).map((tag) => (
-                            <span key={tag} className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${getTagColor(tag)}`}>
+                            <span key={tag} className={`inline-block px-2 py-0.5 text-[10px] font-medium rounded-full ${getTagColor(tag)}`}>
                               {tag}
                             </span>
                           ))}
                           {loc.tags.length > 3 && (
-                            <span className="inline-block px-1.5 py-0.5 text-[11px] text-muted-foreground">+{loc.tags.length - 3}</span>
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] text-muted-foreground">+{loc.tags.length - 3}</span>
                           )}
                         </div>
                       )}

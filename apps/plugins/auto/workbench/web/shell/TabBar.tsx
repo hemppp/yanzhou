@@ -139,10 +139,10 @@ export function TabBar({
           onClick={onBackToBody}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBackToBody?.(); } }}
           title={onCloseBody ? '正文 —— 主编辑器里打开的那份稿子' : '正文 —— 主编辑器里打开的那份稿子（常驻，不可关闭）'}
-          className="group flex shrink-0 cursor-pointer select-none items-center gap-1.5 border-r border-paper-line text-[12.5px]"
+          className="group flex shrink-0 cursor-pointer select-none items-center gap-1.5 border-r border-paper-line text-[11.5px]"
           style={{
             height: '100%',
-            padding: '0 10px',
+            padding: '0 var(--space-4)',
             background: bodyFocused ? EDITOR_BG : 'transparent',
             // 激活标签：顶部一条墨线（VSCode 用的就是这条，不是底部下划线）
             boxShadow: bodyFocused ? 'inset 0 1px 0 hsl(var(--paper-line-strong))' : undefined,
@@ -212,14 +212,14 @@ export function TabBar({
                 // VSCode 的标签：最小宽约 120、最大约 240
                 minWidth: 110,
                 maxWidth: 200,
-                padding: '0 8px 0 10px',
+                padding: '0 var(--space-3) 0 var(--space-4)',
                 background: on ? EDITOR_BG : 'transparent',
                 borderRight: '0.5px solid hsl(var(--border) / 0.45)',
                 boxShadow: on ? 'inset 0 1px 0 hsl(var(--primary))' : undefined,
                 color: on ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
                 // VSCode 的预览标签：标题斜体
                 fontStyle: isPreview ? 'italic' : 'normal',
-                fontSize: 12.5,
+                fontSize: 11.5,
               }}
             >
               {iconOf(key)}
@@ -289,7 +289,7 @@ export function TabBar({
                   type="button"
                   data-overflow-item={k}
                   onClick={() => { onActivate(k); setOverflowOpen(false); }}
-                  className="flex h-[26px] w-full items-center gap-2 bg-transparent px-3 text-left text-[12.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
+                  className="flex h-[26px] w-full items-center gap-2 bg-transparent px-3 text-left text-[11.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
                 >
                   {iconOf(k)}
                   <span className="truncate flex-1">{labelOf(k)}</span>
@@ -301,7 +301,7 @@ export function TabBar({
                 <button
                   type="button"
                   onClick={() => { onOpenQuick(); setOverflowOpen(false); }}
-                  className="h-[26px] w-full border-0 border-t border-paper-line bg-transparent px-3 text-left text-[12.5px] text-tone-2 transition-colors duration-150 ease-out hover:bg-paper-hover hover:text-tone"
+                  className="h-[26px] w-full border-0 border-t border-paper-line bg-transparent px-3 text-left text-[11.5px] text-tone-2 transition-colors duration-150 ease-out hover:bg-paper-hover hover:text-tone"
                 >
                   显示全部看板…（Ctrl+P）
                 </button>
@@ -338,7 +338,7 @@ export function TabBar({
               type="button"
               role="menuitem"
               onClick={() => { item.run(); setMenu(null); }}
-              className="h-[26px] w-full border-0 bg-transparent px-3 text-left text-[12.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
+              className="h-[26px] w-full border-0 bg-transparent px-3 text-left text-[11.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
             >
               {item.label}
             </button>

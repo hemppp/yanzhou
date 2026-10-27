@@ -135,7 +135,7 @@ export function ThinkingTrace({
           aria-controls={panelId}
           className={cn(
             'mc-press inline-flex items-center gap-1.5 rounded-control px-1.5 py-1',
-            'text-[11.5px] text-tone-2 transition-colors duration-150 ease-out',
+            'text-[10.5px] text-tone-2 transition-colors duration-150 ease-out',
             'hover:bg-paper-hover hover:text-tone mc-focus',
           )}
         >
@@ -182,11 +182,11 @@ export function ThinkingTrace({
                   <span className="mc-rail-node" style={{ top: 8 }} aria-hidden="true" />
                   <div className="flex items-center gap-1.5">
                     <Icon size={12} className={cn(TONE_TEXT[tone], 'shrink-0')} aria-hidden="true" />
-                    <span className="text-[12px] font-medium text-tone">{step.label}</span>
+                    <span className="text-[11px] font-medium text-tone">{step.label}</span>
                     <span className="mc-eyebrow">{KIND_TEXT[kind]}</span>
                   </div>
                   {step.detail && (
-                    <div className="mt-1 whitespace-pre-wrap break-words text-[11.5px] leading-relaxed text-tone-2">
+                    <div className="mt-1 whitespace-pre-wrap break-words text-[10.5px] leading-relaxed text-tone-2">
                       {step.detail}
                     </div>
                   )}
@@ -200,7 +200,7 @@ export function ThinkingTrace({
             <div
               className={cn(
                 'whitespace-pre-wrap break-words rounded-card bg-paper-inset px-3 py-2.5',
-                'text-[12px] leading-relaxed text-tone-2 select-text',
+                'text-[11px] leading-relaxed text-tone-2 select-text',
                 isStreaming && 'mc-shimmer-text',
               )}
             >

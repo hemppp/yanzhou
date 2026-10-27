@@ -103,16 +103,16 @@ export function TaskRow({
           <span className="min-w-0 flex-1">
             <span
               className={cn(
-                'block truncate text-[12.5px] leading-tight',
+                'block truncate text-[11.5px] leading-tight',
                 task.status === 'pending' || task.status === 'skipped' ? 'text-tone-2' : 'font-medium text-tone',
               )}
             >
               {task.title}
             </span>
-            {task.meta && <span className="mc-num mt-0.5 block truncate text-[11px] text-tone-3">{task.meta}</span>}
+            {task.meta && <span className="mc-num mt-0.5 block truncate text-[10px] text-tone-3">{task.meta}</span>}
           </span>
 
-          <span className={cn('mc-num shrink-0 text-[11px]', task.status === 'pending' || task.status === 'skipped' ? 'text-tone-3' : TONE_TEXT[tone])}>
+          <span className={cn('mc-num shrink-0 text-[10px]', task.status === 'pending' || task.status === 'skipped' ? 'text-tone-3' : TONE_TEXT[tone])}>
             {STATUS_TEXT[task.status]}
           </span>
 
@@ -132,7 +132,7 @@ export function TaskRow({
             </span>
             <div className="pl-2">
               {task.detail && (
-                <div className="whitespace-pre-wrap break-words rounded-card bg-paper-inset px-2.5 py-2 text-[11.5px] leading-relaxed text-tone-2">
+                <div className="whitespace-pre-wrap break-words rounded-card bg-paper-inset px-2.5 py-2 text-[10.5px] leading-relaxed text-tone-2">
                   {task.detail}
                 </div>
               )}

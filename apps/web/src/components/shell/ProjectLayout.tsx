@@ -81,7 +81,7 @@ import { getPanelNavigation, registerPanelViewOpener, registerPanelViewSync, reg
 import { DEFAULT_OPEN_PANEL_KEYS, seedPanelOpenKeys } from '@/stores/panelOpenStore';
 import type { FloatingPanelDef } from '@/plugin/types';
 // ★ t1（外壳改造）新增：主题档位、文档标签栏、底部细条与状态栏的真实数据源
-import { THEMES, useThemeStore } from '@/stores/themeStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { BottomIssueList, useIssueCount } from '@/components/shell/issues';
 import { formatWordCount, useClock, useProjectWordCountSync, useSaveState } from '@/components/shell/statusBar';
 import './project-shell.css';
@@ -103,10 +103,10 @@ function ShellFatal({ error }: { error: Error }) {
   return (
     <div className="shell-fatal" role="alert">
       <AlertTriangle size={22} style={{ color: 'var(--vscode-semantic-warning)' }} />
-      <div style={{ fontSize: 13 }}>应用发生错误，已停止渲染</div>
+      <div style={{ fontSize: 12 }}>应用发生错误，已停止渲染</div>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontFamily: 'var(--vscode-font-family-mono)',
           wordBreak: 'break-all',
           maxWidth: 640,
@@ -118,7 +118,7 @@ function ShellFatal({ error }: { error: Error }) {
       <button
         type="button"
         className="nm-btn-apple-icon-sm"
-        style={{ padding: '4px 12px', fontSize: 12 }}
+        style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11 }}
         onClick={function () { window.location.reload(); }}
       >
         重新加载
@@ -287,12 +287,11 @@ export function ProjectLayout() {
   // ============================================================
   // 主题档位（亮 / 暗）：真源是 ui-kit 的 themeStore，`setMode` 同时写 <html> 的
   // color-scheme 与 localStorage ⇒「夜间」按钮与「刷新后保持」共用同一条路径。
+  // ★ 2026-10-27：状态栏那个「<主题名> · 亮/暗」指示已按用户口径删除（顶栏已有「夜间」
+  //   按钮，状态栏再放一份是重复信息）。随之删掉只服务于它的 `themeId` 选择器与
+  //   `themeMeta` 派生 —— 顺着删干净，别留悬空依赖。
   var themeMode = useThemeStore(function(s) { return s.mode; });
-  var themeId = useThemeStore(function(s) { return s.theme; });
   var setThemeMode = useThemeStore(function(s) { return s.setMode; });
-  var themeMeta = useMemo(function() {
-    return THEMES.find(function(t) { return t.id === themeId; }) ?? THEMES[0];
-  }, [themeId]);
 
   // 当前章节：面包屑标题 / 保存态 / 问题清单都取它。用 chapters + id 派生，
   // 避免把「每次调用可能返回新引用」的选择器交给 zustand 的相等性判断。
@@ -560,9 +559,11 @@ export function ProjectLayout() {
           />
         </main>
 
-        {/* 状态栏（§5.3.5 / t1）：左「● 已保存 · 总字数 · 当前模式」，右「主题 · 档位 · 时间」。
+        {/* 状态栏（§5.3.5 / t1）：左「● 已保存 · 总字数 · 当前模式」，右「本机时间」。
             全部取自真实来源：保存态 = 本地缓存 ↔ store 内容比对（shell/statusBar.ts），
-            总字数 = Project.currentWordCount，模式 = project.mode，主题名 = THEMES。 */}
+            总字数 = Project.currentWordCount，模式 = project.mode。
+            ★ 2026-10-27：右侧原来还有「主题名 · 亮/暗」一项，按用户口径删除（与顶栏「夜间」
+              按钮信息重复）。 */}
         <footer className="shell-statusbar" role="contentinfo">
           <div className="shell-statusbar-group">
             <span className="shell-statusbar-item" title="保存态：章节本地缓存与 store 内容比对">
@@ -586,9 +587,6 @@ export function ProjectLayout() {
             ) : null}
           </div>
           <div className="shell-statusbar-group">
-            <span className="shell-statusbar-item" title="主题与明暗档（来自主题 store）">
-              {themeMeta ? themeMeta.name : '主题'} · {themeMode === 'dark' ? '暗色' : '亮色'}
-            </span>
             <span className="shell-statusbar-item" title="本机时间">
               {clock}
             </span>

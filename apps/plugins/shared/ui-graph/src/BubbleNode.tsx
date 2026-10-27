@@ -115,13 +115,13 @@ export const BubbleNode = memo(function BubbleNode({ data }: NodeProps) {
       </div>
       {d.subtitle && (
         <span
-          className="text-[11px] font-medium whitespace-nowrap"
+          className="text-[10px] font-medium whitespace-nowrap"
           style={{
             position: 'absolute',
             top: '100%',
             left: '50%',
             transform: 'translateX(-50%)',
-            marginTop: 4,
+            marginTop: 'var(--space-1)',
             color: d.color,
             textShadow: '0 1px 2px rgba(255,255,255,0.7)',
           }}

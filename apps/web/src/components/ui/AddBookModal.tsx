@@ -257,12 +257,12 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
 
   const inputBaseStyle: React.CSSProperties = {
     width: '100%',
-    padding: '10px 14px',
+    padding: 'var(--space-4) var(--space-5)',
     borderWidth: '0.5px',
     borderStyle: 'solid',
     borderColor: 'hsl(var(--border) / 0.6)',
     borderRadius: 'var(--r-xs)',
-    fontSize: 14,
+    fontSize: 13,
     color: 'hsl(var(--foreground))',
     background: 'rgb(var(--glass-tint) / 0.4)',
     backdropFilter: 'blur(8px)',
@@ -281,10 +281,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 500,
     color: 'hsl(var(--secondary-foreground))',
-    marginBottom: 6,
+    marginBottom: 'var(--space-2)',
   };
 
   const req = <span style={{ color: 'hsl(var(--destructive))' }}>*</span>;
@@ -335,10 +335,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '20px 24px 0 24px',
+          padding: 'var(--space-7) var(--space-8) 0 var(--space-8)',
         }}>
           <h2 style={{
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: 600,
             color: 'hsl(var(--foreground))',
             margin: 0,
@@ -382,19 +382,19 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            padding: '20px 24px 24px 24px',
+            padding: 'var(--space-7) var(--space-8) var(--space-8)',
           }}
           className="addbook-form"
         >
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 4 }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingRight: 'var(--space-1)' }}>
             {/* 创作方式 —— 创建时的第一步决策：决定这个项目加载哪一套工作台（两套 UI 互斥） */}
             <div>
               <label style={{
                 display: 'block',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 500,
                 color: 'hsl(var(--secondary-foreground))',
-                marginBottom: 6,
+                marginBottom: 'var(--space-2)',
               }}>
                 创作方式
               </label>
@@ -405,7 +405,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                   position: 'relative',
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
-                  padding: 3,
+                  padding: 'var(--space-1)',
                   borderRadius: 'var(--r-pill)',
                   background: 'rgb(var(--glass-tint) / 0.45)',
                   border: '0.5px solid hsl(var(--border) / 0.6)',
@@ -418,10 +418,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                   aria-hidden="true"
                   style={{
                     position: 'absolute',
-                    top: 3,
-                    bottom: 3,
-                    left: 3,
-                    width: 'calc(50% - 3px)',
+                    top: 'var(--space-1)',
+                    bottom: 'var(--space-1)',
+                    left: 'var(--space-1)',
+                    width: 'calc(50% - var(--space-1))',
                     borderRadius: 'var(--r-pill)',
                     background: 'linear-gradient(160deg, hsl(var(--primary)), hsl(var(--primary) / 0.78))',
                     boxShadow: '0 2px 10px hsl(var(--primary) / 0.32), inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
@@ -448,11 +448,11 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                       style={{
                         position: 'relative',
                         zIndex: 1,
-                        padding: '8px 0',
+                        padding: 'var(--space-3) 0',
                         border: 'none',
                         background: 'transparent',
                         cursor: 'pointer',
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: 500,
                         color: active ? '#fff' : 'hsl(var(--muted-foreground))',
                         transition: 'color 0.2s',
@@ -464,10 +464,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 })}
               </div>
               <p style={{
-                fontSize: 11,
+                fontSize: 10,
                 lineHeight: 1.55,
                 color: 'hsl(var(--muted-foreground))',
-                margin: '6px 2px 0 2px',
+                margin: 'var(--space-2) var(--space-0) 0 var(--space-0)',
               }}>
                 {mode === 'manual'
                   ? '自己执笔，AI 打辅助 —— 罗盘气泡 + 角色 / 地图 / 时间线等浮窗面板'
@@ -482,10 +482,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 500,
                     color: 'hsl(var(--secondary-foreground))',
-                    marginBottom: 6,
+                    marginBottom: 'var(--space-2)',
                   }}>
                     书名 <span style={{ color: 'hsl(var(--destructive))' }}>*</span>
                   </label>
@@ -504,9 +504,9 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                   />
                   {error && (
                     <p style={{
-                      fontSize: 12,
+                      fontSize: 11,
                       color: 'hsl(var(--destructive))',
-                      margin: '6px 0 0 0',
+                      margin: 'var(--space-2) 0 0 0',
                     }}>
                       {error}
                     </p>
@@ -517,10 +517,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 500,
                     color: 'hsl(var(--secondary-foreground))',
-                    marginBottom: 6,
+                    marginBottom: 'var(--space-2)',
                   }}>
                     作者
                   </label>
@@ -542,10 +542,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 500,
                     color: 'hsl(var(--secondary-foreground))',
-                    marginBottom: 6,
+                    marginBottom: 'var(--space-2)',
                   }}>
                     简介
                   </label>
@@ -569,10 +569,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 500,
                     color: 'hsl(var(--secondary-foreground))',
-                    marginBottom: 6,
+                    marginBottom: 'var(--space-2)',
                   }}>
                     目标字数
                   </label>
@@ -596,7 +596,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
             {isAuto && (
               <>
                 {/* 步骤指示 */}
-                <div className="flex items-center gap-2" style={{ marginTop: -2 }}>
+                <div className="flex items-center gap-2" style={{ marginTop: 'calc(-1 * var(--space-0))' }}>
                   {([
                     { key: 'brief' as AiStep, n: 1, label: '开书设定' },
                     { key: 'genre' as AiStep, n: 2, label: '流派选择' },
@@ -621,7 +621,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                             style={{
                               width: 16,
                               height: 16,
-                              fontSize: 10,
+                              fontSize: 9.5,
                               background: active || done ? 'hsl(var(--primary))' : 'rgb(var(--glass-tint) / 0.6)',
                               color: active || done ? '#fff' : 'hsl(var(--muted-foreground))',
                               border: active || done ? 'none' : '0.5px solid hsl(var(--border) / 0.8)',
@@ -631,7 +631,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                           </span>
                           <span
                             style={{
-                              fontSize: 11.5,
+                              fontSize: 10.5,
                               fontWeight: active ? 600 : 400,
                               color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
                             }}
@@ -700,7 +700,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                       />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-5)' }}>
                       <div>
                         <label style={labelStyle}>主角姓名 {req}</label>
                         <input
@@ -739,17 +739,17 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                     <div
                       className="rounded-xl"
                       style={{
-                        padding: '10px 12px',
+                        padding: 'var(--space-4) var(--space-5)',
                         background: 'rgb(var(--glass-tint) / 0.35)',
                         border: '0.5px solid hsl(var(--border) / 0.6)',
                       }}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div style={{ fontSize: 12.5, fontWeight: 500, color: 'hsl(var(--foreground))' }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 500, color: 'hsl(var(--foreground))' }}>
                             是否多女主
                           </div>
-                          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                          <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 'var(--space-0)' }}>
                             {multiHeroine
                               ? `已展开名单，可增删 —— 当前 ${cleanHeroines().length} 位`
                               : '关闭时只填一位女主'}
@@ -802,7 +802,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                       </div>
 
                       {multiHeroine && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
                           {heroines.map((h, i) => (
                             <div key={i} className="flex items-center gap-2">
                               <span
@@ -810,7 +810,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                                 style={{
                                   width: 20,
                                   height: 20,
-                                  fontSize: 10,
+                                  fontSize: 9.5,
                                   color: 'hsl(var(--muted-foreground))',
                                   background: 'rgb(var(--glass-tint) / 0.6)',
                                   border: '0.5px solid hsl(var(--border) / 0.7)',
@@ -859,8 +859,8 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                             onClick={() => setHeroines(prev => [...prev, ''])}
                             className="self-start inline-flex items-center gap-1 rounded-full"
                             style={{
-                              padding: '5px 12px',
-                              fontSize: 11.5,
+                              padding: 'var(--space-2) var(--space-5)',
+                              fontSize: 10.5,
                               color: 'hsl(var(--primary))',
                               background: 'hsl(var(--primary) / 0.1)',
                               borderWidth: '0.5px',
@@ -877,12 +877,12 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                     </div>
 
                     {error && (
-                      <p style={{ fontSize: 12, color: 'hsl(var(--destructive))', margin: 0 }}>
+                      <p style={{ fontSize: 11, color: 'hsl(var(--destructive))', margin: 0 }}>
                         {error}
                       </p>
                     )}
 
-                    <p style={{ fontSize: 11, lineHeight: 1.6, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                    <p style={{ fontSize: 10, lineHeight: 1.6, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
                       这些设定会被注入每一章的讨论：设计角色与写作官都会按它来，不用每章重述。
                     </p>
                   </>
@@ -899,7 +899,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                         position: 'relative',
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr',
-                        padding: 3,
+                        padding: 'var(--space-1)',
                         borderRadius: 'var(--r-pill)',
                         background: 'rgb(var(--glass-tint) / 0.45)',
                         border: '0.5px solid hsl(var(--border) / 0.6)',
@@ -909,10 +909,10 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                         aria-hidden="true"
                         style={{
                           position: 'absolute',
-                          top: 3,
-                          bottom: 3,
-                          left: 3,
-                          width: 'calc(50% - 3px)',
+                          top: 'var(--space-1)',
+                          bottom: 'var(--space-1)',
+                          left: 'var(--space-1)',
+                          width: 'calc(50% - var(--space-1))',
                           borderRadius: 'var(--r-pill)',
                           background: 'linear-gradient(160deg, hsl(var(--primary)), hsl(var(--primary) / 0.78))',
                           boxShadow: '0 2px 10px hsl(var(--primary) / 0.32)',
@@ -932,11 +932,11 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                             style={{
                               position: 'relative',
                               zIndex: 1,
-                              padding: '8px 0',
+                              padding: 'var(--space-3) 0',
                               border: 'none',
                               background: 'transparent',
                               cursor: 'pointer',
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: 500,
                               color: active ? '#fff' : 'hsl(var(--muted-foreground))',
                               transition: 'color 0.2s',
@@ -948,7 +948,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                       })}
                     </div>
 
-                    <p style={{ fontSize: 11, lineHeight: 1.6, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                    <p style={{ fontSize: 10, lineHeight: 1.6, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
                       {getGenreCategory(genreCategory).desc}
                     </p>
 
@@ -957,19 +957,19 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                       style={{
                         maxHeight: 'min(46vh, 420px)',
                         overflowY: 'auto',
-                        paddingRight: 4,
+                        paddingRight: 'var(--space-1)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 12,
+                        gap: 'var(--space-5)',
                       }}
                     >
                       {getGenreCategory(genreCategory).groups.map((g) => (
                         <div key={g.group}>
                           <div style={{
-                            fontSize: 11,
+                            fontSize: 10,
                             letterSpacing: '0.08em',
                             color: 'hsl(var(--muted-foreground))',
-                            marginBottom: 6,
+                            marginBottom: 'var(--space-2)',
                           }}>
                             {g.group}
                           </div>
@@ -984,8 +984,8 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                                   onClick={() => { setGenre(opt); setError(''); }}
                                   className="rounded-full"
                                   style={{
-                                    padding: '5px 11px',
-                                    fontSize: 12,
+                                    padding: 'var(--space-2) var(--space-4)',
+                                    fontSize: 11,
                                     cursor: 'pointer',
                                     color: active ? '#fff' : 'hsl(var(--foreground) / 0.8)',
                                     background: active
@@ -1009,7 +1009,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
 
                     {/* 兜底：清单里没有就自己填 */}
                     <div>
-                      <label style={{ ...labelStyle, marginBottom: 4 }}>
+                      <label style={{ ...labelStyle, marginBottom: 'var(--space-1)' }}>
                         其他流派（清单里没有？自己填一个）{req}
                       </label>
                       <input
@@ -1024,13 +1024,13 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                     </div>
 
                     {error && (
-                      <p style={{ fontSize: 12, color: 'hsl(var(--destructive))', margin: 0 }}>
+                      <p style={{ fontSize: 11, color: 'hsl(var(--destructive))', margin: 0 }}>
                         {error}
                       </p>
                     )}
 
                     {genre.trim() && (
-                      <p style={{ fontSize: 11.5, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                      <p style={{ fontSize: 10.5, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
                         将创建为：<span style={{ color: 'hsl(var(--primary))' }}>{formatGenreLabel(genreCategory, genre)}</span>
                       </p>
                     )}
@@ -1045,8 +1045,8 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
-            marginTop: 20,
+            gap: 'var(--space-4)',
+            marginTop: 'var(--space-7)',
           }}>
             {/* AI 向导：第二步给一个「上一步」，别让作者只能关掉重来 */}
             {isAuto && aiStep === 'genre' && (
@@ -1056,15 +1056,15 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 4,
-                  padding: '8px 14px',
+                  gap: 'var(--space-1)',
+                  padding: 'var(--space-3) var(--space-5)',
                   borderRadius: 'var(--r-pill)',
                   borderWidth: '0.5px',
                   borderStyle: 'solid',
                   borderColor: 'hsl(var(--border) / 0.6)',
                   background: 'rgb(var(--glass-tint) / 0.5)',
                   color: 'hsl(var(--foreground))',
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 500,
                   cursor: 'pointer',
                 }}
@@ -1080,7 +1080,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
               className="addbook-modal-cancel"
               style={{
                 marginLeft: 'auto',
-                padding: '8px 18px',
+                padding: 'var(--space-3) var(--space-6)',
                 borderRadius: 'var(--r-pill)',
                 // ★ 拆长写：`border` 简写会重置 border-image 相关长写属性
                 //   （2026-09-18 由弹窗扫描抓出）
@@ -1091,7 +1091,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
                 backdropFilter: 'blur(12px) saturate(150%)',
                 WebkitBackdropFilter: 'blur(12px) saturate(150%)',
                 color: 'hsl(var(--foreground))',
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 500,
                 cursor: 'pointer',
                 transition: 'background 0.2s, border-color 0.2s, transform 0.2s',
@@ -1117,7 +1117,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
             <button
               type="submit"
               className="nm-btn-apple-primary"
-              style={{ width: isAuto && aiStep === 'brief' ? 96 : 80, height: 34, padding: 0, fontSize: 13 }}
+              style={{ width: isAuto && aiStep === 'brief' ? 96 : 80, height: 34, padding: 0, fontSize: 12 }}
               disabled={isSubmitting}
             >
               {isAuto && aiStep === 'brief' ? (

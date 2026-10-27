@@ -1,0 +1,99 @@
+/* ============================================================
+   dev/ui-preview.css —— UI 改造对照页的**作用域化令牌**
+
+   为什么要有这个文件（重要）：
+     「现代中性风」的差异主要在**令牌**（圆角/文字深浅/描边/色偏）。
+     但令牌是全局的 —— 直接改 globals.css / ui-kit 真源就等于**当场改造现网**，
+     而作者要的是"先看长相再决定"。
+     故这里把候选令牌**限定在 `.ui-preview-theme--modern` 这个类里**
+     （挂在 `<html>` 上，见 UiPreviewPage 的 useEffect 注释：Radix 弹层 portal 到 body，
+     挂外层 div 会拿不到令牌）。
+     作者满意后，把下面的值**原样搬到** globals.css 的 `:root` / `.dark`
+     （或 ui-kit 真源）即完成正式改造。
+
+   ⚠️ 选择器写成 `:root.ui-preview-theme--modern`（= 0,2,0）而不是裸类（0,1,0）：
+     ui-kit 的 vscode-dark-modern.css 把 `--background/--border/--primary/--card/--muted…`
+     以 **:root（0,1,0）无层** 重新声明过一次（成因见该文件头注：无层恒胜有层）。
+     同特异性下靠源码顺序决胜、而 Vite 的样式注入顺序不稳定 ⇒ 必须靠特异性压过它。
+     实测教训：只写裸类时 `--radius`（ui-kit 未定义）能生效，`--border`（ui-kit 定义了）不生效。
+
+   ⚠️ 这里**不定义任何 `--vscode-*`**：真源唯一性门禁
+      （scripts/verify/verify-theme-single-source.mjs）只允许它在 ui-kit 里定义。
+   ⚠️ 值保持**裸三元组** `H S% L%`（与全仓 `hsl(var(--x))` 消费口径一致）。
+   ============================================================ */
+
+/* —— 候选：现代中性（shadcn neutral 基准）· 亮色 ——
+   与现状的差异就四处，都是"看起来更像 2026 的现代后台"的来源：
+     ① 圆角 16px → 8px（现状的苹果大圆角是这套 UI 显老的主因）
+     ② 正文/主色更深（13%/22% → 4%/9%）：层次拉开，白底上的字更"实"
+     ③ 描边去蓝偏且略浅（220 13% 86% → 0 0% 90%）：中性灰，不再发冷
+     ④ 次级面更浅（muted 94% → 96%）：卡片与底的差更小，界面更"平" */
+:root.ui-preview-theme--modern {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 4%;
+
+  --primary: 0 0% 9%;
+  --primary-foreground: 0 0% 98%;
+
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 9%;
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 0 0% 4%;
+
+  /* ① 圆角：今日 UI 显老的根因。8px 是 shadcn 基准（`--radius: 0.5rem`） */
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* 本仓内联圆角档位（globals.css:54+）跟着收一档，否则内联 `var(--r-*)` 的大圆角会残留 */
+  --r-lg: 12px;
+  --r-md: 10px;
+  --r-sm: 8px;
+  --r-xs: 6px;
+  --r-2xs: 6px;
+  --r-3xs: 4px;
+  --radius-chip: 6px;
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-window: 12px;
+}
+
+/* —— 候选：现代中性 · 暗色 ——
+   暗色不是亮色的机械反相：面（background/card）要比亮色"更黑一档"、
+   描边要**更亮**才看得见（0 0% 90% → 0 0% 18%），否则弹层边界消失。 */
+:root.ui-preview-theme--modern.dark {
+  --background: 0 0% 7%;
+  --foreground: 0 0% 96%;
+  --card: 0 0% 10%;
+  --card-foreground: 0 0% 96%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 96%;
+
+  --primary: 0 0% 96%;
+  --primary-foreground: 0 0% 9%;
+
+  --secondary: 0 0% 16%;
+  --secondary-foreground: 0 0% 96%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 64%;
+  --accent: 0 0% 18%;
+  --accent-foreground: 0 0% 96%;
+  --destructive: 0 62% 52%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --ring: 0 0% 84%;
+}

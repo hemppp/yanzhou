@@ -84,9 +84,9 @@ function Badge({ ink, children, title }: { ink: string; children: React.ReactNod
       title={title}
       className="inline-flex items-center justify-center"
       style={{
-        fontSize: 9,
+        fontSize: 8.5,
         lineHeight: 1,
-        padding: '2px 4px',
+        padding: 'var(--space-0) var(--space-1)',
         borderRadius: 'var(--r-3xs)',
         color: ink,
         border: `0.5px solid ${ink}`,
@@ -154,7 +154,7 @@ export const StageNode = memo(function StageNode({ data }: NodeProps) {
           }}
         />
 
-        <div className="flex-1 min-w-0" style={{ padding: '9px 10px 8px' }}>
+        <div className="flex-1 min-w-0" style={{ padding: 'var(--space-3) var(--space-4)' }}>
           <div className="flex items-center gap-1.5">
             <span
               className="rounded-full shrink-0"
@@ -165,7 +165,7 @@ export const StageNode = memo(function StageNode({ data }: NodeProps) {
               className="truncate"
               style={{
                 fontFamily: "'Noto Serif SC', serif",
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 600,
                 letterSpacing: '0.02em',
                 color: d.status === 'idle' ? 'hsl(var(--ink-light))' : 'hsl(var(--ink))',
@@ -177,7 +177,7 @@ export const StageNode = memo(function StageNode({ data }: NodeProps) {
             {d.isCurrent && (
               <span
                 className="ml-auto shrink-0"
-                style={{ fontSize: 9, color: ink, letterSpacing: '0.08em' }}
+                style={{ fontSize: 8.5, color: ink, letterSpacing: '0.08em' }}
                 title="流水线游标停在这一段"
               >
                 当前
@@ -187,7 +187,7 @@ export const StageNode = memo(function StageNode({ data }: NodeProps) {
 
           <div
             className="truncate mt-0.5"
-            style={{ fontSize: 10.5, color: ink, opacity: d.status === 'idle' ? 0.75 : 0.95 }}
+            style={{ fontSize: 10, color: ink, opacity: d.status === 'idle' ? 0.75 : 0.95 }}
             title={d.sub ?? statusText(d.status)}
           >
             {d.sub ?? statusText(d.status)}

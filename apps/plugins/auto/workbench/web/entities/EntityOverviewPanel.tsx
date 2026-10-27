@@ -153,7 +153,7 @@ export function EntityOverviewPanel() {
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`px-2.5 py-1 rounded-full text-[12px] transition-colors ${
+            className={`px-2.5 py-1 rounded-full text-[11px] transition-colors ${
               tab === k ? 'bg-secondary font-medium' : 'opacity-60 hover:opacity-100'
             }`}
           >

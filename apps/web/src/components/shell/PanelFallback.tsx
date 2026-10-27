@@ -25,7 +25,7 @@ export function PanelFallback() {
   return (
     <div className="shell-panel-fallback" role="status" aria-label="加载中">
       <Loader2 size={18} className="dock-spin" style={{ color: 'var(--vscode-descriptionForeground)' }} />
-      <span style={{ fontSize: 12, color: 'var(--vscode-descriptionForeground)' }}>加载中…</span>
+      <span style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)' }}>加载中…</span>
     </div>
   );
 }

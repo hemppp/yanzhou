@@ -295,6 +295,42 @@ export interface DockShellApi {
   dockPanel(key: string, slot: 'left' | 'right' | 'bottom'): void;
 }
 ```
+
+#### 2.4-R1 ★ 2026-10-25 修订：新增分屏方法（4 个）
+
+**动机**：用户口径「标签页可以同时看两个页面」。原 §2.4 的接口面只有
+`floatPanel`/`dockPanel`，没有任何「把两个面板并排显示」的能力；且 2026-10-11 的单列化
+把全部面板塞进**同一个中心组**、并隐藏了所有 dockview 原生组头，连拖拽抓手都没有。
+
+**追加的契约**（`apps/web/src/components/shell/dock/types.ts`）：
+
+```ts
+  splitPanel(key: string, side: 'left' | 'right'): void;  // 拆到左/右新组（两栏并排）
+  unsplitPanel(key: string): void;                        // 该面板并回中心组
+  unsplitAll(): void;                                     // 所有组并回中心组（一键退出分屏）
+  isSplit(): boolean;                                     // 当前是否分屏（组数 > 1）
+```
+
+`key` 既接受业务面板 key，也接受基础标签的保留 key（`doc:chapter`）。
+
+**⚠️ 实现铁律（dockview 8.4.0 实测，勿凭直觉改写）**：
+**panel 级** `panel.api.moveTo({ position })` **不建组** —— 不传 `group` 时目标组回落为
+当前组、`position` 被强制 `'center'`，恒为 no-op。能建组的是 **group 级** `moveTo`
+（其内部才调 `addGroup`）。故正确配方是：
+
+```
+api.addGroup({ direction, referenceGroup })   // direction 是 Direction 字面量（'below'，非 'bottom'）
+  → panel.api.moveTo({ group: newGroup, position: 'center' })
+  → 原组若空，dockview 自动回收
+```
+
+**视图态而非数据态**：分屏只改「面板摆在哪一栏」，**不改 `openKeys`**（「打开了什么」）。
+`emitOpenChange` 另需按受控 `openKeys` 的顺序上报（而非 `dock.panels` 的
+「组序 × 组内序」），否则分屏会把 store 的「打开顺序」改写成组序，连带影响标签条顺序
+与 localStorage 持久化 —— 见 `DockShell.tsx` `emitOpenChange` 注释。
+
+**UI 入口**（非契约，仅供追溯）：拖拽标签到编辑区左/右边缘（`dock/DocSplitDropZone.tsx`）、
+标签右键菜单、分屏态下的「合并分屏」按钮。
 `DockShellApi` 与 `PanelNavigation` 是**同一套能力的两层视图**：
 `PanelNavigation`（store 层，稳定，插件可见）→ 内部转发到 `DockShellApi`（视图层，dockview 绑定）。
 `DockShell` 未挂载时 `getPanelNavigation().open()` **必须静默排队**（不抛错），挂载后回放 —— 否则插件在 `apply(ctx)` 期间调用会崩。

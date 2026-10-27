@@ -64,16 +64,16 @@ function Panel({ title, icon: Icon, iconColor, count, hint, children }: {
         style={{ borderBottom: '0.5px solid hsl(var(--border) / 0.45)' }}
       >
         <Icon size={12} style={{ color: iconColor }} aria-hidden="true" />
-        <span className="text-[12px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
+        <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
           {title}
         </span>
         {typeof count === 'number' && (
-          <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {count}
           </span>
         )}
         {hint && (
-          <span className="ml-auto text-[11px] truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="ml-auto text-[10px] truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {hint}
           </span>
         )}
@@ -187,16 +187,16 @@ export function WorldStateBoard({ projectId, conclusion, running, stages }: Worl
         hint={latestChapter > 0 ? `推进至第 ${latestChapter} 章` : undefined}
       >
         {changes.length === 0 ? (
-          <div className="text-[11px] leading-[1.7] py-0.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <div className="text-[10px] leading-[1.7] py-0.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
             还没有状态变化 —— 实体在章节里发生变动时会自动沉淀到这里。
           </div>
         ) : (
           <ul className="space-y-1.5">
             {changes.map((c) => (
-              <li key={c.key} className="flex items-baseline gap-2 text-[12px]">
+              <li key={c.key} className="flex items-baseline gap-2 text-[11px]">
                 <span
                   className="shrink-0 tabular-nums"
-                  style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, minWidth: 26 }}
+                  style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, minWidth: 26 }}
                 >
                   Ch{c.chapter}
                 </span>

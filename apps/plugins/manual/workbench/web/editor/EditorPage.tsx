@@ -21,8 +21,11 @@ import { useAutoEntityDetection } from '../hooks/useAutoEntityDetection';
 import { useLatestChapterPolling } from '../hooks/useLatestChapterPolling';
 import { useEntityChapterSync } from '../hooks/useEntityChapterSync';
 import { htmlToText, ensureHtmlContent } from '@novel-plugins/data-core/editor/entityDetector';
-import { FileText, Plus, BookOpen as BookOpenIcon } from 'lucide-react';
+import { FileText, Plus, BookOpen as BookOpenIcon, Rows3, ScrollText } from 'lucide-react';
 import { FindReplaceBar } from './FindReplaceBar';
+// ★ 2026-10-26 页面视图（A4 稿纸分页）：纸卡片/页码层 + 分页行为（量页/翻页/缩放/光标跟随）
+import { PageLayer } from './PageLayer';
+import { usePageView } from './hooks/usePageView';
 import { saveSnapshot, saveChapter } from '@novel-plugins/data-core/data/databaseService';
 import { getCachedChapterContent, cacheChapterContent } from '@novel-plugins/data-core/data/chapterLocalCache';
 import { nanoid } from 'nanoid';
@@ -30,7 +33,7 @@ import type { Snapshot } from '@novel/shared';
 
 // ★ 样式常量：避免每次渲染创建新对象
 const TITLE_INPUT_STYLE: React.CSSProperties = {
-  fontSize: '28px',
+  fontSize: '26px',
   fontWeight: 700,
   color: 'hsl(var(--ink))',
   backgroundColor: 'transparent',
@@ -43,6 +46,26 @@ const TITLE_INPUT_STYLE: React.CSSProperties = {
 const SUBTITLE_STYLE: React.CSSProperties = {
   color: 'hsl(var(--mountain-deep))',
 };
+
+/** 页面视图偏好的 localStorage 键（视图偏好，缺省**关**；见 readPageViewPref）。 */
+const PAGE_VIEW_LS_KEY = 'novelmuse.editor.pageView';
+
+/**
+ * 页面视图偏好：缺省**关**（用户口径 2026-10-27「内容纸张不要分页」）。
+ *
+ * ★ 口径变更史（勿凭直觉改回去）：
+ *   2026-10-26 曾按「像 Word 那样分页」做成默认**开**；次日作者看过实际观感后明确要求
+ *   「内容纸张不要分页」⇒ 默认回到**连续视图**（无边、一整个长卷）。
+ *   纸张分页能力**保留**（工具栏那个开关仍能切），只是不再是默认。
+ *   偏好仍记在 localStorage：只有显式切到页面视图过（写 '1'），才会恢复成页面视图。
+ */
+function readPageViewPref(): boolean {
+  try {
+    return localStorage.getItem(PAGE_VIEW_LS_KEY) === '1';
+  } catch {
+    return false; // 隐私模式 / 存储被禁：按默认（连续视图）
+  }
+}
 
 /** 元信息行的一段；四段全部来自真实数据，缺失时整段不进入数组（不渲染空占位/null） */
 
@@ -111,6 +134,21 @@ export function EditorPage() {
 
   const editorRef = useRef(editor);
   editorRef.current = editor;
+
+  // ---- 页面视图（A4 稿纸分页）：视图偏好 + 分页行为 ----
+  // ★ 用户口径（2026-10-27）：「内容纸张不要分页」⇒ 默认连续视图；
+  //   纸张分页（2026-10-26 做的 A4 纸页 + 页码）保留为**可选**视图，开关在标题行。
+  //   偏好存 localStorage 而非服务端 KV：它与「面板开合」同量级（视图偏好，
+  //   不是作品/排版数据），panelOpenStore 也是 localStorage 口径。
+  const [pageView, setPageView] = useState<boolean>(readPageViewPref);
+  const togglePageView = useCallback(() => {
+    setPageView((on) => {
+      const next = !on;
+      try { localStorage.setItem(PAGE_VIEW_LS_KEY, next ? '1' : '0'); } catch { /* 隐私模式：静默 */ }
+      return next;
+    });
+  }, []);
+  const page = usePageView({ enabled: pageView, hostRef: scrollHostRef });
 
   // 空章节状态下「新建章节」：同步落库 + 写内存 + 打开新章，兑现空状态文案承诺
   const handleCreateChapter = useCallback(async () => {
@@ -507,10 +545,10 @@ export function EditorPage() {
               <FileText size={26} className="text-[rgba(255,255,255,0.92)]" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-[22px] font-[Noto_Serif_SC,serif] font-semibold" style={{ color: 'hsl(var(--ink))' }}>
+              <h2 className="text-[20.5px] font-[Noto_Serif_SC,serif] font-semibold" style={{ color: 'hsl(var(--ink))' }}>
                 尚未开启章节
               </h2>
-              <p className="text-[13px] leading-7" style={{ color: 'hsl(var(--ink-light))' }}>
+              <p className="text-[12px] leading-7" style={{ color: 'hsl(var(--ink-light))' }}>
                 在左侧章节树中点选一个章节开始你的创作。
                 <br />
                 或者从下方新建一个章节。
@@ -519,7 +557,7 @@ export function EditorPage() {
             <div className="flex items-center justify-center gap-2 pt-2">
               <button
                 onClick={handleCreateChapter}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium rounded-xl nm-btn-mist-primary transition-all duration-200"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-medium rounded-xl nm-btn-mist-primary transition-all duration-200"
               >
                 <Plus size={14} />
                 <span>新建章节</span>
@@ -527,14 +565,14 @@ export function EditorPage() {
               <button
                 onClick={() => useChapterStore.getState().setCurrentChapter(recentChapterId)}
                 disabled={!recentChapterId}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium rounded-xl nm-btn-mist-primary transition-all duration-200 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-medium rounded-xl nm-btn-mist-primary transition-all duration-200 disabled:opacity-40"
               >
                 <BookOpenIcon size={14} />
                 <span>打开最近章节</span>
               </button>
               <button
                 onClick={() => navigate(PATHS.bookshelf)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium rounded-xl nm-btn-mist-soft transition-all duration-200"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-medium rounded-xl nm-btn-mist-soft transition-all duration-200"
               >
                 <Plus size={14} />
                 <span>前往书架</span>
@@ -554,7 +592,7 @@ export function EditorPage() {
       {/* Chapter 内容 包裹 为 过渡 animations */}
       <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden min-h-0">
       {/* Chapter 标题 — Noto Serif 居中 */}
-      <div className="nm-editor-responsive" style={{ paddingTop: 'clamp(24px, 4vh, 40px)', paddingBottom: '16px' }}>
+      <div className="nm-editor-responsive" style={{ paddingTop: 'clamp(24px, 4vh, 40px)', paddingBottom: 'var(--space-6)' }}>
         <input
           type="text"
           value={currentChapter.title}
@@ -568,13 +606,13 @@ export function EditorPage() {
         />
         {/* 副标题：所属卷 */}
         {currentChapter.label && (
-          <div className="text-center mt-2 text-[12px] font-[Noto_Serif_SC,serif] tracking-wider" style={SUBTITLE_STYLE}>
+          <div className="text-center mt-2 text-[11px] font-[Noto_Serif_SC,serif] tracking-wider" style={SUBTITLE_STYLE}>
             {currentChapter.label}
           </div>
         )}
         {/* 元信息行：字数 · 最后修改 · 本章标识 · 在场人物（四段均为真实数据，缺失段不渲染） */}
         <div
-          className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2 text-[12px]"
+          className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2 text-[11px]"
           style={{ color: 'hsl(var(--ink-pale))' }}
         >
           {metaSegments.map((segment, index) => (
@@ -595,6 +633,39 @@ export function EditorPage() {
             <Plus size={11} aria-hidden="true" />
             <span>批注</span>
           </button>
+          {/* 页面视图开关（2026-10-26）：与「批注」同排的视图偏好。
+              文案写**点下去会切到哪种视图**，标题补一句当前态 —— 单标签按钮不装双状态。 */}
+          <button
+            type="button"
+            onClick={togglePageView}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors hover:bg-[hsl(var(--mist-pale))]"
+            title={pageView ? '当前：页面视图（A4 纸页 + 页码）· 点一下切成连续视图' : '当前：连续视图 · 点一下切成页面视图（A4 纸页 + 页码）'}
+            aria-label={pageView ? '切到连续视图' : '切到页面视图'}
+            aria-pressed={pageView}
+          >
+            {pageView ? <ScrollText size={11} aria-hidden="true" /> : <Rows3 size={11} aria-hidden="true" />}
+            <span>{pageView ? '连续视图' : '页面视图'}</span>
+          </button>
+          {/* 单页 / 多页（只在页面视图下出现）：单页 = 一屏一页（整页自适应），
+              多页 = 缩小一屏并排两张纸。页码显示当前页，翻页见 tooltip。 */}
+          {pageView && (
+            <>
+              <button
+                type="button"
+                onClick={() => page.setMode(page.mode === 'single' ? 'multi' : 'single')}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors hover:bg-[hsl(var(--mist-pale))]"
+                title={page.mode === 'single' ? '当前：单页（一屏一页）· 点一下切多页（一屏两张纸）' : '当前：多页（一屏两张纸）· 点一下切单页'}
+                aria-label={page.mode === 'single' ? '切到多页显示' : '切到单页显示'}
+                aria-pressed={page.mode === 'multi'}
+              >
+                <Rows3 size={11} aria-hidden="true" />
+                <span>{page.mode === 'single' ? '多页' : '单页'}</span>
+              </button>
+              <span className="mc-num tabular-nums" title="当前页 / 总页数；滚轮或 ← → 翻页">
+                {page.pageIndex + 1} / {page.pageCount}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -622,22 +693,41 @@ export function EditorPage() {
           className="nm-editor-card nm-editor-content relative overflow-hidden"
           style={{ height: '100%' }}
         >
-          {/* 内层：滚动容器（独立 overflow，内部 padding） */}
+          {/* 内层：滚动容器（独立 overflow，内部 padding）。
+              ★ 2026-10-26 页面视图：内边距改由 CSS 接管（globals.css「页面视图」段 ——
+                纸左右居中 + 画布呼吸），故此处内联值只在连续视图下给
+                （内联样式压过 CSS，条件给是唯一干净的做法）。 */}
           <div
             ref={scrollHostRef}
-            className="nm-editor-scroll-host"
-            style={{
-              paddingLeft: 'clamp(16px, 4vw, 48px)',
-              paddingRight: 'clamp(16px, 4vw, 48px)',
-              paddingTop: 'clamp(20px, 4vh, 32px)',
-              // ★ 底部只留基础呼吸留白：原先这里还要为「快捷短语」position:fixed 浮层
-              //   预留一段动态测量的 padding（见该文件历史版本）。该功能已于 2026-10-08
-              //   改为底部面板里的一栏（见 QuickPhrasePanel），不再覆盖正文 ⇒ 无需预留。
-              paddingBottom: 'clamp(20px, 4vh, 32px)',
-            }}
+            className={pageView ? 'nm-editor-scroll-host is-page-view' : 'nm-editor-scroll-host'}
+            style={
+              pageView
+                ? undefined
+                : {
+                    paddingLeft: 'clamp(16px, 4vw, 48px)',
+                    paddingRight: 'clamp(16px, 4vw, 48px)',
+                    paddingTop: 'clamp(20px, 4vh, 32px)',
+                    // ★ 底部只留基础呼吸留白：原先这里还要为「快捷短语」position:fixed 浮层
+                    //   预留一段动态测量的 padding（见该文件历史版本）。该功能已于 2026-10-08
+                    //   改为底部面板里的一栏（见 QuickPhrasePanel），不再覆盖正文 ⇒ 无需预留。
+                    paddingBottom: 'clamp(20px, 4vh, 32px)',
+                  }
+            }
           >
 
-            <EditorContent editor={editor} />
+            {pageView ? (
+              /* 缩放外框 → 页带（纸卡片层 + 正文流本体）。
+                 ⚠️ SelectionMenu 必须留在缩放外框**之外**（见下方）：transform 会给
+                    position:fixed 造出新的包含块，菜单会被一起缩放并对错锚点。 */
+              <div className="nm-page-scale" style={page.scaleStyle}>
+                <div ref={page.stripRef} className="nm-page-strip nm-page-view" style={page.stripStyle}>
+                  <PageLayer pages={page.pageCount} />
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
+            ) : (
+              <EditorContent editor={editor} />
+            )}
             {editor && <SelectionMenu editor={editor} />}
           </div>
         </div>

@@ -59,7 +59,7 @@ export function LoadingPixels({ className, label }: { className?: string; label?
       <span className="mc-pixels" aria-hidden="true">
         <i /> <i /> <i /> <i /> <i /> <i /> <i /> <i /> <i />
       </span>
-      {label ? <span className="text-[11.5px] text-tone-2">{label}</span> : null}
+      {label ? <span className="text-[10.5px] text-tone-2">{label}</span> : null}
     </span>
   );
 }

@@ -5,6 +5,7 @@ import { saveChapter, updateChapter as updateChapterInDb } from '@novel-plugins/
 import { useGSAP, chapterListEnter } from '@novel-plugins/ui-kit/gsap';
 import { nanoid } from 'nanoid';
 import { safeConfirm } from '@novel-plugins/ui-kit/safeConfirm';
+import { openChapterInEditor } from '../utils/openChapter';
 import { TrashDialog } from './TrashDialog';
 
 // ★ memo + 拆分 wordCount 为独立 prop + 稳定 handler：
@@ -66,12 +67,12 @@ const ChapterListItem = memo(function ChapterListItem({
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        gap: 'var(--space-4)',
         // ★ 用户口径（2026-10-05）「章节UI上下的宽度不是长度」：要减半的是**行高**。
         //   参考图左栏行距实测 27px（`t6-refrows.py`：y80→107→134→161→188→217→244→270），
         //   本行原来上下各 8px 内边距（含两行内容时实高 54-70），这里收到 2px。
         //   水平内边距回到 10（左栏宽度已改回 240，不再需要为 120px 让位）。
-        padding: '2px 10px',
+        padding: 'var(--space-0) var(--space-4)',
         borderRadius: 'var(--r-xs)',
         position: 'relative',
         // ★ 墨韵化（2026-09-18）：原来 active/hover/常态是三档「青霭玻璃」半透明底 +
@@ -105,7 +106,7 @@ const ChapterListItem = memo(function ChapterListItem({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 700,
           fontFamily: "'Inter', sans-serif",
           color: 'hsl(var(--tone-2))',
@@ -125,7 +126,7 @@ const ChapterListItem = memo(function ChapterListItem({
       {/* 章节名 + 字数（★ 用户口径 2026-10-05「章节UI上下的宽度不是长度」：
           行高对齐参考图 27px ⇒ 由「上下两行」压成**单行**：章节名占满剩余宽度并省略号收尾，
           字数/草稿贴行右端。两行叠放时内容高 17+2+15=34，压成单行后行内容高取较高者 22（徽章）。 */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)' }}>
         {editing ? (
           <input
             type="text"
@@ -140,8 +141,8 @@ const ChapterListItem = memo(function ChapterListItem({
             autoFocus
             style={{
               width: '100%',
-              padding: '3px 6px',
-              fontSize: 13,
+              padding: 'var(--space-0) var(--space-2)',
+              fontSize: 12,
               borderRadius: 'var(--r-2xs)',
               outline: 'none',
               border: '1px solid hsl(var(--paper-line-strong))',
@@ -156,7 +157,7 @@ const ChapterListItem = memo(function ChapterListItem({
               style={{
                 flex: 1,
                 minWidth: 0,
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 500,
                 fontFamily: "'Noto Serif SC', serif",
                 color: isActive ? 'hsl(var(--foreground))' : 'hsl(var(--foreground) / 0.88)',
@@ -175,13 +176,13 @@ const ChapterListItem = memo(function ChapterListItem({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 'var(--space-2)',
                 flexShrink: 0,
                 minWidth: 0,
                 overflow: 'hidden',
                 // ★ 11px 是体系字号地板（原来内联写死 10.5px，是**内联样式**，
-                //   逃过了 `.text-[10.5px]` 那条类名兜底规则 —— 真机探针抓到的就是它）
-                fontSize: 11,
+                //   逃过了 `.text-[10px]` 那条类名兜底规则 —— 真机探针抓到的就是它）
+                fontSize: 10,
                 // ink-pale(58%) 亮色下只有 3.3:1，字数是用户要读的内容 → tone-2(4.61:1)
                 color: 'hsl(var(--tone-2))',
                 fontVariantNumeric: 'tabular-nums',
@@ -213,12 +214,12 @@ const ChapterListItem = memo(function ChapterListItem({
               {chapter.status === 'draft' && (
                 <span
                   style={{
-                    padding: '0 4px',
+                    padding: '0 var(--space-1)',
                     borderRadius: 3,
                     border: '1px solid hsl(var(--paper-line))',
                     color: 'hsl(var(--tone-2))',
                     // ★ 11px 是体系字号地板（见上方注释），内联样式同样不破例
-                    fontSize: 11,
+                    fontSize: 10,
                     lineHeight: '14px',
                     flexShrink: 0,
                   }}
@@ -246,8 +247,8 @@ const ChapterListItem = memo(function ChapterListItem({
             transform: 'translateY(-50%)',
             zIndex: 2,
             display: 'flex',
-            gap: 2,
-            padding: 2,
+            gap: 'var(--space-0)',
+            padding: 'var(--space-0)',
             borderRadius: 'var(--r-sm)',
             background: 'hsl(var(--paper))',
             opacity: isHovered ? 1 : 0,
@@ -345,7 +346,6 @@ export function LeftSidebar() {
   const chapters = useChapterStore((s) => s.chapters);
   const currentChapterId = useChapterStore((s) => s.currentChapterId);
   const liveWordCount = useChapterStore((s) => s.liveWordCount);
-  const setCurrentChapter = useChapterStore((s) => s.setCurrentChapter);
   const addChapter = useChapterStore((s) => s.addChapter);
   const updateChapter = useChapterStore((s) => s.updateChapter);
   const deleteChapter = useChapterStore((s) => s.deleteChapter);
@@ -399,9 +399,11 @@ export function LeftSidebar() {
   }, [sortedChapters]);
 
   // ★ 稳定的章节选择 handler（useCallback 保证引用稳定，配合 ChapterListItem 的 memo）
+  //   走 openChapterInEditor：切当前章 + 把中心区切回「章节正文」
+  //   （只切 store 的话，正占着中心区的「章节」面板不会让位，表现为"点了没反应"）
   const handleSelectChapter = useCallback((id: string) => {
-    setCurrentChapter(id);
-  }, [setCurrentChapter]);
+    openChapterInEditor(id);
+  }, []);
 
   // ★ 稳定的取消编辑 handler
   const handleCancelEdit = useCallback(() => {
@@ -509,8 +511,8 @@ export function LeftSidebar() {
         createdAt: now.getTime(),
         updatedAt: now.getTime(),
       } as never);
-      // 自动选中新章节
-      setCurrentChapter(id);
+      // 自动选中新章节 + 把中心区切回正文（否则新建完看不到它）
+      openChapterInEditor(id);
       setNewTitle('');
       setNewVolume('');
       setCreating(false);
@@ -519,7 +521,7 @@ export function LeftSidebar() {
     } finally {
       setCreatingBusy(false);
     }
-  }, [currentProject, newTitle, newVolume, chapters.length, addChapter, setCurrentChapter]);
+  }, [currentProject, newTitle, newVolume, chapters.length, addChapter]);
 
   // 删除章节（软删除 → 移入回收站）
   // 仅更新 store，由 syncService 自动同步到后端（DELETE /chapters/:id 软删除）
@@ -559,12 +561,12 @@ export function LeftSidebar() {
           `.dv-tabs-and-actions-container { border-bottom }` 提供）。原 `border-b` 会产生
           一条参考图没有的通栏线，故去掉。 */}
       <div className="flex h-[33px] shrink-0 items-center justify-between px-3">
-        <span className="flex items-center gap-1.5 text-[12px] font-semibold text-tone">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-tone">
           <BookOpen size={12} aria-hidden="true" className="text-tone-3" />
           章节
         </span>
         <span
-          className="mc-num rounded-chip px-1.5 py-0.5 text-[11px] text-tone-2"
+          className="mc-num rounded-chip px-1.5 py-0.5 text-[10px] text-tone-2"
           style={{ background: 'hsl(var(--paper-hover))' }}
           title={`共 ${sortedChapters.length} 章`}
           aria-label={`共 ${sortedChapters.length} 章`}
@@ -578,7 +580,7 @@ export function LeftSidebar() {
         {sortedChapters.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <FileText size={20} className="mx-auto mb-2 text-tone-3" />
-            <p className="text-[12px] text-tone-2">
+            <p className="text-[11px] text-tone-2">
               暂无章节 · 在下方创建第一章
             </p>
           </div>
@@ -599,7 +601,7 @@ export function LeftSidebar() {
                       onClick={() => toggleVolume(volume)}
                       aria-expanded={!collapsed}
                       title={collapsed ? `展开「${volume}」` : `折叠「${volume}」`}
-                      className="flex w-full items-center gap-1 rounded-chip px-1 py-0.5 text-left text-[11px] font-semibold tracking-wide text-tone-2 transition-colors hover:bg-paper-hover hover:text-tone"
+                      className="flex w-full items-center gap-1 rounded-chip px-1 py-0.5 text-left text-[10px] font-semibold tracking-wide text-tone-2 transition-colors hover:bg-paper-hover hover:text-tone"
                     >
                       <ChevronRight
                         size={11}
@@ -645,7 +647,7 @@ export function LeftSidebar() {
                   )}
                   {/* 折叠时给一行提示，避免用户以为「卷里的章节不见了」 */}
                   {collapsed && (
-                    <p className="px-1 text-[11px] text-tone-3">
+                    <p className="px-1 text-[10px] text-tone-3">
                       已折叠 {volChapters.length} 章
                     </p>
                   )}
@@ -667,7 +669,7 @@ export function LeftSidebar() {
                 setCreating(true);
                 setNewVolume(volumeGroups[0]?.[0] ?? '');
               }}
-              className="nm-btn-apple nm-btn-apple-secondary flex-1 justify-center text-[12px] py-2"
+              className="nm-btn-apple nm-btn-apple-secondary flex-1 justify-center text-[11px] py-2"
               title="新建章节"
               aria-label="新建章节"
             >
@@ -691,7 +693,7 @@ export function LeftSidebar() {
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="章节名"
               autoFocus
-              className="w-full px-2.5 py-1.5 text-[12px] rounded-md outline-none transition-colors"
+              className="w-full px-2.5 py-1.5 text-[11px] rounded-md outline-none transition-colors"
               style={{
                 color: 'hsl(var(--foreground))',
                 background: 'rgb(var(--glass-tint) / 0.45)',
@@ -715,7 +717,7 @@ export function LeftSidebar() {
               onChange={(e) => setNewVolume(e.target.value)}
               placeholder="卷名（可选）"
               list="volume-suggestions"
-              className="w-full px-2.5 py-1.5 text-[12px] rounded-md outline-none transition-colors"
+              className="w-full px-2.5 py-1.5 text-[11px] rounded-md outline-none transition-colors"
               style={{
                 color: 'hsl(var(--foreground))',
                 background: 'rgb(var(--glass-tint) / 0.45)',
@@ -742,7 +744,7 @@ export function LeftSidebar() {
               <button
                 onClick={handleCreate}
                 disabled={creatingBusy || !newTitle.trim()}
-                className="flex-1 nm-btn-apple nm-btn-apple-primary text-[12px] py-1.5"
+                className="flex-1 nm-btn-apple nm-btn-apple-primary text-[11px] py-1.5"
               >
                 <Check size={11} />
                 <span>创建</span>

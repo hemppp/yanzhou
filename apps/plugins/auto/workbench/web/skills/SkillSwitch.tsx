@@ -47,7 +47,7 @@ export function SkillSwitch({
       <span
         style={{
           position: 'absolute', left: 10, top: 0, height: 24, lineHeight: '24px',
-          fontSize: 11, fontWeight: 600,
+          fontSize: 10, fontWeight: 600,
           color: enabled ? 'hsl(var(--muted-foreground) / 0.7)' : 'hsl(var(--foreground))',
         }}
         aria-hidden="true"
@@ -58,7 +58,7 @@ export function SkillSwitch({
       <span
         style={{
           position: 'absolute', right: 10, top: 0, height: 24, lineHeight: '24px',
-          fontSize: 11, fontWeight: 600,
+          fontSize: 10, fontWeight: 600,
           color: enabled ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground) / 0.7)',
         }}
         aria-hidden="true"

@@ -123,7 +123,7 @@ export function LocationGraph() {
           label: '位于',
           type: 'bubble',
           style: { stroke: locationColor, strokeWidth: 1.5, strokeOpacity: 0.4 },
-          labelStyle: { fill: locationColor, fontSize: 10, fontWeight: 600, opacity: 0 },
+          labelStyle: { fill: locationColor, fontSize: 9.5, fontWeight: 600, opacity: 0 },
           labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
@@ -251,15 +251,15 @@ export function LocationGraph() {
     <>
       <div className="flex items-center gap-1.5">
         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--muted-foreground))' }} />
-        <span className="text-[11px] text-muted-foreground">地点（按 color 字段染色）</span>
+        <span className="text-[10px] text-muted-foreground">地点（按 color 字段染色）</span>
       </div>
       <div className="flex items-center gap-1.5">
         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--entity-character))' }} />
-        <span className="text-[11px] text-muted-foreground">角色</span>
+        <span className="text-[10px] text-muted-foreground">角色</span>
       </div>
       <div className="flex items-center gap-1.5">
         <div className="w-6 h-0.5" style={{ backgroundColor: 'hsl(var(--muted-foreground))' }} />
-        <span className="text-[11px] text-muted-foreground">"位于"关系（按章节共现推断）</span>
+        <span className="text-[10px] text-muted-foreground">"位于"关系（按章节共现推断）</span>
       </div>
     </>
   );
@@ -276,7 +276,7 @@ export function LocationGraph() {
         </div>
         <div>
           <h3 className="font-bold">{selectedLocation.name}</h3>
-          <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">地点</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">地点</span>
         </div>
       </div>
 
@@ -336,7 +336,7 @@ export function LocationGraph() {
         </div>
         <div>
           <h3 className="font-bold">{selectedChar.name}</h3>
-          <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">角色</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-secondary">角色</span>
         </div>
       </div>
       {selectedChar.aliases && selectedChar.aliases.length > 0 && (

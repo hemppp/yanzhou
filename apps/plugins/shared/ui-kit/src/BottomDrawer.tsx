@@ -132,7 +132,7 @@ export function BottomDrawer({
                     }
                   }}
                   onPointerDown={handleTabPointerDown}
-                  className="nm-btn-apple glass-ripple glass-pressable glass-edge-glow text-[12px] px-2.5 py-1 transition-all duration-200"
+                  className="nm-btn-apple glass-ripple glass-pressable glass-edge-glow text-[11px] px-2.5 py-1 transition-all duration-200"
                   style={{
                     color: isActive ? 'hsl(var(--mountain-deep))' : 'hsl(var(--muted-foreground))',
                     background: isActive
@@ -155,7 +155,7 @@ export function BottomDrawer({
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && tab.badge !== 0 && (
                     <span
-                      className="ml-1 text-[11px] tabular-nums px-1.5 rounded-full"
+                      className="ml-1 text-[10px] tabular-nums px-1.5 rounded-full"
                       style={{ background: 'hsl(var(--cinnabar) / 0.15)', color: 'hsl(var(--cinnabar))' }}
                     >
                       {tab.badge}

@@ -164,7 +164,7 @@ export function CreditLedger() {
             </div>
           </div>
           <div className="px-3 pt-2 pb-1">
-            <p className="text-[11px] text-muted-foreground">绑定系统的人物</p>
+            <p className="text-[10px] text-muted-foreground">绑定系统的人物</p>
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {filteredChars.length === 0 ? (
@@ -186,7 +186,7 @@ export function CreditLedger() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                         style={{ backgroundColor: c.color || 'hsl(0 0% 50%)' }}
                       >
                         {c.name[0]}
@@ -195,7 +195,7 @@ export function CreditLedger() {
                     </div>
                     {hasLedger && (
                       <span
-                        className={`text-[11px] font-semibold shrink-0 ml-2 flex items-center gap-0.5 ${
+                        className={`text-[10px] font-semibold shrink-0 ml-2 flex items-center gap-0.5 ${
                           info!.balance < 0 ? 'text-red-500' : 'text-amber-600'
                         }`}
                       >
@@ -230,12 +230,12 @@ export function CreditLedger() {
                 </div>
                 <div className="mt-2.5 flex items-end gap-3">
                   <div>
-                    <p className="text-[11px] text-muted-foreground">当前结余</p>
+                    <p className="text-[10px] text-muted-foreground">当前结余</p>
                     <p className={`text-2xl font-bold tabular-nums ${charBalance < 0 ? 'text-red-500' : 'text-foreground'}`}>
                       {charBalance}
                     </p>
                   </div>
-                  <div className="text-[11px] text-muted-foreground pb-1 leading-relaxed">
+                  <div className="text-[10px] text-muted-foreground pb-1 leading-relaxed">
                     <p>累计获得 <span className="text-green-600 font-medium">+{charSummary?.gained ?? 0}</span></p>
                     <p>累计消耗 <span className="text-red-500 font-medium">-{charSummary?.spent ?? 0}</span></p>
                   </div>
@@ -244,10 +244,10 @@ export function CreditLedger() {
 
               <div className="flex-1 overflow-y-auto px-2 py-2">
                 {ledger.length === 0 ? (
-                  <div className="px-4 py-12 text-center">
+                  <div className="px-4 py-8 text-center">
                     <Coins size={24} className="mx-auto mb-2 text-muted-foreground/60" />
                     <p className="text-sm text-muted-foreground">暂无积分流水</p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-1">点击"记一笔"记录任务奖励或商城兑换</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">点击"记一笔"记录任务奖励或商城兑换</p>
                   </div>
                 ) : (
                   ledger.map((t) => {
@@ -277,17 +277,17 @@ export function CreditLedger() {
                             {isGain ? '+' : '-'}{t.amount}
                           </span>
                           <span className="text-sm text-foreground/85 truncate flex-1">{t.reason || (isGain ? '获得积分' : '消耗积分')}</span>
-                          <span className="text-[11px] text-muted-foreground shrink-0">余 {t.balanceAfter}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">余 {t.balanceAfter}</span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-1 ml-8">
-                          <span className="text-[11px] text-muted-foreground">第 {t.chapter} 章</span>
+                          <span className="text-[10px] text-muted-foreground">第 {t.chapter} 章</span>
                           {relatedItem && (
-                            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                               · <ShoppingCart size={9} /> {relatedItem.name}
                             </span>
                           )}
                           {t.balanceAfter < 0 && (
-                            <span className="text-[11px] text-red-500 flex items-center gap-0.5 font-medium">
+                            <span className="text-[10px] text-red-500 flex items-center gap-0.5 font-medium">
                               <AlertTriangle size={9} /> 结余为负
                             </span>
                           )}
@@ -402,7 +402,7 @@ export function CreditLedger() {
                     ))}
                   </select>
                   {form.type === 'spend' && formItem?.creditPrice && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-[10px] text-muted-foreground mt-1">
                       该物品积分定价 {formItem.creditPrice}
                     </p>
                   )}
@@ -465,7 +465,7 @@ export function CreditLedger() {
                       <ShoppingCart size={14} className="text-muted-foreground" />
                       <span className="text-sm text-foreground/85">{relatedItem.name}</span>
                       {relatedItem.creditPrice != null && (
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                           <Coins size={9} /> {relatedItem.creditPrice}
                         </span>
                       )}
@@ -499,7 +499,7 @@ export function CreditLedger() {
               <div className="text-center">
                 <Coins size={36} className="mx-auto mb-3 opacity-30" />
                 <p className="text-sm">选择流水查看详情</p>
-                <p className="text-[11px] text-muted-foreground/60 mt-1.5 max-w-52">
+                <p className="text-[10px] text-muted-foreground/60 mt-1.5 max-w-52">
                   追踪系统文角色的每笔积分收支与变动后结余，负结余即提示账目不一致
                 </p>
               </div>

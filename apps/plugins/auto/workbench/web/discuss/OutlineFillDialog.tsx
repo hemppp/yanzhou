@@ -261,7 +261,7 @@ export function OutlineFillDialog({
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="nm-modal-title">填入大纲</h2>
-            <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: 'hsl(var(--ink-pale))' }}>
+            <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: 'hsl(var(--ink-pale))' }}>
               <Wand2 size={10} />
               {parsedSummary}
             </p>
@@ -343,7 +343,7 @@ export function OutlineFillDialog({
               </div>
               {existingText.trim() && (
                 <div
-                  className="mt-2 text-[11px] rounded-xl px-2.5 py-1.5"
+                  className="mt-2 text-[10px] rounded-xl px-2.5 py-1.5"
                   style={{
                     background: 'rgb(var(--glass-tint) / 0.3)',
                     color: 'hsl(var(--ink-pale))',
@@ -371,12 +371,12 @@ export function OutlineFillDialog({
               placeholder="AI 生成的内容将显示在这里，你可以编辑后再填入……"
               spellCheck={false}
             />
-            <div className="text-[11px] mt-1 flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))' }}>
+            <div className="text-[10px] mt-1 flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))' }}>
               <span>{content.trim().length} 字</span>
               {content.trim() && (
                 <button
                   onClick={() => setContent(toPlainText(content))}
-                  className="text-[11px] flex items-center gap-1 hover:opacity-70 transition-opacity"
+                  className="text-[10px] flex items-center gap-1 hover:opacity-70 transition-opacity"
                   style={{ color: 'hsl(var(--mountain-deep))' }}
                   title="去除 Markdown 标记"
                 >
@@ -460,7 +460,7 @@ function TargetOption({
       </span>
       {hasExisting && (
         <span
-          className="text-[11px] px-1.5 py-0.5 rounded-md"
+          className="text-[10px] px-1.5 py-0.5 rounded-md"
           style={{
             background: 'hsl(38, 92%, 50% / 0.12)',
             color: 'hsl(32, 95%, 44%)',
@@ -470,7 +470,7 @@ function TargetOption({
         </span>
       )}
       <span
-        className="text-[11px] px-1.5 py-0.5 rounded-md"
+        className="text-[10px] px-1.5 py-0.5 rounded-md"
         style={{
           background: hint === '已识别' ? 'hsl(142, 71%, 45% / 0.12)' : 'rgb(var(--glass-tint) / 0.5)',
           color: hint === '已识别' ? 'hsl(142, 71%, 35%)' : 'hsl(var(--ink-pale))',
@@ -516,7 +516,7 @@ function ModeButton({
       }}
     >
       <div className="text-xs font-semibold">{label}</div>
-      <div className="text-[11px] mt-0.5 opacity-80">{hint}</div>
+      <div className="text-[10px] mt-0.5 opacity-80">{hint}</div>
     </button>
   );
 }

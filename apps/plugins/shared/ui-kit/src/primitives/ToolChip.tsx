@@ -71,7 +71,7 @@ export function ToolChip({
         aria-expanded={hasDetail ? open : undefined}
         className={cn(
           'mc-press inline-flex max-w-full items-center gap-1.5 rounded-control px-1.5 py-1',
-          'text-[11.5px] transition-colors duration-150 ease-out',
+          'text-[10.5px] transition-colors duration-150 ease-out',
           hasDetail ? 'hover:bg-paper-hover mc-focus' : 'cursor-default',
         )}
       >
@@ -88,7 +88,7 @@ export function ToolChip({
           <div
             className={cn(
               'mc-scroll ml-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-card',
-              'bg-paper-inset px-2.5 py-2 text-[11.5px] leading-relaxed text-tone-2',
+              'bg-paper-inset px-2.5 py-2 text-[10.5px] leading-relaxed text-tone-2',
             )}
           >
             {event.result}

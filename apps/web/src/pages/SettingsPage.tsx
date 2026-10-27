@@ -100,7 +100,7 @@ export function SettingsPage() {
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: 'transparent' }}>
-      <div className="max-w-5xl mx-auto px-8 py-10">
+      <div className="max-w-5xl mx-auto px-8 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -150,7 +150,7 @@ export function SettingsPage() {
                   {c.icon}
                   {c.label}
                 </div>
-                <div className="text-[11px] mt-0.5 pl-[23px]" style={{ color: 'hsl(var(--ink-light) / 0.45)' }}>
+                <div className="text-[10px] mt-0.5 pl-[23px]" style={{ color: 'hsl(var(--ink-light) / 0.45)' }}>
                   {c.desc}
                 </div>
               </button>
@@ -252,7 +252,7 @@ export function SettingsPage() {
               <section className="nm-card p-6">
                 <h2
                   className="nm-section-title flex items-center gap-2"
-                  style={{ marginBottom: '0.5rem' }}
+                  style={{ marginBottom: 'var(--space-3)' }}
                 >
                   <Lock size={14} />
                   本地加密存储

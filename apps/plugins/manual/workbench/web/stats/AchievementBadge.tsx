@@ -55,7 +55,7 @@ export function AchievementBadge({ achievement, unlocked = false }: AchievementB
       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${achievement.bgColor}`}>
         <Icon size={20} className={achievement.color} />
       </div>
-      <span className="text-[11px] font-medium text-center leading-tight">{achievement.title}</span>
+      <span className="text-[10px] font-medium text-center leading-tight">{achievement.title}</span>
     </div>
   );
 }

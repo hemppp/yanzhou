@@ -43,7 +43,7 @@ function FormField({ label, children, hint }: { label: string; children: React.R
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</label>
       {children}
-      {hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}
+      {hint && <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>}
     </div>
   );
 }
@@ -145,15 +145,15 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">基本信息</div>
               {(entity as Character).backstory && (
                 <div>
-                  <div className="text-[11px] text-muted-foreground mb-0.5">简介</div>
+                  <div className="text-[10px] text-muted-foreground mb-0.5">简介</div>
                   <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{(entity as Character).backstory}</p>
                 </div>
               )}
               {(entity as Character).chapters && (entity as Character).chapters!.length > 0 && (
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-[11px] text-muted-foreground">首次出场</span>
+                  <span className="text-[10px] text-muted-foreground">首次出场</span>
                   <span className="text-foreground/85 font-medium">第 {Math.min(...(entity as Character).chapters!)} 章</span>
-                  <span className="text-[11px] text-muted-foreground">（共 {(entity as Character).chapters!.length} 章）</span>
+                  <span className="text-[10px] text-muted-foreground">（共 {(entity as Character).chapters!.length} 章）</span>
                 </div>
               )}
               {(entity as Character).tags && (entity as Character).tags!.length > 0 && (
@@ -344,7 +344,7 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
       </div>
 
       {/* Delete 按钮 */}
-      <div className="mt-10 pt-6 border-t border-border/60">
+      <div className="mt-8 pt-6 border-t border-border/60">
         <button
           onClick={() => {
             if (safeConfirm('确定删除？此操作不可撤销。')) {
@@ -395,7 +395,7 @@ function ItemHoldersEditor({ item, onSave }: ItemHoldersEditorProps) {
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
           <Check size={12} />
           当前持有者
-          <span className="text-[11px] text-muted-foreground normal-case font-normal">
+          <span className="text-[10px] text-muted-foreground normal-case font-normal">
             （可多选 — 装备可被多个角色共同持有）
           </span>
         </label>
@@ -425,7 +425,7 @@ function ItemHoldersEditor({ item, onSave }: ItemHoldersEditorProps) {
           </div>
         )}
         {current.length === 0 && projectChars.length > 0 && (
-          <p className="text-[11px] text-muted-foreground mt-1">未选择任何角色（视为「无主装备」）</p>
+          <p className="text-[10px] text-muted-foreground mt-1">未选择任何角色（视为「无主装备」）</p>
         )}
       </div>
 
@@ -526,7 +526,7 @@ function CharacterRelationsEditor({ character, onSave }: CharacterRelationsEdito
       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
         <Network size={12} />
         角色关系
-        <span className="text-[11px] text-muted-foreground normal-case font-normal">
+        <span className="text-[10px] text-muted-foreground normal-case font-normal">
           （与其他角色的关联 — 父亲/师父/仇人/朋友...）
         </span>
       </label>
@@ -545,7 +545,7 @@ function CharacterRelationsEditor({ character, onSave }: CharacterRelationsEdito
                 key={`${r.targetId}-${r.type}-${idx}`}
                 className="group flex items-center gap-2 px-2.5 py-1.5 rounded-2xl border border-border/60 bg-card hover:bg-muted transition-colors"
               >
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-[11px] ${meta.color}`}>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-[10px] ${meta.color}`}>
                   <Icon size={10} />
                   {meta.label}
                 </span>
@@ -556,10 +556,10 @@ function CharacterRelationsEditor({ character, onSave }: CharacterRelationsEdito
                   {target?.name ?? '未知角色'}
                 </span>
                 {r.chapter !== undefined && (
-                  <span className="text-[11px] text-muted-foreground">第 {r.chapter} 章</span>
+                  <span className="text-[10px] text-muted-foreground">第 {r.chapter} 章</span>
                 )}
                 {r.description && (
-                  <span className="text-[11px] text-muted-foreground truncate flex-1" title={r.description}>
+                  <span className="text-[10px] text-muted-foreground truncate flex-1" title={r.description}>
                     {r.description}
                   </span>
                 )}
@@ -735,7 +735,7 @@ function ItemRelationsEditor({ item, onSave }: ItemRelationsEditorProps) {
       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
         <Link2 size={12} />
         物品间关系
-        <span className="text-[11px] text-muted-foreground normal-case font-normal">
+        <span className="text-[10px] text-muted-foreground normal-case font-normal">
           （与其他物品的关联 — 配对/包含/部件/对立/变形）
         </span>
       </label>
@@ -753,17 +753,17 @@ function ItemRelationsEditor({ item, onSave }: ItemRelationsEditorProps) {
                 key={`${r.targetItemId}-${r.type}-${idx}`}
                 className="group flex items-center gap-2 px-2.5 py-1.5 rounded-2xl border border-border/60 bg-card hover:bg-muted transition-colors"
               >
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-[11px] ${meta.color}`}>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-[10px] ${meta.color}`}>
                   {meta.label}
                 </span>
                 <span className="text-sm text-foreground font-medium">
                   {target?.name ?? '未知物品'}
                 </span>
                 {r.chapter !== undefined && (
-                  <span className="text-[11px] text-muted-foreground">第 {r.chapter} 章</span>
+                  <span className="text-[10px] text-muted-foreground">第 {r.chapter} 章</span>
                 )}
                 {r.description && (
-                  <span className="text-[11px] text-muted-foreground truncate flex-1" title={r.description}>
+                  <span className="text-[10px] text-muted-foreground truncate flex-1" title={r.description}>
                     {r.description}
                   </span>
                 )}

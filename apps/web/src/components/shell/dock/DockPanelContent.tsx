@@ -59,12 +59,12 @@ class PanelErrorBoundary extends React.Component<
           }}
         >
           <AlertTriangle size={20} style={{ color: 'var(--vscode-semantic-warning)' }} />
-          <div style={{ fontSize: 12 }}>
+          <div style={{ fontSize: 11 }}>
             「{this.props.label}」面板组件运行出错，已隔离在本面板内
           </div>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 10,
               fontFamily: 'var(--vscode-font-family-mono)',
               wordBreak: 'break-all',
               maxWidth: '100%',

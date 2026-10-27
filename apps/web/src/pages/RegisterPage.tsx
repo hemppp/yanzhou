@@ -207,7 +207,7 @@ export function RegisterPage() {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen flex items-center justify-center px-4 py-10"
+      className="min-h-screen flex items-center justify-center px-4 py-8"
     >
       <div className="w-full max-w-[400px]">
         {/* Header — Logo 印章 + Hero 标题 + 引言 */}
@@ -236,12 +236,12 @@ export function RegisterPage() {
             {/* Card 标题 */}
             <div className="text-center mb-6">
               <h2
-                className="font-serif text-[20px] font-semibold mb-1"
+                className="font-serif text-[18.5px] font-semibold mb-1"
                 style={{ color: 'hsl(var(--ink))', letterSpacing: '0.02em' }}
               >
                 创建账户
               </h2>
-              <p className="text-[12px]" style={{ color: 'hsl(var(--ink-light) / 0.7)' }}>
+              <p className="text-[11px]" style={{ color: 'hsl(var(--ink-light) / 0.7)' }}>
                 开启你的写作旅程
               </p>
             </div>
@@ -249,7 +249,7 @@ export function RegisterPage() {
             {/* Error */}
             {error && (
               <div
-                className="text-[13px] font-medium mb-5 px-3 py-2.5 rounded-xl"
+                className="text-[12px] font-medium mb-5 px-3 py-2.5 rounded-xl"
                 style={{
                   color: 'hsl(var(--vermilion))',
                   background: 'hsl(var(--vermilion) / 0.08)',
@@ -280,7 +280,7 @@ export function RegisterPage() {
               />
               {usernameHint && (
                 <div
-                  className="flex items-center gap-1 mt-1.5 text-[11px]"
+                  className="flex items-center gap-1 mt-1.5 text-[10px]"
                   style={{ color: usernameHint.color }}
                 >
                   {usernameHint.icon}
@@ -337,7 +337,7 @@ export function RegisterPage() {
                       }}
                     />
                   </div>
-                  <span className="text-[11px] font-medium" style={{ color: strengthTokenColors[strength] }}>
+                  <span className="text-[10px] font-medium" style={{ color: strengthTokenColors[strength] }}>
                     {strengthLabels[strength]}
                   </span>
                 </div>
@@ -388,7 +388,7 @@ export function RegisterPage() {
         </div>
 
         {/* 底部 */}
-        <div className="flex items-center justify-center gap-4 mt-6 text-[11px]" style={{ color: 'hsl(var(--ink-light) / 0.5)' }}>
+        <div className="flex items-center justify-center gap-4 mt-6 text-[10px]" style={{ color: 'hsl(var(--ink-light) / 0.5)' }}>
           <button
             type="button"
             onClick={() => navigate('/')}

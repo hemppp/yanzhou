@@ -423,16 +423,16 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
         }}
       >
         <ChevronRight size={13} />
-        <span className="text-[11px]">设定流水线</span>
+        <span className="text-[10px]">设定流水线</span>
         {current && (
-          <span className="text-[11px]" style={{ color: 'hsl(var(--foreground))' }}>
+          <span className="text-[10px]" style={{ color: 'hsl(var(--foreground))' }}>
             {current.label}
             <span style={{ color: STATUS_DOT[current.status] }}> · {STATUS_TEXT[current.status]}</span>
           </span>
         )}
-        {!started && <span className="text-[11px]">未启动</span>}
+        {!started && <span className="text-[10px]">未启动</span>}
         {(view?.staleStages.length ?? 0) > 0 && (
-          <span className="ml-auto flex items-center gap-1 text-[11px]" style={{ color: 'hsl(var(--state-blocked))' }}>
+          <span className="ml-auto flex items-center gap-1 text-[10px]" style={{ color: 'hsl(var(--state-blocked))' }}>
             <AlertTriangle size={11} />
             设定已改，建议重跑
           </span>
@@ -454,7 +454,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
     >
       <div
         className="shrink-0 flex items-center gap-2"
-        style={{ height: 30, padding: '0 10px', borderBottom: '0.5px solid hsl(var(--border) / 0.45)' }}
+        style={{ height: 30, padding: '0 var(--space-4)', borderBottom: '0.5px solid hsl(var(--border) / 0.45)' }}
       >
         <button
           type="button"
@@ -464,22 +464,22 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
         >
           <ChevronDown size={13} />
         </button>
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.06em' }}>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.06em' }}>
           设定流水线
         </span>
         {loading && <Loader2 size={11} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />}
         {view && (
-          <span className="text-[11px] ml-auto" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="text-[10px] ml-auto" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {view.stages.filter((s) => s.status === 'approved').length} / {view.stages.length} 段已定稿
           </span>
         )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2.5" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2.5" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {/* 没开书设定：先把话说清楚，别让作者点半天 */}
         {!hasBrief && (
           <div
-            className="rounded-lg px-2.5 py-2 text-[11px] leading-[1.7]"
+            className="rounded-lg px-2.5 py-2 text-[10px] leading-[1.7]"
             style={{ background: 'hsl(var(--destructive) / 0.08)', border: '0.5px solid hsl(var(--destructive) / 0.3)', color: 'hsl(var(--destructive))' }}
           >
             这本书还没有开书设定（书名 / 开局 / 世界观 / 笔风 / 主角 / 女主 / 流派）。
@@ -490,7 +490,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
         {/* 未启动 */}
         {!started && hasBrief && (
           <div className="flex flex-col gap-2">
-            <p className="text-[11px] leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <p className="text-[10px] leading-[1.7]" style={{ color: 'hsl(var(--muted-foreground))' }}>
               从开书设定出发，依次立起：角色与节奏 → 世界观与势力 → 剧情总纲。
               每段都会停下等你确认，确认后才落库、才进下一段。
               <span style={{ color: 'hsl(var(--muted-foreground))' }}>（{COST_TOTAL}）</span>
@@ -500,7 +500,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
               onChange={(e) => setNote(e.target.value)}
               rows={2}
               placeholder="有什么要额外交代的？（可留空）例如：不要太慢热；女主别写成工具人"
-              className="w-full resize-none rounded-lg px-2.5 py-2 text-[11px] leading-[1.6] outline-none"
+              className="w-full resize-none rounded-lg px-2.5 py-2 text-[10px] leading-[1.6] outline-none"
               style={{ background: 'rgb(var(--glass-tint) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.7)', color: 'hsl(var(--foreground))' }}
             />
             <button
@@ -508,7 +508,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
               onClick={handleStart}
               disabled={busy}
               className="self-start inline-flex items-center gap-1 rounded-full disabled:opacity-40"
-              style={{ padding: '5px 14px', fontSize: 12, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
+              style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
             >
               {busy ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
               开始立设定
@@ -534,7 +534,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                     aria-hidden="true"
                   />
                   <span
-                    className="text-[11px]"
+                    className="text-[10px]"
                     style={{
                       color: isCurrent ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
                       fontWeight: isCurrent ? 500 : 400,
@@ -559,7 +559,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
           <>
             {current.artifact && (
               <div
-                className="rounded-lg px-2.5 py-2 text-[11px] leading-[1.75] whitespace-pre-wrap"
+                className="rounded-lg px-2.5 py-2 text-[10px] leading-[1.75] whitespace-pre-wrap"
                 style={{
                   background: 'hsl(var(--card) / 0.55)',
                   border: '0.5px solid hsl(var(--border) / 0.5)',
@@ -573,7 +573,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
             )}
 
             {current.status === 'failed' && current.error && (
-              <div className="text-[11px] leading-[1.7]" style={{ color: 'hsl(var(--destructive))' }}>
+              <div className="text-[10px] leading-[1.7]" style={{ color: 'hsl(var(--destructive))' }}>
                 {current.error}
               </div>
             )}
@@ -585,7 +585,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
                   placeholder="要打回就写清楚哪里不对（打回必须写）；通过可以不填"
-                  className="w-full resize-none rounded-lg px-2.5 py-2 text-[11px] leading-[1.6] outline-none"
+                  className="w-full resize-none rounded-lg px-2.5 py-2 text-[10px] leading-[1.6] outline-none"
                   style={{ background: 'rgb(var(--glass-tint) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.7)', color: 'hsl(var(--foreground))' }}
                 />
                 <div className="flex items-center gap-2 flex-wrap">
@@ -594,7 +594,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                     onClick={() => void handleDecide(current.key, 'approve')}
                     disabled={busy}
                     className="inline-flex items-center gap-1 rounded-full disabled:opacity-40"
-                    style={{ padding: '5px 14px', fontSize: 12, background: 'hsl(var(--state-done))', color: '#fff', border: 'none', cursor: 'pointer' }}
+                    style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'hsl(var(--state-done))', color: '#fff', border: 'none', cursor: 'pointer' }}
                   >
                     {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                     通过并落库
@@ -605,7 +605,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                     disabled={busy || !note.trim()}
                     title={note.trim() ? '带着批注重跑这一段' : '先写批注'}
                     className="inline-flex items-center gap-1 rounded-full disabled:opacity-40"
-                    style={{ padding: '5px 14px', fontSize: 12, background: 'hsl(var(--primary) / 0.14)', color: 'hsl(var(--primary))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--primary) / 0.4)', cursor: 'pointer' }}
+                    style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.14)', color: 'hsl(var(--primary))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--primary) / 0.4)', cursor: 'pointer' }}
                   >
                     <X size={12} />
                     打回重跑
@@ -616,12 +616,12 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                     disabled={busy}
                     title="方向就错了：退回上一段重立（本段与更晚的产出作废）"
                     className="rounded-full disabled:opacity-40"
-                    style={{ padding: '5px 12px', fontSize: 12, background: 'transparent', color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.4)', cursor: 'pointer' }}
+                    style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'transparent', color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.4)', cursor: 'pointer' }}
                   >
                     退回上一段
                   </button>
                   {current.revision > 0 && (
-                    <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                    <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                       已打回 {current.revision} 次
                     </span>
                   )}
@@ -635,21 +635,21 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                   disabled={busy || !current.implemented}
                   title={current.implemented ? `跑这一段（${COST_PER_STAGE}）` : '这一段在 M2/M3 才实现'}
                   className="inline-flex items-center gap-1 rounded-full disabled:opacity-40"
-                  style={{ padding: '5px 14px', fontSize: 12, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
                 >
                   {busy ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                   {current.status === 'failed' ? '重试这一段' : `跑「${current.label}」`}
                 </button>
                 {!current.implemented && (
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                     这一段（{current.label}）尚未实现
                   </span>
                 )}
                 {busy && phase && (
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--primary))' }}>{phase}</span>
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{phase}</span>
                 )}
                 {!busy && current.implemented && (
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                     {COST_PER_STAGE}
                   </span>
                 )}
@@ -660,7 +660,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
               <button
                 type="button"
                 onClick={() => abortRef.current?.abort()}
-                className="self-start rounded-md text-[11px] px-2 py-0.5"
+                className="self-start rounded-md text-[10px] px-2 py-0.5"
                 style={{ color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.4)', background: 'transparent', cursor: 'pointer' }}
               >
                 停止
@@ -674,27 +674,27 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                 className="flex flex-col gap-1.5 rounded-lg px-2.5 py-2"
                 style={{ background: 'hsl(var(--primary) / 0.06)', border: '0.5px solid hsl(var(--primary) / 0.25)' }}
               >
-                <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--primary))' }}>
+                <span className="text-[10px] font-medium" style={{ color: 'hsl(var(--primary))' }}>
                   长跑：一次授权，一直往下写
                 </span>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>写到第</span>
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>写到第</span>
                   <input
                     type="number"
                     min={1}
                     value={longRunTarget}
                     onChange={(e) => setLongRunTarget(Math.max(1, Number(e.target.value) || 1))}
                     disabled={longRunning}
-                    className="rounded-md text-[11px] outline-none"
-                    style={{ width: 68, padding: '3px 6px', background: 'rgb(var(--glass-tint) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.7)', color: 'hsl(var(--foreground))' }}
+                    className="rounded-md text-[10px] outline-none"
+                    style={{ width: 68, padding: 'var(--space-0) var(--space-2)', background: 'rgb(var(--glass-tint) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.7)', color: 'hsl(var(--foreground))' }}
                   />
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>章（当前已写 {view?.lastDelivered ?? 0} 章）</span>
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>章（当前已写 {view?.lastDelivered ?? 0} 章）</span>
                   <button
                     type="button"
                     onClick={() => void handleLongRun()}
                     disabled={longRunning || busy}
                     className="inline-flex items-center gap-1 rounded-full disabled:opacity-40"
-                    style={{ padding: '5px 14px', fontSize: 12, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                    style={{ padding: 'var(--space-1) var(--space-5)', fontSize: 11, background: 'hsl(var(--primary) / 0.92)', color: '#fff', border: 'none', cursor: 'pointer' }}
                   >
                     {longRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                     {longRunning ? '长跑中…' : '开始长跑'}
@@ -703,7 +703,7 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                     <button
                       type="button"
                       onClick={() => abortRef.current?.abort()}
-                      className="rounded-full text-[11px] px-2.5 py-0.5"
+                      className="rounded-full text-[10px] px-2.5 py-0.5"
                       style={{ color: 'hsl(var(--destructive))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'hsl(var(--destructive) / 0.4)', background: 'transparent', cursor: 'pointer' }}
                     >
                       停止
@@ -711,9 +711,9 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                   )}
                 </div>
                 {longRunMsg && (
-                  <span className="text-[11px]" style={{ color: 'hsl(var(--primary))' }}>{longRunMsg}</span>
+                  <span className="text-[10px]" style={{ color: 'hsl(var(--primary))' }}>{longRunMsg}</span>
                 )}
-                <span className="text-[10.5px] leading-[1.6]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <span className="text-[10px] leading-[1.6]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                   每批 5 章，批间自动确认；监工判「需修正」时会取轨迹补丁继续写、不打断。可随时「停止」，进度会存下，再点接着跑。
                 </span>
               </div>
@@ -726,13 +726,13 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
                 className="flex flex-col gap-1 pt-1.5"
                 style={{ borderTop: '0.5px solid hsl(var(--border) / 0.4)' }}
               >
-                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em' }}>
                   最近决策
                 </span>
                 {(view.decisions ?? []).slice(0, 4).map((d, i) => (
                   <div
                     key={`${d.at}-${i}`}
-                    className="flex items-baseline gap-1.5 text-[11px] min-w-0"
+                    className="flex items-baseline gap-1.5 text-[10px] min-w-0"
                     style={{ color: 'hsl(var(--muted-foreground))' }}
                   >
                     <span className="shrink-0" style={{ color: ACTION_COLOR[d.action] }}>{ACTION_TEXT[d.action]}</span>

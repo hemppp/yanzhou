@@ -23,14 +23,14 @@ export function SkillLibraryPanel() {
     <div className="flex flex-col h-full min-h-0">
       {/* 标题栏：与其它面板保持同一套视觉语言（图标 + 标题 + 一句说明） */}
       <div
-        className="shrink-0 flex items-center gap-2 px-3.5 py-2.5"
+        className="shrink-0 flex items-center gap-3 px-3 py-2.5"
         style={{ borderBottom: '0.5px solid hsl(var(--border) / 0.6)' }}
       >
         <Wand2 size={14} style={{ color: 'hsl(var(--mountain-cyan))' }} aria-hidden="true" />
-        <span className="text-[12.5px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>
+        <span className="text-[11.5px] font-medium" style={{ color: 'hsl(var(--foreground))' }}>
           技能库
         </span>
-        <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           安装 / 删除技能，并在这里给智能体开启
         </span>
       </div>

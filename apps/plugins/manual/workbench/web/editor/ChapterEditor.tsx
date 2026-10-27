@@ -107,9 +107,9 @@ export function ChapterEditor() {
         className="h-full flex items-center justify-center"
         style={{ backgroundColor: 'hsl(var(--bg))' }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-5)' }}>
           <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--primary))' }} />
-          <span style={{ fontSize: '13px', color: 'hsl(var(--mountain-deep))' }}>加载章节中...</span>
+          <span style={{ fontSize: '12px', color: 'hsl(var(--mountain-deep))' }}>加载章节中...</span>
         </div>
       </div>
     );
@@ -122,7 +122,7 @@ export function ChapterEditor() {
         className="h-full flex items-center justify-center"
         style={{ backgroundColor: 'hsl(var(--bg))' }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', maxWidth: '400px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-6)', maxWidth: '400px', textAlign: 'center' }}>
           <div style={{
             width: '48px',
             height: '48px',
@@ -135,27 +135,27 @@ export function ChapterEditor() {
             <RefreshCw size={24} style={{ color: 'hsl(var(--error, 0 0% 35%))' }} />
           </div>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'hsl(var(--ink))', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'hsl(var(--ink))', marginBottom: 'var(--space-3)' }}>
               加载失败
             </h3>
-            <p style={{ fontSize: '14px', color: 'hsl(var(--mountain-deep))', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '13px', color: 'hsl(var(--mountain-deep))', lineHeight: '1.5' }}>
               无法加载章节数据，可能是网络连接问题或后端服务未启动
             </p>
           </div>
           <button
             onClick={() => window.location.reload()}
             style={{
-              padding: '8px 16px',
+              padding: 'var(--space-3) var(--space-6)',
               borderRadius: 'var(--r-2xs)',
               backgroundColor: 'hsl(var(--primary))',
               color: 'white',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: 500,
               border: 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: 'var(--space-2)',
               transition: 'opacity 0.2s'
             }}
             onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}

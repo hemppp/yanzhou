@@ -165,7 +165,7 @@ export function ItemManager() {
             <>
               <Coins size={14} style={{ color: 'hsl(var(--ochre))' }} />
               积分账本
-              <span className="text-[11px] font-normal text-muted-foreground">系统文</span>
+              <span className="text-[10px] font-normal text-muted-foreground">系统文</span>
             </>
           )}
         </h2>
@@ -214,7 +214,7 @@ export function ItemManager() {
           </div>
 
           <div className="px-3 pt-2 pb-1">
-            <p className="text-[11px] text-muted-foreground">共 {projectChars.length} 个人物</p>
+            <p className="text-[10px] text-muted-foreground">共 {projectChars.length} 个人物</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-2 pb-2">
@@ -245,14 +245,14 @@ export function ItemManager() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                         style={{ backgroundColor: c.color || 'hsl(var(--muted-foreground))' }}
                       >
                         {c.name[0]}
                       </div>
                       <span className="text-sm text-foreground truncate">{c.name}</span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+                    <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
                       {holderCount} 件
                     </span>
                   </button>
@@ -269,7 +269,7 @@ export function ItemManager() {
               {selectedChar ? (
                 <span className="flex items-center gap-1.5">
                   <div
-                    className="w-5 h-5 rounded-full inline-flex items-center justify-center text-white text-[11px] font-bold"
+                    className="w-5 h-5 rounded-full inline-flex items-center justify-center text-white text-[10px] font-bold"
                     style={{ backgroundColor: selectedChar.color || 'hsl(var(--muted-foreground))' }}
                   >
                     {selectedChar.name[0]}
@@ -285,7 +285,7 @@ export function ItemManager() {
 
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {displayItems.length === 0 ? (
-              <div className="px-4 py-12 text-center">
+              <div className="px-4 py-8 text-center">
                 <PackageOpen size={24} className="mx-auto mb-2 text-muted-foreground/60" />
                 <p className="text-sm text-muted-foreground">
                   {selectedChar ? '该人物暂无持有物品' : '暂无物品'}
@@ -309,7 +309,7 @@ export function ItemManager() {
                     <ArrowRight size={12} className="text-muted-foreground/60 shrink-0" />
                   </div>
                   <div className="flex items-center gap-1.5 mt-1 ml-4">
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       {ITEM_TYPE_LABELS[item.type || 'other'] || item.type}
                     </span>
                   </div>
@@ -421,7 +421,7 @@ export function ItemManager() {
                             <div className="text-sm text-foreground">
                               {char?.name || '未知角色'} {isGained ? '获得' : '失去'}
                             </div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
                               第 {h.chapter} 章
                             </div>
                           </div>

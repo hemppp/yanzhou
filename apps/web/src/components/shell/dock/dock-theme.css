@@ -25,7 +25,7 @@
 
   /* 标签条容器（VS Code：活动栏/侧栏色系） */
   --dv-tabs-and-actions-container-background-color: var(--vscode-tab-inactiveBackground);
-  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-font-size: 12px;
   /* ★ t6 尺寸对齐参考图：把实现渲染到参考图同尺寸（1489×931）后逐行实测，
    * 参考图标签条带 = 33px（y36..68，含 1px 下边线），原 35px 偏高 2px。 */
   --dv-tabs-and-actions-container-height: 33px;
@@ -87,7 +87,7 @@
 
   /* 标签分隔线 / 字体 */
   --dv-tab-divider-color: var(--vscode-panel-border);
-  --dv-tab-font-size: 13px;
+  --dv-tab-font-size: 12px;
   --dv-tab-margin: 0px;
   --dv-tab-margin-block: 0px;
   --dv-tab-margin-inline: 0px;
@@ -157,6 +157,42 @@
   height: 1px;
 }
 
+/* ★ 2026-10-25 分屏「拉宽度」修复（用户口径「可以拉他们选择宽度」）：
+   上面的 1px 细线**视觉**是对的，但**命中区**也只有 1px —— 鼠标几乎不可能按住它，
+   表现为「分屏了但拖不动分隔条」。
+   解法：用伪元素把可点击/可拖动热区向两侧各扩到 4px（合计 ~9px，接近 VS Code 的
+   手感），视觉仍是那 1px 中性细线。`pointer-events` 继承自 sash 本身，
+   伪元素不改变 dockview 的事件绑定（它的 pointerdown 绑在 .dv-sash 上）。 */
+.dv-theme-vscode .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
+
+.dv-theme-vscode .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+}
+
+/* 分隔条需要定位上下文，伪元素才能按 sash 自身定位 */
+.dv-theme-vscode .dv-sash-container > .dv-sash {
+  position: relative;
+}
+
+/* 悬停时把 1px 细线**加粗成 2px** 并染成焦点色 —— 明确「这里可以拖」。
+   用 box-shadow 而不是改 width，避免影响 dockview 的布局计算。 */
+.dv-theme-vscode .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.disabled):hover,
+.dv-theme-vscode .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.disabled):active {
+  box-shadow: 0 0 0 1px var(--vscode-sash-hoverBorder);
+}
+
 /* ---------- 外壳骨架（VS Code 网格） ---------- */
 /* ★ t1（外壳改造）：网格从 7 区收成 3 区 —— 两个**纯占位**侧栏（260px 主侧栏 /
    240px 辅助侧栏）已删除，真实面板由 dockview 在编辑区内左右停靠（左 240 / 右 340，
@@ -167,7 +203,9 @@
    改为 47px 后分隔线同样落在 x46，右侧三个竖栏全部左移 1px 与参考图对齐。 */
 .dock-shell {
   display: grid;
-  grid-template-columns: 47px minmax(0, 1fr);
+  /* ★ 2026-10-27「VS Code 2026 密度」：活动栏 47 → 42px，与条目 40px 同档收紧
+     （条目两侧各留 1px；对应 VS Code 的 workbench.activityBar.compact）。 */
+  grid-template-columns: 42px minmax(0, 1fr);
   /* ★ 2026-10-11 单列布局：新增顶部 `docbar` 行（文档标签栏整宽一条）。 */
   grid-template-rows: auto minmax(0, 1fr) minmax(0, auto);
   grid-template-areas:
@@ -187,15 +225,52 @@
 .dock-docbar {
   grid-area: docbar;
   min-width: 0;
-  height: 35px;
+  /* ★ 2026-10-27「VS Code 2026 密度」：35 → 33，与隐藏的原生组头等高 */
+  height: 33px;
   border-bottom: 1px solid var(--vscode-panel-border);
   background-color: var(--vscode-tab-inactiveBackground);
 }
 
 /* ★ 单列布局：隐藏所有 dockview 原生组头（含原生标签）。
-   文档标签栏改由 .dock-docbar 承担；隐藏后组内容占满整个组高。 */
+   文档标签栏改由 .dock-docbar 承担；隐藏后组内容占满整个组高。
+   ★ 2026-10-25 分屏：多组时同样隐藏（每栏的标签由 .dock-docbar 按聚焦组渲染）。 */
 .dock-main .dv-tabs-and-actions-container {
   display: none;
+}
+
+/* ---------- ★ 2026-10-25 拖拽分屏落点层 ----------
+   只在拖拽进行中挂载（DocSplitDropZone 在 active=false 时返回 null），
+   覆盖整个编辑区；中间 50% 不认领、只有左右各 25% 触发分屏。 */
+.dock-main {
+  position: relative;
+}
+
+.dock-split-dropzone {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  /* 透明层接管 dragover/drop；视觉反馈只由 .dock-split-preview 承担 */
+  background: transparent;
+}
+
+.dock-split-preview {
+  position: absolute;
+  pointer-events: none;
+  background-color: var(--vscode-panel-dropBackground);
+  border: 2px solid var(--vscode-focusBorder);
+  border-radius: 2px;
+  /* 与 dockview 原生 drag-over 的过渡节奏对齐 */
+  transition: left 90ms ease-out, right 90ms ease-out, width 90ms ease-out;
+}
+
+/* 分屏后两栏之间的分隔条（复用 dockview sash，这里只保证它在暗色下面可见） */
+.dock-main .dv-sash {
+  background-color: var(--vscode-splitter-background);
+}
+
+.dock-main .dv-sash:hover,
+.dock-main .dv-sash:active {
+  background-color: var(--vscode-splitter-hoverBackground);
 }
 
 .dock-shell > .dock-bottom-area {
@@ -208,18 +283,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding-top: 6px;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
   background-color: var(--vscode-activityBar-background);
   color: var(--vscode-activityBar-foreground);
   border-right: 1px solid var(--vscode-activityBar-border);
 }
 
 .dock-activity-item {
-  /* ★ t6 尺寸对齐参考图：参考图活动栏条目实测「43×36，条目间距 10px（节距 46）」，
-   * 原 `48×44 + gap 2px` 节距同为 46 但条目本身比参考图高 8px、宽 5px。 */
-  width: 44px;
-  height: 36px;
+  /* ★ t6 尺寸对齐参考图：参考图活动栏条目实测「43×36，条目间距 10px（节距 46）」。
+   * ★ 2026-10-27「VS Code 2026 密度」：44×36 → 40×32（收紧一档），
+   *   对应 VS Code 的 `workbench.activityBar.compact`（更窄的活动栏腾出横向空间）。
+   *   图标 18px 在 40×32 里仍有 ~11/7px 呼吸，不会显得挤。 */
+  width: 40px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -285,7 +362,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   background-color: var(--vscode-editor-background);
   z-index: 1;
@@ -337,20 +414,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-3);
   flex: 0 0 auto;
   height: 28px;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 var(--space-3);
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .dock-bottom-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   height: 22px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border: none;
   background: transparent;
   color: inherit;
@@ -370,7 +447,7 @@
 .dock-bottom-right {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   min-width: 0;
   color: var(--vscode-descriptionForeground);
 }
@@ -382,7 +459,7 @@
 
 .dock-bottom-kbd {
   font-family: var(--vscode-font-family);
-  font-size: 11px;
+  font-size: 10px;
   opacity: 0.75;
 }
 
@@ -416,11 +493,11 @@
 .dock-bottom-section-title {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex: 0 0 auto;
   height: 24px;
-  padding: 0 10px;
-  font-size: 11px;
+  padding: 0 var(--space-4);
+  font-size: 10px;
   letter-spacing: 0.02em;
   color: var(--vscode-descriptionForeground);
   border-bottom: 1px solid var(--vscode-panel-border);
@@ -436,15 +513,15 @@
 .dock-bottom-entry {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   height: 22px;
-  padding: 0 6px;
+  padding: 0 var(--space-2);
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: var(--vscode-descriptionForeground);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
 }
 
@@ -467,9 +544,9 @@
 }
 
 .dock-bottom-entry-count {
-  padding: 0 5px;
+  padding: 0 var(--space-1);
   border-radius: 8px;
-  font-size: 10px;
+  font-size: 9.5px;
   line-height: 15px;
   background: var(--vscode-badge-background);
   color: var(--vscode-badge-foreground);
@@ -479,29 +556,29 @@
 .dock-qp {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   min-width: 260px;
 }
 
 .dock-qp-toolbar {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .dock-qp-action {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   height: 22px;
-  padding: 0 8px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 4px;
   background: var(--vscode-button-secondaryBackground, transparent);
   color: var(--vscode-button-secondaryForeground, inherit);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
 }
 
@@ -517,20 +594,20 @@
 .dock-qp-add {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .dock-qp-input {
   flex: 1 1 auto;
   min-width: 0;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
   border-radius: 4px;
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .dock-qp-input:focus {
@@ -539,14 +616,14 @@
 }
 
 .dock-qp-empty {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--vscode-descriptionForeground);
 }
 
 .dock-qp-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .dock-qp-chip {
@@ -560,15 +637,15 @@
 .dock-qp-chip-text {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   height: 22px;
   max-width: 180px;
-  padding: 0 8px;
+  padding: 0 var(--space-3);
   border: none;
   background: transparent;
   color: var(--vscode-editor-foreground);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
 }
 
@@ -602,10 +679,10 @@
 .dock-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   height: 100%;
-  padding: 0 8px;
-  font-size: 13px;
+  padding: 0 var(--space-3);
+  font-size: 12px;
   white-space: nowrap;
   color: inherit;
 }
@@ -628,7 +705,7 @@
   justify-content: center;
   width: 16px;
   height: 16px;
-  margin-left: 2px;
+  margin-left: var(--space-0);
   padding: 0;
   border: none;
   background: transparent;
@@ -636,7 +713,7 @@
   cursor: pointer;
   opacity: 0;
   border-radius: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -670,20 +747,20 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-3);
   color: var(--vscode-descriptionForeground);
   background-color: var(--vscode-editor-background);
   text-align: center;
-  padding: 24px;
+  padding: var(--space-8);
 }
 
 .dock-watermark-title {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--vscode-editor-foreground);
 }
 
 .dock-watermark-hint {
-  font-size: 12px;
+  font-size: 11px;
   max-width: 360px;
 }
 
@@ -692,15 +769,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--space-3);
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   background-color: var(--vscode-panel-background);
 }
 
 .dock-panel-retry {
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: var(--space-1) var(--space-4);
+  font-size: 11px;
   cursor: pointer;
   border-radius: 0;
   border: 1px solid var(--vscode-button-border);
@@ -734,8 +811,8 @@
   color: var(--vscode-editorWidget-foreground);
   border: 1px solid var(--vscode-editorWidget-border);
   border-radius: 0;
-  font-size: 12px;
-  padding: 6px 10px;
+  font-size: 11px;
+  padding: var(--space-2) var(--space-4);
 }
 
 .dock-graph-panel .react-flow__edge-path {

@@ -49,7 +49,7 @@ function ToolbarButton({ def, editor }: { def: EditorToolbarItemDef; editor: Edi
       title={def.label}
       aria-label={def.label}
       aria-pressed={def.isActive ? active : undefined}
-      className="flex items-center gap-1.5 px-2 py-1 text-[12px] rounded-lg transition-colors"
+      className="flex items-center gap-1.5 px-2 py-1 text-[11px] rounded-lg transition-colors"
       style={{
         color: active ? 'hsl(var(--primary))' : 'hsl(var(--ink-light))',
         background: active ? 'hsl(var(--primary) / 0.12)' : 'transparent',
@@ -73,7 +73,7 @@ export function PluginEditorToolbar({ editor }: { editor: Editor | null }) {
   return (
     <div
       className="flex items-center gap-1.5 flex-wrap"
-      style={{ paddingBottom: 8 }}
+      style={{ paddingBottom: 'var(--space-3)' }}
       role="toolbar"
       aria-label="插件工具栏"
     >

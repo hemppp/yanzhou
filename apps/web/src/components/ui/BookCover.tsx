@@ -281,7 +281,7 @@ export const BookCover: React.FC<BookCoverProps> = ({ book, className, style, sh
         <span
           style={{
             fontFamily: "'Noto Serif SC', serif",
-            fontSize: 10,
+            fontSize: 9.5,
             letterSpacing: '0.4em',
             writingMode: 'vertical-rl',
             textOrientation: 'upright',
@@ -293,11 +293,11 @@ export const BookCover: React.FC<BookCoverProps> = ({ book, className, style, sh
         <span
           style={{
             display: 'inline-block',
-            padding: '1px 5px',
+            padding: 'var(--space-0) var(--space-2)',
             background: sealColor,
             color: 'rgba(245, 245, 245, 0.95)',
             fontFamily: "'Noto Serif SC', serif",
-            fontSize: 9,
+            fontSize: 8.5,
             letterSpacing: '0.1em',
             borderRadius: 'var(--r-3xs)',
             boxShadow: '0 0 0 1px rgba(28, 28, 28, 0.06)',
@@ -348,10 +348,10 @@ export const BookCover: React.FC<BookCoverProps> = ({ book, className, style, sh
           textAlign: 'center',
           color: inkColor,
           fontFamily: "'Noto Serif SC', 'Source Han Serif SC', serif",
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 500,
           letterSpacing: '0.1em',
-          padding: '0 8px',
+          padding: '0 var(--space-3)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

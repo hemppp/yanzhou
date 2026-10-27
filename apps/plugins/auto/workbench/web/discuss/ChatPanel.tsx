@@ -297,7 +297,7 @@ function ApplyActions({ content, editor }: { content: string; editor: Editor | n
       <button
         onClick={() => !disabled && setOpen(o => !o)}
         disabled={disabled}
-        className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-xl transition-all ${
+        className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-xl transition-all ${
           disabled
             ? 'text-muted-foreground/30 cursor-not-allowed'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -311,7 +311,7 @@ function ApplyActions({ content, editor }: { content: string; editor: Editor | n
       {open && !disabled && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 left-0 mt-1 w-40 rounded-2xl border border-border/50 bg-popover/95 backdrop-blur-xl shadow-lg overflow-hidden text-[12px]">
+          <div className="absolute z-20 left-0 mt-1 w-40 rounded-2xl border border-border/50 bg-popover/95 backdrop-blur-xl shadow-lg overflow-hidden text-[11px]">
             <button
               onClick={() => handle('cursor')}
               className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 transition-colors text-left"
@@ -346,7 +346,7 @@ function OutlineFillButton({ content, onClick }: { content: string; onClick: () 
   return (
     <button
       onClick={onClick}
-      className="mt-1.5 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-xl transition-all text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
+      className="mt-1.5 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-xl transition-all text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
       title="将此内容填入大纲编辑器"
       aria-label="填入大纲"
     >
@@ -1378,13 +1378,13 @@ export function ChatPanel(props: { controls?: ChatPanelControlProps } & Partial<
         </div>
       )}
 
-      <div ref={scrollRef} className="mc-scroll flex-1 overflow-y-auto p-3.5 space-y-5 mc-scrollbar" role="log" aria-label="聊天消息" aria-live="polite">
+      <div ref={scrollRef} className="mc-scroll flex-1 overflow-y-auto p-3 space-y-5 mc-scrollbar" role="log" aria-label="聊天消息" aria-live="polite">
         {messages.length === 0 && !error ? (
           /* 空态：不用大图标压场，改成"眉标 + 两行说明"——
              图标在单色体系里没有信息量，反而抢位置 */
-          <div className="px-2 py-10 text-center">
+          <div className="px-2 py-8 text-center">
             <div className="mc-eyebrow mb-2">写作助手已就绪</div>
-            <p className="text-[12.5px] leading-relaxed text-tone-2">基于你的知识库和当前章节回答问题</p>
+            <p className="text-[11.5px] leading-relaxed text-tone-2">基于你的知识库和当前章节回答问题</p>
             <p className="mt-1 text-2xs text-tone-3">Ctrl/Cmd + Enter 快捷唤起 · 上下方向键翻历史</p>
           </div>
         ) : (
@@ -1415,7 +1415,7 @@ export function ChatPanel(props: { controls?: ChatPanelControlProps } & Partial<
 
                 {msg.role === 'user' ? (
                   /* 用户侧：保留实心气泡 —— 它是「我」的锚点，需要压得住 */
-                  <div className="inline-block max-w-full rounded-card bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground shadow-hairline">
+                  <div className="inline-block max-w-full rounded-card bg-primary px-3 py-2 text-[11.5px] leading-relaxed text-primary-foreground shadow-hairline">
                     <span className="whitespace-pre-wrap break-words">{msg.content}</span>
                   </div>
                 ) : (
@@ -1423,7 +1423,7 @@ export function ChatPanel(props: { controls?: ChatPanelControlProps } & Partial<
                      长回复套气泡会又挤又灰（原来 rounded-2xl + border-2 + mc-card 三层叠加）；
                      直接排版能读、能选、能复制，也是该库 Chat 的做法。 */
                   <div
-                    className={`text-[12.5px] leading-relaxed text-tone ${
+                    className={`text-[11.5px] leading-relaxed text-tone ${
                       loading && idx === messages.length - 1 && msg.content ? 'mc-caret-tail' : ''
                     }`}
                   >
@@ -1515,7 +1515,7 @@ export function ChatPanel(props: { controls?: ChatPanelControlProps } & Partial<
             </button>
             {scanPickerOpen && (
               <div className="absolute bottom-11 left-0 w-64 max-h-60 overflow-y-auto rounded-2xl border bg-background shadow-lg p-1.5 z-20">
-                <div className="px-2 py-1 text-[11px] text-muted-foreground">
+                <div className="px-2 py-1 text-[10px] text-muted-foreground">
                   扫榜收藏的书（在「参考书 → 书源」中收藏）
                 </div>
                 {scanBooks.length === 0 && (
@@ -1530,7 +1530,7 @@ export function ChatPanel(props: { controls?: ChatPanelControlProps } & Partial<
                     title={b.source ?? undefined}
                   >
                     <span className="truncate flex-1">{b.title}</span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">{b.author}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">{b.author}</span>
                   </button>
                 ))}
               </div>
@@ -1551,7 +1551,7 @@ export function ChatPanel(props: { controls?: ChatPanelControlProps } & Partial<
                     ? "与 AI 讨论你的小说（回复将写入正文）..."
                     : "与 AI 讨论你的小说..."
             }
-            className={`flex-1 px-3 py-2 text-[12.5px] border rounded-control bg-background mc-input ${
+            className={`flex-1 px-3 py-2 text-[11.5px] border rounded-control bg-background mc-input ${
               !features.chat || !historyKey ? 'opacity-50 cursor-not-allowed' : ''
             } ${syncInsertEnabled ? 'border-primary/50' : ''}`}
             disabled={loading || !features.chat || !historyKey}

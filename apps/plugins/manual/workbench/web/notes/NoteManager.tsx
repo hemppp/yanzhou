@@ -121,7 +121,7 @@ export function NoteManager() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索..."
-              className="w-full pl-7 pr-2 py-1.5 text-xs rounded-[14px] outline-none transition-colors"
+              className="w-full pl-6 pr-2 py-1.5 text-xs rounded-[14px] outline-none transition-colors"
               style={{
                 background: 'hsl(var(--background))',
                 border: '1px solid hsl(var(--border))',

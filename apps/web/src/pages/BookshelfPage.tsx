@@ -329,7 +329,7 @@ export function BookshelfPage() {
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* Top bar — 液态玻璃工具栏 */}
         <header
-          className="sticky top-0 z-20 mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-10 py-4"
+          className="sticky top-0 z-20 mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8 py-4"
         >
           <div className="flex items-center justify-between gap-4">
             {/* Left: Calligraphy title */}
@@ -342,7 +342,7 @@ export function BookshelfPage() {
                   聚焦反馈交由 hover 同款玻璃高亮承担（不再有独立发光态）。 */}
               <div
                 className="glass-surface glass-hover flex items-center gap-2 rounded-full transition-all duration-300"
-                style={{ padding: '6px 6px 6px 16px' }}
+                style={{ padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-6)' }}
               >
                 <Search size={15} className="shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }} />
                 <input
@@ -350,7 +350,7 @@ export function BookshelfPage() {
                   placeholder="搜索作品..."
                   value={filter.search}
                   onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
-                  className="bg-transparent border-none outline-none text-[13px] min-w-[120px] sm:min-w-[160px]"
+                  className="bg-transparent border-none outline-none text-[12px] min-w-[120px] sm:min-w-[160px]"
                   style={{ color: 'hsl(var(--foreground))', fontFamily: "'Noto Serif SC', serif" }}
                   aria-label="搜索作品"
                 />
@@ -380,7 +380,7 @@ export function BookshelfPage() {
               {/* New Book button */}
               <button
                 className="nm-btn-apple-primary"
-                style={{ width: 100, height: 34, padding: 0, fontSize: 13 }}
+                style={{ width: 100, height: 34, padding: 0, fontSize: 12 }}
                 onClick={() => setShowAddModal(true)}
               >
                 <Plus size={14} strokeWidth={2.5} />
@@ -391,7 +391,7 @@ export function BookshelfPage() {
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-10 pb-12">
+        <main className="flex-1 mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8 pb-8">
           {/* Sort & filter bar — 分段排序控件（替代原生 select） */}
           <div className="flex items-center justify-end gap-3 mb-6 mt-2">
             <div className="glass-surface flex items-center gap-1 px-1.5 py-1 rounded-full flex-wrap">
@@ -403,7 +403,7 @@ export function BookshelfPage() {
                     type="button"
                     onClick={() => setFilter(f => ({ ...f, sortBy: opt.value as SortBy }))}
                     aria-pressed={active}
-                    className="px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-[12px] font-medium transition-all duration-200"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-medium transition-all duration-200"
                     style={{
                       color: active ? '#ffffff' : 'hsl(var(--muted-foreground))',
                       background: active ? 'hsl(var(--primary) / 0.92)' : 'transparent',
@@ -433,32 +433,32 @@ export function BookshelfPage() {
 
           {/* Loading state */}
           {loading && (
-            <div className="flex flex-col items-center justify-center py-32">
+            <div className="flex flex-col items-center justify-center py-12">
               <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: 'hsl(var(--primary) / 0.15)', borderTopColor: 'hsl(var(--primary))' }} />
-              <p className="mt-4 text-[14px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: "'Noto Serif SC', serif" }}>墨香渐浓...</p>
+              <p className="mt-4 text-[13px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: "'Noto Serif SC', serif" }}>墨香渐浓...</p>
             </div>
           )}
 
           {/* Empty state */}
           {!loading && filteredBooks.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="mb-6 glass-surface w-20 h-20 rounded-full flex items-center justify-center" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 <BookOpen size={40} strokeWidth={1} />
               </div>
-              <h2 className="text-[22px] font-semibold mb-3" style={{
+              <h2 className="text-[20.5px] font-semibold mb-3" style={{
                 color: 'hsl(var(--foreground))',
                 fontFamily: "'Noto Serif SC', 'Source Han Serif SC', serif",
                 letterSpacing: '0.05em',
               }}>
                 {filter.search ? '未得此卷' : '开卷以待'}
               </h2>
-              <p className="text-[14px] mb-8" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: "'Noto Serif SC', serif" }}>
+              <p className="text-[13px] mb-8" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: "'Noto Serif SC', serif" }}>
                 {filter.search ? '试以他词寻之' : '点击下方按钮，启笔新篇'}
               </p>
               {!filter.search && (
                 <button
                   className="nm-btn-apple-primary"
-                  style={{ width: 160, height: 48, padding: 0, fontSize: 15 }}
+                  style={{ width: 160, height: 48, padding: 0, fontSize: 14 }}
                   onClick={() => setShowAddModal(true)}
                 >
                   <Plus size={18} strokeWidth={2.5} />
@@ -487,8 +487,8 @@ export function BookshelfPage() {
         </main>
 
         {/* Footer */}
-        <footer className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-10 pb-6">
-          <div className="flex items-center justify-between text-[11px] border-t pt-4" style={{
+        <footer className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8 pb-6">
+          <div className="flex items-center justify-between text-[10px] border-t pt-4" style={{
             borderColor: 'hsl(var(--border) / 0.4)',
             color: 'hsl(var(--muted-foreground))',
             fontFamily: "'Noto Serif SC', serif",
@@ -518,16 +518,16 @@ export function BookshelfPage() {
         .nm-book-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 18px;
+          gap: var(--space-6);
         }
         @media (max-width: 1280px) {
-          .nm-book-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+          .nm-book-grid { grid-template-columns: repeat(4, 1fr); gap: var(--space-6); }
         }
         @media (max-width: 1024px) {
-          .nm-book-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+          .nm-book-grid { grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
         }
         @media (max-width: 640px) {
-          .nm-book-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+          .nm-book-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
         }
         main::-webkit-scrollbar { width: 6px; }
         main::-webkit-scrollbar-track { background: transparent; }

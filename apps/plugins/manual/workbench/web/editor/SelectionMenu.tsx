@@ -74,7 +74,7 @@ function PluginActionButton({
       }}
       title={def.label}
     >
-      {Icon ? <Icon size={14} aria-hidden="true" /> : <span style={{ fontSize: '14px' }}>{typeof def.icon === 'string' ? def.icon : '🧩'}</span>}
+      {Icon ? <Icon size={14} aria-hidden="true" /> : <span style={{ fontSize: '13px' }}>{typeof def.icon === 'string' ? def.icon : '🧩'}</span>}
       <span>{def.label}</span>
     </button>
   );
@@ -464,7 +464,7 @@ export function SelectionMenu({ editor }: SelectionMenuProps) {
                 onClick={handleCreateForeshadow}
                 disabled={!fsDescription.trim()}
                 className="selection-menu-primary"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)' }}
               >
                 <Check size={14} aria-hidden="true" /> 创建伏笔
               </button>
