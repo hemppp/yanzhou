@@ -1,5 +1,5 @@
 /**
- * NovelMuse 桌面壳 preload 脚本。
+ * 砚舟 桌面壳 preload 脚本。
  *
  * 契约来源：ADR-0008 D11.1 / D11.2（冻结）。
  *  - 只注入 `window.desktopAPI`，恰好 9 个方法，签名与

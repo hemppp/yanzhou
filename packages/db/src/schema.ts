@@ -1,5 +1,5 @@
 // ============================================================
-// NovelMuse - Drizzle ORM 数据库 Schema (SQLite)
+// 砚舟 - Drizzle ORM 数据库 Schema (SQLite)
 // ============================================================
 
 import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';

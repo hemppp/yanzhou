@@ -1,4 +1,4 @@
-# NovelMuse 模块化 / 插件化改造方案
+# 砚舟 模块化 / 插件化改造方案
 
 > 参照系：DeepSeek Harness (DSH) 插件机制（cordis 框架 + 双面插件 + manifest 热插拔）
 > 目标：让「新增一个写作功能模块」从 *改 6 个文件* 变成 *写一个插件目录*
@@ -57,7 +57,7 @@
 
 ### 1.1 为什么要插件化
 
-当前 NovelMuse 的功能增长模式是「往 monorepo 里加文件」：每新增一个实体类型（角色/地点/物品/伏笔…），都要触碰至少 6 处代码：
+当前 砚舟 的功能增长模式是「往 monorepo 里加文件」：每新增一个实体类型（角色/地点/物品/伏笔…），都要触碰至少 6 处代码：
 
 | 改动点 | 位置 |
 |--------|------|
@@ -70,7 +70,7 @@
 
 问题：
 - **改核心**：`index.ts`（19 个路由静态 import）、`ProjectLayout.tsx`（12 个面板硬编码）成为每次迭代都要动的热点文件，极易冲突。
-- **无法外部化**：第三方作者（或你自己写工具脚本）无法在不改源码的情况下给 NovelMuse 加能力。
+- **无法外部化**：第三方作者（或你自己写工具脚本）无法在不改源码的情况下给 砚舟 加能力。
 - **功能无法开关**：扫描、风格分析、周报等能力全部常驻，无法按项目/用户启用或禁用。
 - **AI 能力与 UI 割裂**：新增一个 AI 技能需要同时改后端 `skills.ts` 和前端 `skillsConfig.ts`，两处容易失同步。
 
@@ -117,7 +117,7 @@
 
 ### 2.4 结论
 
-NovelMuse 的**后端抽象度显著好于前端**：
+砚舟 的**后端抽象度显著好于前端**：
 - 服务层有 `BaseService`、AI 工具层有注册表 → 后端插件化改造量小、风险低。
 - 前端硬编码集中（路由表、面板数组）→ 前端插件化的本质是把这两个数组 + PATHS 变成「注册表 + 渲染循环」，改造集中、可一步到位。
 - 数据层双库 + 集中 schema → 插件数据扩展需要专门设计。
@@ -126,9 +126,9 @@ NovelMuse 的**后端抽象度显著好于前端**：
 
 ## 3. 参照系：DSH 插件机制
 
-DSH 的插件化是「cordis 插件框架 + 双面插件 + manifest 热插拔」三件套，直接照搬到 NovelMuse 不现实（cordis 是通用 agent 平台的产物），但它的**设计模式**值得逐条借鉴：
+DSH 的插件化是「cordis 插件框架 + 双面插件 + manifest 热插拔」三件套，直接照搬到 砚舟 不现实（cordis 是通用 agent 平台的产物），但它的**设计模式**值得逐条借鉴：
 
-| DSH 机制 | 要点 | NovelMuse 借鉴 |
+| DSH 机制 | 要点 | 砚舟 借鉴 |
 |----------|------|----------------|
 | 插件 = npm 包 | package.json 的 `dsh` 字段声明 manifest；`exports "."` 服务端面 + `exports "./client"` 浏览器面 | Manifest 字段 `novelMuse`，双面入口同上 |
 | cordis `apply(ctx, config)` | 插件入口是一个纯函数，接收上下文与配置 | `plugin.apply(ctx, config)` 同构 |
@@ -170,7 +170,7 @@ DSH 的插件化是「cordis 插件框架 + 双面插件 + manifest 热插拔」
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     NovelMuse 宿主 (host)                     │
+│                     砚舟 宿主 (host)                     │
 │                                                               │
 │  apps/web  ──┐                                          ┌── apps/server
 │  ┌──────────▼───┐   REST /api/*      ┌─────────────────▼───┐
@@ -829,19 +829,19 @@ export function apply(ctx: WebPluginContext) {
 
 ## 17. 附录：与 DSH 机制对照表
 
-| DSH | NovelMuse 方案 | 差异说明 |
+| DSH | 砚舟 方案 | 差异说明 |
 |-----|----------------|----------|
-| cordis 插件框架 | `packages/core` 自研内核 | DSH 用 Koishi 系 cordis；NovelMuse 体量小，自研 ~500 行更贴合，不引外部框架 |
+| cordis 插件框架 | `packages/core` 自研内核 | DSH 用 Koishi 系 cordis；砚舟 体量小，自研 ~500 行更贴合，不引外部框架 |
 | `apply(ctx, config)` | `apply(ctx, config)` | 同构 |
 | `inject` 依赖声明 | `inject`（manifest.server/web） | 同 |
 | `ctx.effect(() => disposer)` | `ctx.effect(() => disposer)` | 同 |
-| `dsh` manifest 字段 | `novelMuse` manifest 字段 | 同构，字段按 NovelMuse 裁剪 |
+| `dsh` manifest 字段 | `novelMuse` manifest 字段 | 同构，字段按 砚舟 裁剪 |
 | 双面插件（`exports "."` / `"./client"`） | 双面插件（`"."` / `"./web"`） | 同 |
 | `webServer.register(route)` | `ctx.routes.register(prefix, router)` | 同 |
-| `tools.register(tool)` | `ctx.ai.tools.register(...)` | NovelMuse 已有 tools/registry，直接包装 |
-| `systemPrompt.section()` | `ctx.prompt.section()` / `ctx.ai.skills` | 技能系统是 NovelMuse 已有概念，更具体 |
+| `tools.register(tool)` | `ctx.ai.tools.register(...)` | 砚舟 已有 tools/registry，直接包装 |
+| `systemPrompt.section()` | `ctx.prompt.section()` / `ctx.ai.skills` | 技能系统是 砚舟 已有概念，更具体 |
 | settings section（schemastery） | `ctx.settings.registerSection`（Zod） | schema 校验换成 Zod（项目已用） |
-| slots / locale | `registerProjectPanel` / `registerRoute` / `registerLocale` | 扩展点按 NovelMuse UI 结构定制 |
+| slots / locale | `registerProjectPanel` / `registerRoute` / `registerLocale` | 扩展点按 砚舟 UI 结构定制 |
 | `cordis.patch.yml` + 热插拔 | `data/plugins.json` + 构建期清单 | 开发态热插拔，生产态重启生效 |
 | client inject | Web 面 `inject` | 同 |
 | 插件失败不拖垮宿主 | apply 抛错只禁用该插件 | 同 |

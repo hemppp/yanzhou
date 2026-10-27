@@ -1,5 +1,5 @@
 /**
- * NovelMuse GSAP 动画工具模块
+ * 砚舟 GSAP 动画工具模块
  * 统一注册插件、全局配置、常用动画预设
  */
 import { gsap } from 'gsap';

@@ -1,4 +1,4 @@
-# NovelMuse 桌面端打包产物端到端验证报告（t5）
+# 砚舟 桌面端打包产物端到端验证报告（t5）
 
 - **任务**：t5 — 端到端实测 `release/desktop` 产物（启动 / 后端 / 落盘 / 持久化 / 单实例 / 退出）
 - **契约基线**：`docs/architecture/desktop-packaging-adr.md`（ADR-0008，状态已冻结，2026-10-02）
@@ -19,7 +19,7 @@
 | 4 | 落盘项：userData 出现 app-runtime / data / plugins | **通过** | §3.3 目录树 + `运行时 junction 状态：data=true，plugins/node_modules=true，better-sqlite3=true` |
 | 5 | 持久化项：重启后数据仍在 | **通过** | win-unpacked 与安装版均见重启后项目仍在（§3.5 / §4.5） |
 | 6 | 单实例项 | **通过** | 第二实例自行退出（`p2.HasExited=True`），日志记 `收到 second-instance ⇒ 已聚焦既有窗口（未创建新窗口）` |
-| 7 | 退出项：退出后无残留进程 | **通过** | `CloseMainWindow()` → `Get-Process -Name NovelMuse` = 0；`main.log` 优雅关停四行齐全 |
+| 7 | 退出项：退出后无残留进程 | **通过** | `CloseMainWindow()` → `Get-Process -Name 砚舟` = 0；`main.log` 优雅关停四行齐全 |
 | 8 | 便携版与安装版各自实测结果分开记录 | **通过** | §4 安装版（NSIS）与 §5 便携版（Portable）分节；另 §3 单列 win-unpacked |
 
 **一句话结论**：19:13 那一轮产出的三种形态（`win-unpacked`、NSIS 安装版、Portable 便携版）**全部端到端跑通**：能启动、能起后端并自检 `database=connected / plugins=27`、能按 D7 落盘并建 junction、能跨重启保留数据、能拦第二实例、能优雅关停且无残留。ADR D20 的 **R1 / R2 / R3 三项高风险**由本报告直接闭环（§7）。**两处必须记录的既有缺陷**：① 便携版不重定向 `userData`（R13 结论，§5.3）；② `logger.ts` 在父进程 stdio 管道断开时存在 EPIPE 自激写盘缺陷（§6，非本任务验收项，但可吃满磁盘）。
@@ -32,10 +32,10 @@
 
 | 文件 | 字节数 | SHA-256 | LastWriteTime |
 | --- | --- | --- | --- |
-| `NovelMuse-Setup-0.1.0-x64.exe` | 177,697,975 | `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | 2026-10-03 19:13:28 |
-| `NovelMuse-Setup-0.1.0-x64.exe.blockmap` | 180,795 | `6F4C1B7413983CD2F5D09286BB5FAB5103C7998E6A3C76C78979E1AB4009BB15` | 2026-10-03 19:13:38 |
-| `NovelMuse-Portable-0.1.0-x64.exe` | 177,302,758 | `DDDF3A98CB2C7E75DB55FEEC0F1A134B4FB6CAF9CF2CB2353D8AC8D8D2D27ECB` | 2026-10-03 19:13:39 |
-| `win-unpacked\NovelMuse.exe` | 245,877,248 | `C65C770A6FFFC5991F3AE9A94EDF368955B17E016AF04096CC4A7C973A345833` | — |
+| `砚舟-Setup-0.1.0-x64.exe` | 177,697,975 | `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | 2026-10-03 19:13:28 |
+| `砚舟-Setup-0.1.0-x64.exe.blockmap` | 180,795 | `6F4C1B7413983CD2F5D09286BB5FAB5103C7998E6A3C76C78979E1AB4009BB15` | 2026-10-03 19:13:38 |
+| `砚舟-Portable-0.1.0-x64.exe` | 177,302,758 | `DDDF3A98CB2C7E75DB55FEEC0F1A134B4FB6CAF9CF2CB2353D8AC8D8D2D27ECB` | 2026-10-03 19:13:39 |
+| `win-unpacked\砚舟.exe` | 245,877,248 | `C65C770A6FFFC5991F3AE9A94EDF368955B17E016AF04096CC4A7C973A345833` | — |
 | `K1__uninstaller.exe`（残留中间物） | 36,859 | `83F0023272DE348249C9F16B7C4CEEB8BEE13C711FD9623693687DA29B3EA1DC` | 2026-10-03 12:17:22 |
 | `builder-debug.yml` | 6,041 | `15D7357863DE12D611DEE40A23817B38AD974695091CCB830A35BB7B40121D9E` | 2026-10-03 19:13:39 |
 
@@ -69,7 +69,7 @@
 
 ---
 
-## 3. win-unpacked 形态实测（`F:\new1.2\release\desktop\win-unpacked\NovelMuse.exe`）
+## 3. win-unpacked 形态实测（`F:\new1.2\release\desktop\win-unpacked\砚舟.exe`）
 
 本轮以**全新 userData** `D:\Temp\t8\ud-unpacked` 复测（脚本 `F:\new1.2\.verify-scratch\verify-unpacked.ps1`，日志 `verify-unpacked.log`）。
 
@@ -77,7 +77,7 @@
 - 启动后主窗口出现，标题 **`听风细雨 - 伴写小说工具`**（`MainWindowTitle` 命中，`waitedSec=42`，其中大部分时间在等首次播种/解包）。
 - `main.log` 逐字（启动链，D12.3 八步）：
   ```
-  [INFO] NovelMuse 桌面壳启动：version=0.1.0，isPackaged=true，userData=D:\Temp\t8\ud-unpacked
+  [INFO] 砚舟 桌面壳启动：version=0.1.0，isPackaged=true，userData=D:\Temp\t8\ud-unpacked
   [INFO] 运行时 junction 状态：data=true，plugins/node_modules=true，better-sqlite3=true（attempted=true）
   [INFO] 布局：seeded=true，appServerPresent=true，appServerDir=D:\Temp\t8\ud-unpacked\app-runtime\app-server
   [INFO] server 入口：D:\Temp\t8\ud-unpacked\app-runtime\app-server\apps\server\src\index.ts（cwd=…\app-runtime\app-server）
@@ -87,21 +87,21 @@
   [INFO] 端口握手成功：http://127.0.0.1:58828（来自子进程 stderr，D5.1）
   [INFO] 就绪探针通过：status=ok，database=connected，hostMode=all，plugins=27
   [INFO] 主窗口已创建：1440×900（min 1024×640），preload=…\resources\app.asar\dist\preload.cjs，serverOrigin=http://127.0.0.1:58828，devOrigin=(打包态)
-  [INFO] NovelMuse 桌面壳启动完成（D12.3 全部 8 步已完成）。
+  [INFO] 砚舟 桌面壳启动完成（D12.3 全部 8 步已完成）。
   [INFO] 主窗口 ready-to-show ⇒ 显示窗口（D12.2）。
   ```
-- 启动时并同时弹出一次性「NovelMuse 管理员初始密码」对话框（`#32770`，与本轮无关的既有行为），关闭后仅剩主窗口；该对话框关闭方式：向目标 `#32770` 顶层窗口投递 `WM_CLOSE`。
+- 启动时并同时弹出一次性「砚舟 管理员初始密码」对话框（`#32770`，与本轮无关的既有行为），关闭后仅剩主窗口；该对话框关闭方式：向目标 `#32770` 顶层窗口投递 `WM_CLOSE`。
 
 ### 3.2 后端项（通过）
-进程树（`Get-CimInstance Win32_Process`，同一时刻 5 个 NovelMuse 进程）：
+进程树（`Get-CimInstance Win32_Process`，同一时刻 5 个 砚舟 进程）：
 
 | PID | 角色 | 关键命令行 |
 | --- | --- | --- |
-| 11176 | 主进程 | `"…\win-unpacked\NovelMuse.exe" --user-data-dir=D:\Temp\t8\ud-unpacked` |
+| 11176 | 主进程 | `"…\win-unpacked\砚舟.exe" --user-data-dir=D:\Temp\t8\ud-unpacked` |
 | 13864 | gpu-process | `--type=gpu-process …` |
 | 23880 | utility(network) | `--type=utility --utility-sub-type=network.mojom.NetworkService …` |
 | 13956 | renderer | `--type=renderer --app-path="…\resources\app.asar" --no-sandbox …` |
-| **22524** | **server 子进程** | `…\NovelMuse.exe --import tsx D:\Temp\t8\ud-unpacked\app-runtime\app-server\apps\server\src\index.ts` |
+| **22524** | **server 子进程** | `…\砚舟.exe --import tsx D:\Temp\t8\ud-unpacked\app-runtime\app-server\apps\server\src\index.ts` |
 
 - 监听端口由**端口握手**取得（D5.1，来自子进程 stderr，非固定端口）：本次三次启动分别 `58828` / `64454` / `57220`。
 - 就绪探针：`status=ok，database=connected，hostMode=all，plugins=27`（三次启动一致）。
@@ -144,31 +144,31 @@ junction 三项由启动日志断言为真：`运行时 junction 状态：data=t
 
 ---
 
-## 4. 安装版（NSIS，`NovelMuse-Setup-0.1.0-x64.exe`）实测
+## 4. 安装版（NSIS，`砚舟-Setup-0.1.0-x64.exe`）实测
 
 ### 4.1 安装前状态（干净基线）
-0 个 NovelMuse 进程；`C:\Users\1\AppData\Local\Programs\NovelMuse` 不存在；HKCU/HKLM `…\Uninstall` 无 NovelMuse/听风细雨 条目；开始菜单与桌面无 `听风细雨.lnk`；C: 空闲 86.85 GB。
+0 个 砚舟 进程；`C:\Users\1\AppData\Local\Programs\砚舟` 不存在；HKCU/HKLM `…\Uninstall` 无 砚舟/听风细雨 条目；开始菜单与桌面无 `听风细雨.lnk`；C: 空闲 86.85 GB。
 
 ### 4.2 静默安装
 ```
-Start-Process 'F:\new1.2\release\desktop\NovelMuse-Setup-0.1.0-x64.exe' -ArgumentList '/S'
+Start-Process 'F:\new1.2\release\desktop\砚舟-Setup-0.1.0-x64.exe' -ArgumentList '/S'
 ```
 → **exit 0，耗时 285.1 s（≈4.75 min）**。安装后：
 
 | 项 | 观测值 |
 | --- | --- |
-| 安装目录 | `C:\Users\1\AppData\Local\Programs\NovelMuse`（存在） |
-| 注册表卸载项 | HKCU `…\Uninstall\041628de-2a89-5b34-a81e-027ac6a5be73` = `NovelMuse 0.1.0`；`UninstallString` = `"…\Programs\NovelMuse\Uninstall NovelMuse.exe" /currentuser` |
-| 开始菜单 | `C:\Users\1\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\听风细雨.lnk` → Target `…\Programs\NovelMuse\NovelMuse.exe`，WorkDir 同目录 |
+| 安装目录 | `C:\Users\1\AppData\Local\Programs\砚舟`（存在） |
+| 注册表卸载项 | HKCU `…\Uninstall\041628de-2a89-5b34-a81e-027ac6a5be73` = `砚舟 0.1.0`；`UninstallString` = `"…\Programs\砚舟\Uninstall 砚舟.exe" /currentuser` |
+| 开始菜单 | `C:\Users\1\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\听风细雨.lnk` → Target `…\Programs\砚舟\砚舟.exe`，WorkDir 同目录 |
 | 桌面快捷方式 | **无**（用户桌面与 `C:\Users\Public\Desktop` 均无 `听风细雨`） |
 | HKLM 条目 | **无**（`perMachine=false`，与 D16.2 一致） |
 | 安装体积 | 32,510 个文件 / 约 663 MB |
-| 卸载器 | `Uninstall NovelMuse.exe` 345,367 B |
+| 卸载器 | `Uninstall 砚舟.exe` 345,367 B |
 
 `resources/` 内容与 `win-unpacked/resources` 同构（`app-server/`含 node_modules、`app.asar.unpacked/`、`seed-plugins/`、`web-dist/`、`app.asar`、`elevate.exe`）。
 
 ### 4.3 首启 + 后端（全新 userData `D:\Temp\t8\ud-fresh`）
-5 进程（main 15180 / gpu 11328 / network utility 21524 / renderer 24136 / **server 7152**）；命令行 `…\NovelMuse.exe --import tsx D:\Temp\t8\ud-fresh\app-runtime\app-server\apps\server\src\index.ts`；主窗口 `听风细雨 - 伴写小说工具`。`main.log` 八步齐全，且完整走通**首次播种**：
+5 进程（main 15180 / gpu 11328 / network utility 21524 / renderer 24136 / **server 7152**）；命令行 `…\砚舟.exe --import tsx D:\Temp\t8\ud-fresh\app-runtime\app-server\apps\server\src\index.ts`；主窗口 `听风细雨 - 伴写小说工具`。`main.log` 八步齐全，且完整走通**首次播种**：
 ```
 [INFO] version=0.1.0，isPackaged=true，userData=D:\Temp\t8\ud-fresh
 [INFO] 运行时 junction 状态：data=true，plugins/node_modules=true，better-sqlite3=true（attempted=true）
@@ -179,7 +179,7 @@ Start-Process 'F:\new1.2\release\desktop\NovelMuse-Setup-0.1.0-x64.exe' -Argumen
 [INFO] 端口握手成功：http://127.0.0.1:59924（来自子进程 stderr，D5.1）
 [INFO] 就绪探针通过：status=ok，database=connected，hostMode=all，plugins=27
 [INFO] 主窗口已创建：1440×900（min 1024×640）
-[INFO] NovelMuse 桌面壳启动完成（D12.3 全部 8 步已完成）。
+[INFO] 砚舟 桌面壳启动完成（D12.3 全部 8 步已完成）。
 ```
 `server.err.log` 旁证：`[Server] ✅ 默认管理员用户创建成功 (admin)`、`[Server] 🔑 管理员初始密码…`、`[Server] Cordis 基座已就绪 → http://localhost:59924`。
 
@@ -195,25 +195,25 @@ Start-Process 'F:\new1.2\release\desktop\NovelMuse-Setup-0.1.0-x64.exe' -Argumen
 ### 4.6 卸载（安装版，通过）
 先关闭主窗口（进程 0），再：
 ```
-Start-Process '…\Programs\NovelMuse\Uninstall NovelMuse.exe' -ArgumentList '/S','/currentuser'
+Start-Process '…\Programs\砚舟\Uninstall 砚舟.exe' -ArgumentList '/S','/currentuser'
 ```
 父进程 **exit 0 / 0.1 s**（NSIS 卸载器立即 spawn 真身 `Un_A` 异步执行）。**约 45 s 后**：安装目录**已删除**、开始菜单 `听风细雨.lnk` **已删除**、HKCU 卸载条目**已消失**；`D:\Temp\t8\ud-fresh`（userData）**仍在** ⇒ `deleteAppDataOnUninstall:false` 生效。卸载闭环成立。
 
 ---
 
-## 5. 便携版（Portable，`NovelMuse-Portable-0.1.0-x64.exe`）实测
+## 5. 便携版（Portable，`砚舟-Portable-0.1.0-x64.exe`）实测
 
 ### 5.1 启动与进程树（通过）
 直接运行便携版 exe（分离方式启动）：
-- **自解压耗时约 3 分钟**，解压到 `D:\Temp\<随机 27 字符目录>`（本次 `D:\Temp\3KBLT5szuyCZGc86OpcpqJ1jXdR`；对应模板 `portable.nsi:35  StrCpy $INSTDIR "$TEMP\${UNPACK_DIR_NAME}"`）。解压期观察到文件数 7,563 → 34,477；解压完成后才出现 NovelMuse 进程。
-- 进程树：`NovelMuse-Portable-0.1.0-x64.exe`(stub) → `D:\Temp\…\NovelMuse.exe`(主进程) → gpu/renderer/network utility + **server 子进程**（命令行 `…\NovelMuse.exe --import tsx C:\Users\1\AppData\Roaming\NovelMuse\app-runtime\app-server\apps\server\src\index.ts`）。
-- `main.log`：`userData=C:\Users\1\AppData\Roaming\NovelMuse`、`isPackaged=true`、`seeded=false`（复用已有 version.json）、`D6 环境变量装配完成：注入 82 项（JWT_SECRET 复用已有）`、端口 49334、`就绪探针通过：…plugins=27`、主窗口创建成功。
+- **自解压耗时约 3 分钟**，解压到 `D:\Temp\<随机 27 字符目录>`（本次 `D:\Temp\3KBLT5szuyCZGc86OpcpqJ1jXdR`；对应模板 `portable.nsi:35  StrCpy $INSTDIR "$TEMP\${UNPACK_DIR_NAME}"`）。解压期观察到文件数 7,563 → 34,477；解压完成后才出现 砚舟 进程。
+- 进程树：`砚舟-Portable-0.1.0-x64.exe`(stub) → `D:\Temp\…\砚舟.exe`(主进程) → gpu/renderer/network utility + **server 子进程**（命令行 `…\砚舟.exe --import tsx C:\Users\1\AppData\Roaming\砚舟\app-runtime\app-server\apps\server\src\index.ts`）。
+- `main.log`：`userData=C:\Users\1\AppData\Roaming\砚舟`、`isPackaged=true`、`seeded=false`（复用已有 version.json）、`D6 环境变量装配完成：注入 82 项（JWT_SECRET 复用已有）`、端口 49334、`就绪探针通过：…plugins=27`、主窗口创建成功。
 
 ### 5.2 退出与自清理（通过）
-`CloseMainWindow()` on 主进程 → NovelMuse 进程归零，优雅关停四行齐全（`reason=before-quit`，server `exitCode=0`）。**stub 进程额外存活约 30 s**（执行 `RMDir /r $INSTDIR` 清理），随后自行退出，`D:\Temp\3KBLT5szuyCZGc86OpcpqJ1jXdR` 已被删除（`Test-Path` = False）⇒ 便携版无残留。
+`CloseMainWindow()` on 主进程 → 砚舟 进程归零，优雅关停四行齐全（`reason=before-quit`，server `exitCode=0`）。**stub 进程额外存活约 30 s**（执行 `RMDir /r $INSTDIR` 清理），随后自行退出，`D:\Temp\3KBLT5szuyCZGc86OpcpqJ1jXdR` 已被删除（`Test-Path` = False）⇒ 便携版无残留。
 
 ### 5.3 **R13 结论：便携版不重定向 userData**（重要）
-实测确认：便携版运行时 `userData` 落点 = **`C:\Users\1\AppData\Roaming\NovelMuse`**，与安装版**完全相同**，**不是** exe 同目录。`F:\new1.2\release\desktop\` 下未产生任何 NovelMuse 数据目录。`portable.nsi` 只把**运行体**解压到 `$TEMP` 并在退出时删除，不触碰 `userData`；源码中亦**未检出** `PORTABLE_EXECUTABLE*` 环境变量的使用。
+实测确认：便携版运行时 `userData` 落点 = **`C:\Users\1\AppData\Roaming\砚舟`**，与安装版**完全相同**，**不是** exe 同目录。`F:\new1.2\release\desktop\` 下未产生任何 砚舟 数据目录。`portable.nsi` 只把**运行体**解压到 `$TEMP` 并在退出时删除，不触碰 `userData`；源码中亦**未检出** `PORTABLE_EXECUTABLE*` 环境变量的使用。
 > ⇒ 若「便携 = 数据随身」是期望语义，**当前实现不满足**，需另行设计（例如读 `PORTABLE_EXECUTABLE_DIR` 覆盖 `userData`）。登记为 t6 残余风险 R13。
 
 > ✅ **后续（2026-10-08，ADR D4.7）**：本条已闭合。便携版 zip 现随包提供 `启动便携版.cmd`，
@@ -254,11 +254,11 @@ Start-Process '…\Programs\NovelMuse\Uninstall NovelMuse.exe' -ArgumentList '/S
 
 | 风险 | 结论 | 证据 |
 | --- | --- | --- |
-| **R1**（高）`spawn(process.execPath, ['--import','tsx', entry], {env:{ELECTRON_RUN_AS_NODE:'1'}})` 在 Electron 44.5.1 可用性 | **闭环：可用**（退路未启用） | 三形态的 server 子进程命令行均为 `…\NovelMuse.exe --import tsx …\apps\server\src\index.ts`，且探针 `plugins=27`；win-unpacked 日志记 `spawnMode=import` |
+| **R1**（高）`spawn(process.execPath, ['--import','tsx', entry], {env:{ELECTRON_RUN_AS_NODE:'1'}})` 在 Electron 44.5.1 可用性 | **闭环：可用**（退路未启用） | 三形态的 server 子进程命令行均为 `…\砚舟.exe --import tsx …\apps\server\src\index.ts`，且探针 `plugins=27`；win-unpacked 日志记 `spawnMode=import` |
 | **R2**（高）asarUnpack + better-sqlite3 ABI 重建 + D8.2 junction | **闭环：通过** | `resources\app.asar.unpacked\node_modules\{better-sqlite3,bindings,file-uri-to-path}` 三者在场；`better_sqlite3.node`=**1,921,024 B**（= D20-R2 冻结值）；三形态 `/api/health.database` 全为 `connected` |
 | **R3**（高）D13.3 stdin 控制通道在 Windows 可触发 `closeGracefully` | **闭环：通过** | 三形态 `main.log` 均见 `向 stdin 写入 "novelmuse:shutdown"` → `server 子进程已退出（exitCode=0）` → `数据库已在 closeGracefully() 中落盘`；`server.err.log` 见 `[Server] 收到 stdin，正在优雅关闭...` |
 | R4/R5/R6/R7/R9/R10/R11/R12 | 见 t3 审计报告 §5 与 t6 收尾报告 | 本报告不重复 |
-| **R8** artifactName 覆盖优先级 | 闭环（实测） | 产物恰为 `NovelMuse-Setup-0.1.0-x64.exe` / `NovelMuse-Portable-0.1.0-x64.exe`，无 `NovelMuse-0.1.0-x64.exe` 形态 ⇒ `nsis/portable.artifactName` 覆盖 `win.artifactName`（与 `platformPackager.js:552` 一致） |
+| **R8** artifactName 覆盖优先级 | 闭环（实测） | 产物恰为 `砚舟-Setup-0.1.0-x64.exe` / `砚舟-Portable-0.1.0-x64.exe`，无 `砚舟-0.1.0-x64.exe` 形态 ⇒ `nsis/portable.artifactName` 覆盖 `win.artifactName`（与 `platformPackager.js:552` 一致） |
 | **R13** 便携版 userData 落点 | 闭环（实测） | §5.3：落 `%APPDATA%\NovelMuse`，与安装版相同，**不重定向** |
 
 ---
@@ -283,18 +283,18 @@ Remove-Item Env:\ELECTRON_RUN_AS_NODE -EA 0
 
 # 1) 产物与哈希
 Get-ChildItem 'F:\new1.2\release\desktop' | Select-Object Name,Length
-Get-FileHash 'F:\new1.2\release\desktop\NovelMuse-Setup-0.1.0-x64.exe' -Algorithm SHA256
-Get-FileHash 'F:\new1.2\release\desktop\NovelMuse-Portable-0.1.0-x64.exe' -Algorithm SHA256
+Get-FileHash 'F:\new1.2\release\desktop\砚舟-Setup-0.1.0-x64.exe' -Algorithm SHA256
+Get-FileHash 'F:\new1.2\release\desktop\砚舟-Portable-0.1.0-x64.exe' -Algorithm SHA256
 
 # 2) win-unpacked 端到端（启动 / 单实例 / 持久化 / 优雅退出）
 & 'F:\new1.2\.verify-scratch\verify-unpacked.ps1'
 
 # 3) 安装版（静默安装 → 启动 → 卸载）
-Start-Process 'F:\new1.2\release\desktop\NovelMuse-Setup-0.1.0-x64.exe' -ArgumentList '/S' -Wait
+Start-Process 'F:\new1.2\release\desktop\砚舟-Setup-0.1.0-x64.exe' -ArgumentList '/S' -Wait
 # …（启动与卸载同上，详见本报告 §4）
 
 # 4) 残留检查
-Get-Process -Name NovelMuse -EA 0
+Get-Process -Name 砚舟 -EA 0
 ```
 
 ---

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { importNovelMusePackage } from '../services/misc/projectExportService';
+import { import砚舟Package } from '../services/misc/projectExportService';
 import { htmlToText } from '@novel-plugins/data-core/editor/entityDetector';
 import {
   useProjectStore,
@@ -29,7 +29,7 @@ export function ImportDialog() {
     setMessage('');
 
     try {
-      const pkg = await importNovelMusePackage(file);
+      const pkg = await import砚舟Package(file);
 
       const projectId = nanoid();
       const now = Date.now();

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ============================================================
-   NovelMuse · 青霭玻璃设计系统 (Azure Glass HUD)
+   砚舟 · 青霭玻璃设计系统 (Azure Glass HUD)
    macOS 风：氛围渐变底 + 毛玻璃面板 + 系统无衬线字体
    色相体系：青(205° azure) → 靛(225° indigo)，朱砂仅作暖点缀
    核心要素：backdrop-filter 模糊 + 饱和度提升 + 边缘高光 + 柔和多层投影

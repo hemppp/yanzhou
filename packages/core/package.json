@@ -34,5 +34,5 @@
     "typescript": "^5.7.0",
     "vitest": "^4.1.7"
   },
-  "description": "NovelMuse 插件契约包（Cordis 底座版）：类型契约 + 纯工具，内核由 @deepseek-ai/cordis 承担"
+  "description": "砚舟 插件契约包（Cordis 底座版）：类型契约 + 纯工具，内核由 @deepseek-ai/cordis 承担"
 }

@@ -1,4 +1,4 @@
-# NovelMuse 接手交接 · 停靠重构 / 主题单一真源 / 插件模式拆分 / Electron 桌面端
+# 砚舟 接手交接 · 停靠重构 / 主题单一真源 / 插件模式拆分 / Electron 桌面端
 
 > **编写**：团队一号（DSH 内置 Agent Teams）成员 `handover-scribe`，2026-10-04
 > **覆盖范围**：2026-10-01 20:56（原 HEAD `a0e1db0`）之后、至 2026-10-04 四条工作线的产物与结论
@@ -150,10 +150,10 @@
 
 ### 4.3 安装 / 运行事实（`[报告]` closeout §4）
 
-- NSIS 静默 `/S` 实测 **285 s 退出码 0**；默认落点 `%LOCALAPPDATA%\Programs\NovelMuse`；只建开始菜单快捷方式「听风细雨」，**不建桌面快捷方式**；卸载保留 userData（`deleteAppDataOnUninstall=false`）。
+- NSIS 静默 `/S` 实测 **285 s 退出码 0**；默认落点 `%LOCALAPPDATA%\Programs\砚舟`；只建开始菜单快捷方式「听风细雨」，**不建桌面快捷方式**；卸载保留 userData（`deleteAppDataOnUninstall=false`）。
 - 首启一次性管理员初始密码写入 `<userData>\logs\initial-admin-password.txt`（23 B）。
 - 便携版首启自解压约 3 分钟到 `%TEMP%\<随机目录>`，退出后删除。
-- 便携版 userData 落 `C:\Users\1\AppData\Roaming\NovelMuse`，**与安装版完全相同、不重定向**；源码未消费 `PORTABLE_EXECUTABLE*`（R13，即使携版语义未落地）。
+- 便携版 userData 落 `C:\Users\1\AppData\Roaming\砚舟`，**与安装版完全相同、不重定向**；源码未消费 `PORTABLE_EXECUTABLE*`（R13，即使携版语义未落地）。
 - 未签名安装包会触发 SmartScreen；**未安装 VC++ 运行库的行为未验证**。
 
 ### 4.4 ⚠️ 打包后 ABI 纪律（必须遵守，`[报告]` ADR-0008 §D8.1/§D8.4）
@@ -178,11 +178,11 @@
 
 | 项 | 报告（19:13 那轮） | 磁盘现状（2026-10-03 21:11–21:13） |
 |---|---|---|
-| `NovelMuse-Setup-0.1.0-x64.exe` | 177,697,975 B / SHA256 `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | **177,697,975 B**（同尺寸）/ SHA256 `15EC9B37B5E5965AEA5E47384291648FE89B23047BDA70DE9ACCBB26FD1A3CC8` **≠** |
-| `NovelMuse-Portable-0.1.0-x64.exe` | 177,302,758 B / SHA256 `DDDF3A98…27ECB` | **177,302,760 B**（+2 B）/ SHA256 `CB2FD64BF33FA530B5C49E2E975CA0D1BD5936AAE7B1AB1134A3AFD8AA3C57DC` **≠** |
+| `砚舟-Setup-0.1.0-x64.exe` | 177,697,975 B / SHA256 `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | **177,697,975 B**（同尺寸）/ SHA256 `15EC9B37B5E5965AEA5E47384291648FE89B23047BDA70DE9ACCBB26FD1A3CC8` **≠** |
+| `砚舟-Portable-0.1.0-x64.exe` | 177,302,758 B / SHA256 `DDDF3A98…27ECB` | **177,302,760 B**（+2 B）/ SHA256 `CB2FD64BF33FA530B5C49E2E975CA0D1BD5936AAE7B1AB1134A3AFD8AA3C57DC` **≠** |
 | `K1__uninstaller.exe` | 36,859 B | 存在，36,859 B |
 | `builder-debug.yml` | 6,041 B | 存在，6,041 B |
-| `win-unpacked/NovelMuse.exe` | 245,877,248 B | 245,877,248 B（mtime 21:12:16） |
+| `win-unpacked/砚舟.exe` | 245,877,248 B | 245,877,248 B（mtime 21:12:16） |
 
 ⇒ **`release/desktop/` 当前不是两份报告验证过的那批产物**。报告 §1.1 的哈希 attestation（D17 6/6 MATCH）只对 19:13 那轮成立；磁盘上这批（21:11–21:13，由 `apps/desktop/package.json` 于 21:10:54 恢复 `build` 块之后的重新打包产生）的实测哈希**已于 2026-10-04 登记进 `docs/reports/desktop-packaging-closeout.md` §A.1（现 215–255 行）** ⇒ **发布校验以 §A.1 为准，不要再引用该报告 §1.1**（§A.1 另给出 `blockmap` 与 `builder-debug.yml` 的实测 SHA-256，并注明「任何一次重打包都会使本节再次过期」）`[报告]`。
 > 顺带：closeout §2/D16 与 §6 记的「`apps/desktop/package.json` 于 2026-10-03 19:26:48 被改写为 320 B、`build` 块 / `devDependencies` / `scripts` 全部消失，使打包不可复现，是发布前唯一需处置项」——**该偏离在交接时点已不复存在**：`[实测]` 2026-10-04 读到的 `apps/desktop/package.json` = **2547 B**（mtime 2026-10-03 21:10:54），`scripts`/`build`/`devDependencies` 均在场（`build` 块含 `directories.output=../../release/desktop`、`asarUnpack`、`extraResources`、`win.target=[nsis,portable]`、`nsis.shortcutName="听风细雨"`、`deleteAppDataOnUninstall=false`）。是否与 ADR-0008 D16.1 逐字一致 **未验证**。

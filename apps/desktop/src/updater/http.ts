@@ -77,7 +77,7 @@ export function fetchToBuffer(
     const transport = parsed.protocol === 'https:' ? https : http;
     const req = transport.request(
       parsed,
-      { method: 'GET', headers: { 'user-agent': 'NovelMuse-Updater/1.0', accept: '*/*' } },
+      { method: 'GET', headers: { 'user-agent': '砚舟-Updater/1.0', accept: '*/*' } },
       (res) => {
         const status = res.statusCode ?? 0;
         if (status >= 300 && status < 400 && res.headers.location) {
@@ -167,7 +167,7 @@ export async function downloadToFile(
       const transport = parsed.protocol === 'https:' ? https : http;
       const req = transport.request(
         parsed,
-        { method: 'GET', headers: { 'user-agent': 'NovelMuse-Updater/1.0', accept: '*/*' } },
+        { method: 'GET', headers: { 'user-agent': '砚舟-Updater/1.0', accept: '*/*' } },
         (res) => {
           const status = res.statusCode ?? 0;
           if (status >= 300 && status < 400 && res.headers.location) {

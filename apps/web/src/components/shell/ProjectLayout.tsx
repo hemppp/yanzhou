@@ -456,7 +456,7 @@ export function ProjectLayout() {
                 onClick={function() { navigate(backTarget); }}
                 title={backLabel}
               >
-                {project ? project.name : '听风细雨'}
+                {project ? project.name : '砚舟'}
               </button>
               <span className="shell-breadcrumb-sep" aria-hidden="true">
                 /

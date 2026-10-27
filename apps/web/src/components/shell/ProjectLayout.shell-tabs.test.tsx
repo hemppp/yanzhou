@@ -2,7 +2,7 @@
 // ProjectLayout.shell-tabs.test.tsx —— 外壳改造的运行时自证（t1）
 //
 // 在 jsdom 里**真的挂载 ProjectLayout**（含 DockShell / 文档标签栏 / 状态栏），断言截图形态：
-//   · 顶栏：面包屑「听风细雨 / 章节名」+ 重写 · 夜间（m04040：模式切换按钮组已移除）
+//   · 顶栏：面包屑「砚舟 / 章节名」+ 重写 · 夜间（m04040：模式切换按钮组已移除）
 //   · auto 模式走工作台分支 ⇒ 降级占位自带「小返回键」，点它回书架（m04040）
 //   · 文档标签行渲染在中心 dock 组的组头内（t6 去层：不再是顶栏之下的一条独立横带）
 //   · 底部细条：左「底部面板」+ 右「N 条问题 Ctrl+J」
@@ -49,7 +49,7 @@ import { _resetPanelOpenStore } from '@/stores/panelOpenStore';
 
 const PROJECT = {
   id: 'p1',
-  name: '听风细雨',
+  name: '砚舟',
   currentWordCount: 12480,
   mode: 'manual',
   createdAt: 0,
@@ -125,7 +125,7 @@ describe('ProjectLayout 外壳（t1 截图形态）', () => {
     // 面包屑
     const crumb = container.querySelector('.shell-breadcrumb');
     expect(crumb).toBeTruthy();
-    expect(container.querySelector('.shell-breadcrumb-root')?.textContent).toBe('听风细雨');
+    expect(container.querySelector('.shell-breadcrumb-root')?.textContent).toBe('砚舟');
     expect(container.querySelector('.shell-breadcrumb-sep')?.textContent).toBe('/');
     // 无当前章节 ⇒ 回落「章节正文」
     expect(container.querySelector('.shell-breadcrumb-leaf')?.textContent).toBe('章节正文');

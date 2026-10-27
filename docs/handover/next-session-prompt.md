@@ -1,4 +1,4 @@
-# 新会话入口 · NovelMuse 接手交接
+# 新会话入口 · 砚舟 接手交接
 
 > **2026-10-04 更新（团队一号 `handover-scribe`）**
 > 本文件此前的全部内容是 2026-09-28 一条**已过期任务线**（用 desktop-control MCP 操控浏览器把小说「空山雨后」写到第 30 章）的自我包含任务书。
@@ -59,7 +59,7 @@
 
 【背景 — 你没有上一轮上下文，这里是全部所需】
 
-- 项目根：`F:\new1.2`（NovelMuse，AI 长篇小说创作工具，pnpm monorepo）
+- 项目根：`F:\new1.2`（砚舟，AI 长篇小说创作工具，pnpm monorepo）
 - **服务已在跑**：server `http://127.0.0.1:3774`（Node 24 启动）、vite `http://localhost:5173`
   （vite 只监听 IPv6，**必须用 localhost**，用 127.0.0.1 连不上）
 - 测试账号：`probemty3qnbx` / `Probe1234!`（已配好 AI provider）
@@ -88,7 +88,7 @@ d.close();"
 
 **两条纪律（不遵守必踩坑）**：
 
-1. **每次动作前先 `focus_window("NovelMuse")`** —— 你执行操作时宿主会抢到前台，
+1. **每次动作前先 `focus_window("砚舟")`** —— 你执行操作时宿主会抢到前台，
    不置前点击/输入会打在自己身上（上一轮把登录密码敲进了别的窗口）。
 2. **优先用 `run_actions` 把一串动作一次下发**（换行分隔），不要逐个工具调用 ——
    调用之间的空档正是被抢焦点的时间窗。
@@ -112,7 +112,7 @@ d.close();"
 【登录序列（run_actions 可直接用）】
 
 ```
-focus NovelMuse
+focus 砚舟
 wait 0.6
 click 954 723
 wait 3
@@ -135,7 +135,7 @@ screenshot C:/temp/s1.png
 【触发 3–30 章连写】
 
 ```
-focus NovelMuse
+focus 砚舟
 wait 0.6
 click 455 387
 wait 13

@@ -107,7 +107,7 @@ const isBrowser = typeof window !== 'undefined';
 if (!isBrowser) {
   void import('@novel/db').then(({ initDatabase }) =>
     initDatabase().catch((err: unknown) => {
-      console.error('[NovelMuse] 数据库初始化失败（非致命）:', err);
+      console.error('[砚舟] 数据库初始化失败（非致命）:', err);
     }),
   );
 }

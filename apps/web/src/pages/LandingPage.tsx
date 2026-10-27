@@ -121,7 +121,7 @@ export function LandingPage() {
         </div>
 
         <div className="landing-hero-content">
-          <span className="landing-hero-eyebrow">听风细雨</span>
+          <span className="landing-hero-eyebrow">砚舟</span>
           <h1 className="landing-hero-title">
             以笔为舟
             <br />
@@ -211,7 +211,7 @@ export function LandingPage() {
 
       {/* ===== Footer ===== */}
       <footer className="landing-footer">
-        <span className="landing-footer-brand">听风细雨</span>
+        <span className="landing-footer-brand">砚舟</span>
         <span>&copy; {new Date().getFullYear()}</span>
       </footer>
     </div>

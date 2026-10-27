@@ -49,11 +49,11 @@ const sortOptions = [
 
 function CalligraphyTitle() {
   return (
-    /* ★ 品牌名改为「听风细雨」（2026-09-19）
+    /* ★ 品牌名改为「砚舟」（2026-09-19）
        这里原先硬编码英文 `Novel` + `Muse` 两段 span。
-       应用早在 commit 7e021b8「应用品牌名改为「听风细雨」」就改名了，
+       应用早在 commit 7e021b8「应用品牌名改为「砚舟」」就改名了，
        登录页 / `<title>` / 页脚都改了，**唯独这个书架页字标漏了** ——
-       实测 `grep -rn "NovelMuse"` 只在这一处是用户可见的（其余都是
+       实测 `grep -rn "砚舟"` 只在这一处是用户可见的（其余都是
        函数名/类型名/注释/console.error，不进 UI）。
        保留原来的**双色处理**（前半墨色、后半主色），只换字。 */
     <h1
@@ -493,7 +493,7 @@ export function BookshelfPage() {
             color: 'hsl(var(--muted-foreground))',
             fontFamily: "'Noto Serif SC', serif",
           }}>
-            <span>听风细雨 · 墨香书阁</span>
+            <span>砚舟 · 墨香书阁</span>
             <button
               onClick={handleLogout}
               className="transition-colors hover:opacity-70"

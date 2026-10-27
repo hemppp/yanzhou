@@ -1,4 +1,4 @@
-# NovelMuse 桌面端打包与更新器 —— 收尾报告（t6）
+# 砚舟 桌面端打包与更新器 —— 收尾报告（t6）
 
 - **任务**：t6 — 汇总交付物清单 / 逐条验收结论 / 残余风险 / 安装与使用说明
 - **契约基线**：`docs/architecture/desktop-packaging-adr.md`（ADR-0008，状态**已冻结**，2026-10-02）
@@ -14,10 +14,10 @@
 
 | 文件 | 字节数 | SHA-256 | 来源 |
 | --- | --- | --- | --- |
-| `NovelMuse-Setup-0.1.0-x64.exe` | 177,697,975 | `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | `[t5]`/`[本报告]` |
-| `NovelMuse-Setup-0.1.0-x64.exe.blockmap` | 180,795 | `6F4C1B7413983CD2F5D09286BB5FAB5103C7998E6A3C76C78979E1AB4009BB15` | `[t5]`/`[本报告]` |
-| `NovelMuse-Portable-0.1.0-x64.exe` | 177,302,758 | `DDDF3A98CB2C7E75DB55FEEC0F1A134B4FB6CAF9CF2CB2353D8AC8D8D2D27ECB` | `[t5]`/`[本报告]` |
-| `win-unpacked\NovelMuse.exe` | 245,877,248 | `C65C770A6FFFC5991F3AE9A94EDF368955B17E016AF04096CC4A7C973A345833` | `[t5]` |
+| `砚舟-Setup-0.1.0-x64.exe` | 177,697,975 | `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | `[t5]`/`[本报告]` |
+| `砚舟-Setup-0.1.0-x64.exe.blockmap` | 180,795 | `6F4C1B7413983CD2F5D09286BB5FAB5103C7998E6A3C76C78979E1AB4009BB15` | `[t5]`/`[本报告]` |
+| `砚舟-Portable-0.1.0-x64.exe` | 177,302,758 | `DDDF3A98CB2C7E75DB55FEEC0F1A134B4FB6CAF9CF2CB2353D8AC8D8D2D27ECB` | `[t5]`/`[本报告]` |
+| `win-unpacked\砚舟.exe` | 245,877,248 | `C65C770A6FFFC5991F3AE9A94EDF368955B17E016AF04096CC4A7C973A345833` | `[t5]` |
 | `win-unpacked\resources\app.asar` | 778,506 | — | `[t5]` |
 | `win-unpacked\resources\app-server\`（214 个顶层包） | 222,591,959 | — | `[t5]` |
 | `win-unpacked\resources\app-server\node_modules\better-sqlite3\...\better_sqlite3.node` 等价物（asar.unpacked 侧） | 1,921,024 | — | `[t5]`（= D20-R2 冻结值） |
@@ -69,10 +69,10 @@
 
 | 条目 | 结论 | 证据来源与要点 |
 | --- | --- | --- |
-| **D1** 产物矩阵 | **符合** | `[t3]`：`package.json` 各字段就位；`[本报告]`：产物恰为 `NovelMuse-Setup-0.1.0-x64.exe` / `NovelMuse-Portable-0.1.0-x64.exe`，无 mac/Linux/arm64 产物 |
+| **D1** 产物矩阵 | **符合** | `[t3]`：`package.json` 各字段就位；`[本报告]`：产物恰为 `砚舟-Setup-0.1.0-x64.exe` / `砚舟-Portable-0.1.0-x64.exe`，无 mac/Linux/arm64 产物 |
 | **D2** 文件清单与约束 | **偏离（低）** DEV-02 | `[t3]`：清单内文件齐备；唯 `src/updater.ts` 实现为 `src/updater/**`（8 文件），并多出 `src/desktop-api.ts`（ADR 未列）。约束①②③均满足 |
 | **D3** 依赖与安装纪律 | **符合** | `[t3]`：D3.2 版本全部匹配；`[本报告]`：`node_modules` 实装 electron 44.5.1 / electron-builder 26.15.3 / esbuild 0.28.2 / typescript 5.9.3 / better-sqlite3 12.11.1 / yauzl 3.4.0，且 `node_modules\.bin\electron-builder.cmd` 在位 |
-| **D4** server 运行模式（Mode B） | **符合** | `[t5]`：三形态 server 子进程命令行均为 `…\NovelMuse.exe --import tsx …\apps\server\src\index.ts`，探针 `plugins=27`。**DEV-09**：Mode B 闭包 265 包 / 252,475,413 B 超 D4.2 基线 189 包 / 107,768,288 B |
+| **D4** server 运行模式（Mode B） | **符合** | `[t5]`：三形态 server 子进程命令行均为 `…\砚舟.exe --import tsx …\apps\server\src\index.ts`，探针 `plugins=27`。**DEV-09**：Mode B 闭包 265 包 / 252,475,413 B 超 D4.2 基线 189 包 / 107,768,288 B |
 | **D5** 端口握手 | **符合** | `[t5]`/`[本报告]`：每次启动端口不同（58828 / 64454 / 57220 / 59924 / 58556 / 49334 / 53501 / 49718），均记 `端口握手成功：http://127.0.0.1:<port>（来自子进程 stderr，D5.1）` 且探针通过 |
 | **D6** 环境变量契约 | **符合** | `[t5]`：`D6 环境变量装配完成：注入 78 项（win-unpacked）/ 79 项（安装版）/ 82 项（便携版）`，JWT 复用/新生成逻辑正确 |
 | **D7** userData 布局 | **符合** | `[t5]`：首启后 `app-runtime/`、`data/`、`plugins/`、`backups/`、`logs/`、`updates/` 全部按 D7.1 落盘；junction 三项日志断言为真 |
@@ -80,7 +80,7 @@
 | **D9** sql-wasm.wasm | **符合** | `[t3]` 代码层符合；回退路径未触发（`[t5]` 未观察到 sql.js 回退日志） |
 | **D10** 图标 | **符合** | `[t3]`：`build-resources/{icon.ico,icon.png}` 存在，源为 `apps/web/public/images/bamboo-ink.png` |
 | **D11** desktopAPI + IPC | **符合** | `[t5]`：日志 `已注册 9 条 IPC 通道（D11.2）`；`[t5]` renderer 正常加载前端 |
-| **D12** 生命周期 | **符合（含 DEV-13）** | `[t5]`：`NovelMuse 桌面壳启动完成（D12.3 全部 8 步已完成）`、`主窗口 ready-to-show ⇒ 显示窗口（D12.2）`、单实例 `收到 second-instance ⇒ 已聚焦既有窗口（未创建新窗口）`。DEV-13：启动失败路径经 before-quit `preventDefault` 改走 `shutdownAndExit` |
+| **D12** 生命周期 | **符合（含 DEV-13）** | `[t5]`：`砚舟 桌面壳启动完成（D12.3 全部 8 步已完成）`、`主窗口 ready-to-show ⇒ 显示窗口（D12.2）`、单实例 `收到 second-instance ⇒ 已聚焦既有窗口（未创建新窗口）`。DEV-13：启动失败路径经 before-quit `preventDefault` 改走 `shutdownAndExit` |
 | **D13** 优雅退出（stdin） | **符合** | `[t5]`：`向 stdin 写入 "novelmuse:shutdown"` → `server 子进程已退出（exitCode=0）` → `数据库已在 closeGracefully() 中落盘`；`server.err.log` 见 `[Server] 收到 stdin，正在优雅关闭...`。**R3 闭环** |
 | **D14 / D14.1** 更新器总则 | **符合** | `[t3]` 代码层；`[t4]` 更新源 schema 10/10 PASS |
 | **D14.2** `manifest.json` 字段 | **符合** | `[t4]`：顶层 `{version,notes,publishedAt,app,plugins}`；`plugins` 恰 5 条，每条 `{id,name,version,url,sha256,notes}`；`[本报告]`：`publishedAt="2026-10-03T08:26:12Z"`、`app.sha256=f8008010…57ef`。**`compareVersions` 预发布后缀（R12）已单测 15/15 通过**（§3.4） |
@@ -123,16 +123,16 @@
 3. 无论哪种，都应把 `apps/desktop/` 纳入 git（当前整目录未跟踪，任何误改都不可回溯）。
 
 ### 3.2 **R8 — `artifactName` 覆盖优先级（闭环）**
-`[t2]` 实测 + `[t5]` 复核：产物名恰为 `NovelMuse-Setup-0.1.0-x64.exe` / `NovelMuse-Portable-0.1.0-x64.exe`，**不存在** `NovelMuse-0.1.0-x64.exe` 形态 ⇒ **target 专属 `nsis/portable.artifactName` 覆盖 `win.artifactName`，后者仅兜底**。源码依据：`app-builder-lib/out/platformPackager.js:552` `const userSpecifiedPattern = (targetSpecificOptions?.artifactName) || this.platformSpecificBuildOptions.artifactName || <default>`。ADR D16.2 末注①「需人工确认」**可标注为已实测确认**。
+`[t2]` 实测 + `[t5]` 复核：产物名恰为 `砚舟-Setup-0.1.0-x64.exe` / `砚舟-Portable-0.1.0-x64.exe`，**不存在** `砚舟-0.1.0-x64.exe` 形态 ⇒ **target 专属 `nsis/portable.artifactName` 覆盖 `win.artifactName`，后者仅兜底**。源码依据：`app-builder-lib/out/platformPackager.js:552` `const userSpecifiedPattern = (targetSpecificOptions?.artifactName) || this.platformSpecificBuildOptions.artifactName || <default>`。ADR D16.2 末注①「需人工确认」**可标注为已实测确认**。
 
 ### 3.3 **R13 — 便携版 userData 落点（闭环，结论为「不重定向」）**
-`[t5]` 实测：便携版运行时 `app.getPath('userData')` = **`C:\Users\1\AppData\Roaming\NovelMuse`**，与安装版**相同**；便携版只把**运行体**解压到 `$TEMP\<随机名>` 并在退出后 `RMDir /r` 清理，不触碰 userData。源码**未检出** `PORTABLE_EXECUTABLE*` 的消费点。
+`[t5]` 实测：便携版运行时 `app.getPath('userData')` = **`C:\Users\1\AppData\Roaming\砚舟`**，与安装版**相同**；便携版只把**运行体**解压到 `$TEMP\<随机名>` 并在退出后 `RMDir /r` 清理，不触碰 userData。源码**未检出** `PORTABLE_EXECUTABLE*` 的消费点。
 ⇒ 若产品语义要求「便携 = 数据随身」，**当前实现不满足**，需新增 `--data-dir`/读 `PORTABLE_EXECUTABLE_DIR` 的覆盖逻辑（ADR 明确记为**超出本 ADR 范围，须 captain 决定**）。
 
 > ✅ **后续（2026-10-08，ADR D4.7）**：已闭合。方案不是新增 `--data-dir`，而是复用 Electron
 > 自带的 `--user-data-dir`：便携版 zip 随包提供 `启动便携版.cmd`，把 `userData` 重定向到
 > 解压目录内 `portable-data\`，**应用源码零改动**，数据随文件夹走；同时打包时预置运行时，
-> 便携模式首启零等待（12.4 s → 4.1 s）。本节的结论对「直接双击 `NovelMuse.exe`」的传统
+> 便携模式首启零等待（12.4 s → 4.1 s）。本节的结论对「直接双击 `砚舟.exe`」的传统
 > 模式仍然成立。
 
 ### 3.4 **R12 — `compareVersions` 预发布后缀（闭环，加强实现）**
@@ -162,23 +162,23 @@ DEV-01（medium）、DEV-02…DEV-08（low）、DEV-09（medium）、DEV-10（hi
 ## 4. 安装与使用说明
 
 ### 4.1 NSIS 安装版
-1. 运行 `NovelMuse-Setup-0.1.0-x64.exe`。
+1. 运行 `砚舟-Setup-0.1.0-x64.exe`。
    - 图形安装：`oneClick=false`，可自选安装目录（`allowToChangeInstallationDirectory=true`）。
-   - 静默安装：`NovelMuse-Setup-0.1.0-x64.exe /S`（实测 285 s，退出码 0）。
-2. 默认落点：`%LOCALAPPDATA%\Programs\NovelMuse`（`perMachine=false` ⇒ 仅当前用户，不写 HKLM）。
+   - 静默安装：`砚舟-Setup-0.1.0-x64.exe /S`（实测 285 s，退出码 0）。
+2. 默认落点：`%LOCALAPPDATA%\Programs\砚舟`（`perMachine=false` ⇒ 仅当前用户，不写 HKLM）。
 3. 会自动创建**开始菜单**快捷方式 `听风细雨`；**不创建桌面快捷方式**（实测确认）。
-4. 注册表卸载项：HKCU `…\Uninstall\{GUID}`，`UninstallString = "…\Uninstall NovelMuse.exe" /currentuser`。
-5. **卸载**：设置 → 应用，或直接运行 `Uninstall NovelMuse.exe /S /currentuser`。卸载会删除安装目录与开始菜单项，但**保留 userData**（`deleteAppDataOnUninstall=false`）。
+4. 注册表卸载项：HKCU `…\Uninstall\{GUID}`，`UninstallString = "…\Uninstall 砚舟.exe" /currentuser`。
+5. **卸载**：设置 → 应用，或直接运行 `Uninstall 砚舟.exe /S /currentuser`。卸载会删除安装目录与开始菜单项，但**保留 userData**（`deleteAppDataOnUninstall=false`）。
 6. 首次启动会弹一次性「管理员初始密码」对话框，密码同时写入 `<userData>\logs\initial-admin-password.txt`（23 B）；**登录后请立即改密**。
 
 ### 4.2 便携版
-1. 直接运行 `NovelMuse-Portable-0.1.0-x64.exe`，**无需安装**。
+1. 直接运行 `砚舟-Portable-0.1.0-x64.exe`，**无需安装**。
 2. **首启自解压约 3 分钟**（解压到 `%TEMP%\<随机目录>`，退出后自动删除）——期间看不到窗口属正常。
 3. **注意**：便携版 **不**把数据放在 exe 旁边，`userData` 仍为 `%APPDATA%\NovelMuse`（见 §3.3）。如需「数据随身」，须等后续版本的 `--data-dir` 支持。
 
 > ⚠️ **本节描述的是 0.1.0 的单文件便携 exe（D4.5 形态）**，该形态**已于 D4.6 移除**。
 > 0.2.0 起便携版是**绿色 zip**：解压后双击 `启动便携版.cmd`，数据落在解压目录内
-> `portable-data\`（数据随身），首启零等待；直接双击 `NovelMuse.exe` 则是传统模式。
+> `portable-data\`（数据随身），首启零等待；直接双击 `砚舟.exe` 则是传统模式。
 > 详见 ADR D4.7（2026-10-08）。
 
 ### 4.3 启动注意（本机环境特有）
@@ -233,17 +233,17 @@ DEV-01（medium）、DEV-02…DEV-08（low）、DEV-09（medium）、DEV-10（hi
 
 | 产物 | 字节数 | SHA-256 | LastWriteTime |
 | --- | --- | --- | --- |
-| `NovelMuse-Setup-0.1.0-x64.exe` | 177,697,975 | `15EC9B37B5E5965AEA5E47384291648FE89B23047BDA70DE9ACCBB26FD1A3CC8` | 2026-10-03 21:13:35 |
-| `NovelMuse-Setup-0.1.0-x64.exe.blockmap` | 180,800 | `186AEB2ACB1771D97F9A33372EAEE6F970BFCFE7BE451E6A6355347AB328C1F7` | 2026-10-03 21:13:42 |
-| `NovelMuse-Portable-0.1.0-x64.exe` | 177,302,760 | `CB2FD64BF33FA530B5C49E2E975CA0D1BD5936AAE7B1AB1134A3AFD8AA3C57DC` | 2026-10-03 21:13:43 |
+| `砚舟-Setup-0.1.0-x64.exe` | 177,697,975 | `15EC9B37B5E5965AEA5E47384291648FE89B23047BDA70DE9ACCBB26FD1A3CC8` | 2026-10-03 21:13:35 |
+| `砚舟-Setup-0.1.0-x64.exe.blockmap` | 180,800 | `186AEB2ACB1771D97F9A33372EAEE6F970BFCFE7BE451E6A6355347AB328C1F7` | 2026-10-03 21:13:42 |
+| `砚舟-Portable-0.1.0-x64.exe` | 177,302,760 | `CB2FD64BF33FA530B5C49E2E975CA0D1BD5936AAE7B1AB1134A3AFD8AA3C57DC` | 2026-10-03 21:13:43 |
 
 与 §1.1 的逐项差异（证明 §1.1 对应更早一轮）：
 
 | 产物 | §1.1 字节数 | 本节字节数 | 差异 | §1.1 SHA-256 | 本节 SHA-256 |
 | --- | --- | --- | --- | --- | --- |
-| `NovelMuse-Setup-0.1.0-x64.exe` | 177,697,975 | 177,697,975 | 0 | `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | `15EC9B37…3CC8` |
-| `NovelMuse-Setup-0.1.0-x64.exe.blockmap` | 180,795 | 180,800 | **+5 B** | `6F4C1B7413983CD2F5D09286BB5FAB5103C7998E6A3C76C78979E1AB4009BB15` | `186AEB2A…C1F7` |
-| `NovelMuse-Portable-0.1.0-x64.exe` | 177,302,758 | 177,302,760 | **+2 B** | `DDDF3A98CB2C7E75DB55FEEC0F1A134B4FB6CAF9CF2CB2353D8AC8D8D2D27ECB` | `CB2FD64B…57DC` |
+| `砚舟-Setup-0.1.0-x64.exe` | 177,697,975 | 177,697,975 | 0 | `1D53021050DE2929EC59CF3F03E74B62ED741F28C7FEB8D61A43A14DC49EB4D1` | `15EC9B37…3CC8` |
+| `砚舟-Setup-0.1.0-x64.exe.blockmap` | 180,795 | 180,800 | **+5 B** | `6F4C1B7413983CD2F5D09286BB5FAB5103C7998E6A3C76C78979E1AB4009BB15` | `186AEB2A…C1F7` |
+| `砚舟-Portable-0.1.0-x64.exe` | 177,302,758 | 177,302,760 | **+2 B** | `DDDF3A98CB2C7E75DB55FEEC0F1A134B4FB6CAF9CF2CB2353D8AC8D8D2D27ECB` | `CB2FD64B…57DC` |
 
 `builder-debug.yml` 亦为 21:13 轮产物：6,041 B、mtime 2026-10-03 21:13:44、SHA-256 `EEA3163194E84C41D8A274A861ACDAF20B2E2B7C9A315253666B9D1FB435F565`（§1.1 记录的 `15D73578…D9E` 对应更早一轮）。
 
@@ -253,8 +253,8 @@ DEV-01（medium）、DEV-02…DEV-08（low）、DEV-09（medium）、DEV-10（hi
 | --- | --- |
 | 2026-10-03 19:26:48 | §3.1 记载的漂移时刻：`apps/desktop/package.json` 被改写为 320 B，`build` / `scripts` / `devDependencies` 全部消失 |
 | 2026-10-03 **21:10:54** | `apps/desktop/package.json` **当前** mtime；现内容 **2,547 B**（初版此表误记为 2,512 B——那是字符数），`build` / `scripts` / `devDependencies` **均已恢复** ⇒ 即「恢复」发生的时刻 |
-| 2026-10-03 21:11:56 | `win-unpacked/` 目录落盘（`win-unpacked\NovelMuse.exe` 245,877,248 B，mtime 21:12:16） |
-| 2026-10-03 21:13:35 / 21:13:42 / 21:13:43 | `NovelMuse-Setup-0.1.0-x64.exe` / `.blockmap` / `NovelMuse-Portable-0.1.0-x64.exe` 依次落盘 |
+| 2026-10-03 21:11:56 | `win-unpacked/` 目录落盘（`win-unpacked\砚舟.exe` 245,877,248 B，mtime 21:12:16） |
+| 2026-10-03 21:13:35 / 21:13:42 / 21:13:43 | `砚舟-Setup-0.1.0-x64.exe` / `.blockmap` / `砚舟-Portable-0.1.0-x64.exe` 依次落盘 |
 | 2026-10-03 21:13:44 | `builder-debug.yml` 落盘（打包元数据最后写出） |
 
 `package.json` 的恢复时刻（21:10:54）**早于**全部产物 mtime（最早 21:11:56），且 §1.1 自己声称的 19:13 轮不可能产生 21:13 的 mtime ⇒ **磁盘现存产物即「`build` 块恢复后重新打包」的 21:13 轮**，与 §1.1 表格所描述的 19:13 轮不是同一批文件。

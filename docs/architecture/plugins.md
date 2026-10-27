@@ -1,4 +1,4 @@
-# NovelMuse 插件化开发指南
+# 砚舟 插件化开发指南
 
 > F:\new1.2 采用 DeepSeek Harness 风格的插件模块化架构。本文档说明如何添加、开发、验证插件。
 > **安装/挂载必须遵守的标准见 [`docs/architecture/plugin-standard.md`](./plugin-standard.md)（novel-plugin-standard/1.0）。**
@@ -276,7 +276,7 @@ rm -rf apps/plugins/local/{shortId}   # 重启 server 后移除
 
 ## 9. 与 DeepSeek Harness 插件模型的对比
 
-| 维度 | DSH（cordis） | NovelMuse |
+| 维度 | DSH（cordis） | 砚舟 |
 | --- | --- | --- |
 | 内核 | cordis framework | `packages/core`（自研，仅 zod 依赖） |
 | 上下文 | `apply(ctx)` + `inject` | `apply(ctx)` + `inject`（同构） |

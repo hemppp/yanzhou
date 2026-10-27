@@ -1,6 +1,6 @@
 # 更新日志
 
-本文件记录 NovelMuse（听风细雨）的重要变更。
+本文件记录 砚舟（听风细雨）的重要变更。
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
@@ -13,10 +13,10 @@
 
 - **桌面端（Electron）**：主进程 + 内嵌 server 子进程，内置 server 负载与
   seed 插件；交付 Windows x64 的**两种形态**：NSIS 安装版与
-  **标准绿色 zip**（`NovelMuse-Portable-0.2.0-x64.zip`，解压后进顶层
-  `NovelMuse/` 双击 `NovelMuse.exe`）。
+  **标准绿色 zip**（`砚舟-Portable-0.2.0-x64.zip`，解压后进顶层
+  `砚舟/` 双击 `砚舟.exe`）。
   首启自动播种数据目录，退出走优雅关闭通道。
-  > 单文件便携 exe（`NovelMuse-Portable-0.2.0-x64.exe`）曾作为第三种形态提供，
+  > 单文件便携 exe（`砚舟-Portable-0.2.0-x64.exe`）曾作为第三种形态提供，
   > 已于 **2026-10-06 移除**（见下方「变更」与 ADR D4.6）。
 - **停靠式工作台（Dock）**：以 `dockview` 重建项目页布局 —— 活动栏、
   左/中/右三栏与底部细条，面板可拖拽停靠；新增 **文档标签**（DocTabs）
@@ -57,11 +57,11 @@
 
 - **移除单文件便携 exe**：便携版**只保留 zip 一种形态**。`win.target` 回退为
   只有 `nsis`；`portable` 配置段与 `dist:portable` 脚本一并删除；
-  `release/desktop/NovelMuse-Portable-0.2.0-x64.exe`（122219604 B）已从产物目录删除。
+  `release/desktop/砚舟-Portable-0.2.0-x64.exe`（122219604 B）已从产物目录删除。
   理由：与绿色 zip 功能完全重叠，且它是 NSIS 自解压 stub —— 首启实测 64–102 s，
   并独占 D4.5-1 记录的两个假象（`Error writing temporary file`、无窗口静默 exit 0）；
   zip 解压约 5 s 且解压后就是普通 exe，没有 stub 这一层。
-  **文件名不变**：便携版 zip 仍叫 `NovelMuse-Portable-<version>-x64.zip`
+  **文件名不变**：便携版 zip 仍叫 `砚舟-Portable-<version>-x64.zip`
   （「Portable」指便携形态，不是 portable target）。
 - **修掉「封装版界面与网页版不一致」的成因**：桌面端的前端与后端**不是**从安装目录
   直接运行，而是**首启播种一次**到 `%APPDATA%\NovelMuse\app-runtime\{web-dist,app-server}`，
@@ -247,7 +247,7 @@
 （web **236 例 / 18 文件全过**，含新增 9 例）✓、`pnpm verify:all` ✓（plugin 模式分离 +
 manifest 合法性门禁 5/5）✓、`pnpm --filter @novel/web build` ✓（入口
 `index-CxWWzN-B.js`）✓、桌面端重打包 ✓。
-真实启动核对（`release\desktop\win-unpacked\NovelMuse.exe`）：`布局：seeded=true，
+真实启动核对（`release\desktop\win-unpacked\砚舟.exe`）：`布局：seeded=true，
 reseeded=true`（buildId `3b4093c6…` → **`484046b7fdc335afe040d4af0f04676b`**）、
 `就绪探针通过：status=ok，database=connected，plugins=27`，端口 `49761`；
 服务端实际发出的 `assets/panelOpenStore-Cxs-N7Gk.js` 里含
@@ -335,7 +335,7 @@ reseeded=true`（buildId `3b4093c6…` → **`484046b7fdc335afe040d4af0f04676b`*
 ### 新增（2026-10-08 便携版预置运行时）
 
 - **便携版不再需要首启播种**：`apps/desktop/scripts/package-portable-zip.mjs` 现在在
-  打包时把运行时**预置**进 zip 的 `NovelMuse/portable-data/`，并附带启动器
+  打包时把运行时**预置**进 zip 的 `砚舟/portable-data/`，并附带启动器
   `启动便携版.cmd`（向 Electron 传 `--user-data-dir=<解压目录>\portable-data`）。
   - **首启零等待**：实测「解压 → 双击启动器 → 就绪探针通过」**4.1 s**（此前需把
     76 MB / 5994 文件复制到用户目录，实测 12.4 s）。启动日志 `seeded=false，
@@ -346,7 +346,7 @@ reseeded=true`（buildId `3b4093c6…` → **`484046b7fdc335afe040d4af0f04676b`*
   - 预置内容与 `resources/` **逐字一致**，`version.json.buildId` 取自
     `resources/app-server/build-stamp.json`，`appVersion` 取自 `apps/desktop` 的
     `version` —— 三者与 D7.5 的闸门同源，否则会被判成 `payload-changed` 而重新播种。
-  - **两种模式并存**：直接双击 `NovelMuse.exe` 仍是传统模式（数据在
+  - **两种模式并存**：直接双击 `砚舟.exe` 仍是传统模式（数据在
     `%APPDATA%\NovelMuse`，首启走 D7.2 播种），两种模式数据互相独立。
   - 打包脚本新增两道校验：`portable-data/` 关键条目齐备、中文条目名
     （`使用说明.txt`、`启动便携版.cmd`）均置 UTF-8 标志位（bit 11）。
@@ -354,7 +354,7 @@ reseeded=true`（buildId `3b4093c6…` → **`484046b7fdc335afe040d4af0f04676b`*
     不符 —— 服务端早已移除固定默认口令（`apps/server/src/index.ts:65-88`，ADR D6.2
     保留「随机初始密码 + 用户自行修改」语义）。现改为「密码首启随机生成，弹一次性
     对话框并写入 `logs\initial-admin-password.txt`」。
-  - 实测（`release/desktop/NovelMuse-Portable-0.2.0-x64.zip`，**227893452 B /
+  - 实测（`release/desktop/砚舟-Portable-0.2.0-x64.zip`，**227893452 B /
     217.34 MB**，SHA256 `78b15b81ef432a068452710cb1a93f5b24535563a3792013821ef5e002edb0c5`，
     12466 条目）：解压副本双击启动器 → 4.1 s 就绪、`plugins=27`、
     `%APPDATA%` 的 `version.json` 与 `novelmuse.db` mtime **零变化**；把旧

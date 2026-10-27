@@ -28,7 +28,7 @@ import type {
 import DOMPurify from 'dompurify';
 
 // ============================================================
-// NovelMuse 项目打包格式
+// 砚舟 项目打包格式
 // ============================================================
 
 /** 最大文件大小: 50MB */
@@ -50,7 +50,7 @@ const REQUIRED_FIELDS = [
   'notes',
 ] as const;
 
-export interface NovelMusePackage {
+export interface 砚舟Package {
   version: '1.0';
   exportedAt: number;
   project: {
@@ -195,7 +195,7 @@ function sanitizeStringsDeep<T>(obj: T): T {
 /**
  * 验证导入包的基本结构
  */
-function validatePackageStructure(pkg: unknown): pkg is NovelMusePackage {
+function validatePackageStructure(pkg: unknown): pkg is 砚舟Package {
   if (!pkg || typeof pkg !== 'object') return false;
 
   const obj = pkg as Record<string, unknown>;
@@ -223,7 +223,7 @@ function validatePackageStructure(pkg: unknown): pkg is NovelMusePackage {
 /**
  * 从当前所有 stores 中导出完整项目数据
  */
-export function exportNovelMusePackage(): NovelMusePackage {
+export function export砚舟Package(): 砚舟Package {
   const project = useProjectStore.getState().currentProject;
   const chapters = useChapterStore.getState().chapters;
   const characters = useCharacterStore.getState().characters;
@@ -235,7 +235,7 @@ export function exportNovelMusePackage(): NovelMusePackage {
   const timelineEvents = useTimelineStore.getState().events;
   const notes = useNoteStore.getState().notes;
 
-  const pkg: NovelMusePackage = {
+  const pkg: 砚舟Package = {
     version: '1.0',
     exportedAt: Date.now(),
     project: project
@@ -370,8 +370,8 @@ function sanitizeFilename(name: string): string {
 /**
  * 下载 .novelmuse 文件
  */
-export function downloadNovelMusePackage(
-  pkg: NovelMusePackage,
+export function download砚舟Package(
+  pkg: 砚舟Package,
   filename?: string,
 ) {
   const json = JSON.stringify(pkg, null, 2);
@@ -390,7 +390,7 @@ export function downloadNovelMusePackage(
 /**
  * 从文件读取并解析 .novelmuse 项目包
  */
-export function importNovelMusePackage(file: File): Promise<NovelMusePackage> {
+export function import砚舟Package(file: File): Promise<砚舟Package> {
   return new Promise((resolve, reject) => {
     // 文件大小限制检查
     if (file.size > MAX_FILE_SIZE) {
@@ -409,7 +409,7 @@ export function importNovelMusePackage(file: File): Promise<NovelMusePackage> {
         }
 
         // 净化字符串内容，防止 XSS
-        const pkg = sanitizeStringsDeep(raw) as NovelMusePackage;
+        const pkg = sanitizeStringsDeep(raw) as 砚舟Package;
 
         resolve(pkg);
       } catch (e) {

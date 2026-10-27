@@ -315,8 +315,8 @@ describe('annotationBlock · 导出「过滤批注块」开关', () => {
   };
 
   it('txt：关闭时含批注文字，开启时不含（正文两段都在）', () => {
-    const included = exportTXT({ title: '听风细雨', chapters: [chapter], format: 'txt' });
-    const filtered = exportTXT({ title: '听风细雨', chapters: [chapter], format: 'txt', filterAnnotations: true });
+    const included = exportTXT({ title: '砚舟', chapters: [chapter], format: 'txt' });
+    const filtered = exportTXT({ title: '砚舟', chapters: [chapter], format: 'txt', filterAnnotations: true });
 
     expect(included).toContain('时间口径需对齐');
     expect(filtered).not.toContain('时间口径需对齐');
@@ -330,9 +330,9 @@ describe('annotationBlock · 导出「过滤批注块」开关', () => {
   });
 
   it('markdown：同样两种结果，且标题结构不变', () => {
-    const included = exportMarkdown({ title: '听风细雨', chapters: [chapter], format: 'markdown' });
+    const included = exportMarkdown({ title: '砚舟', chapters: [chapter], format: 'markdown' });
     const filtered = exportMarkdown({
-      title: '听风细雨',
+      title: '砚舟',
       chapters: [chapter],
       format: 'markdown',
       filterAnnotations: true,
@@ -340,7 +340,7 @@ describe('annotationBlock · 导出「过滤批注块」开关', () => {
 
     expect(included).toContain('时间口径需对齐');
     expect(filtered).not.toContain('时间口径需对齐');
-    expect(filtered).toContain('# 听风细雨');
+    expect(filtered).toContain('# 砚舟');
     expect(filtered).toContain('## 第一章 山雨欲来');
     expect(filtered).toContain(PARAGRAPH_A);
   });

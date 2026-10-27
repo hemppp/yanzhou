@@ -782,7 +782,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
           className="text-[12px] font-semibold truncate max-w-[140px] sm:max-w-[220px]"
           style={{ color: 'hsl(var(--foreground))', letterSpacing: '-0.2px' }}
         >
-          {project ? project.name : '听风细雨'}
+          {project ? project.name : '砚舟'}
         </span>
         <span
           className="hidden sm:flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full"

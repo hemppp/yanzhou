@@ -1,5 +1,5 @@
 <!--
-NovelMuse PR 模板
+砚舟 PR 模板
 提交前请完成 Author 自检（Definition of Ready）与安全自查；reviewer 按本模板逐项审查。
 -->
 

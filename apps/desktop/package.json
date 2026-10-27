@@ -2,8 +2,8 @@
   "name": "@novel/desktop",
   "version": "0.2.0",
   "private": true,
-  "description": "NovelMuse 桌面端（Electron 主进程 + 内嵌 server 子进程）",
-  "author": "NovelMuse",
+  "description": "砚舟 桌面端（Electron 主进程 + 内嵌 server 子进程）",
+  "author": "砚舟",
   "license": "Apache-2.0",
   "main": "dist/main.cjs",
   "scripts": {
@@ -30,8 +30,8 @@
   },
   "build": {
     "appId": "com.novelmuse.desktop",
-    "productName": "NovelMuse",
-    "copyright": "Copyright © 2026 NovelMuse",
+    "productName": "砚舟",
+    "copyright": "Copyright © 2026 砚舟",
     "directories": {
       "output": "../../release/desktop",
       "buildResources": "build-resources"
@@ -57,7 +57,7 @@
         { "target": "nsis", "arch": ["x64"] }
       ],
       "icon": "build-resources/icon.ico",
-      "artifactName": "NovelMuse-${version}-${arch}.${ext}"
+      "artifactName": "砚舟-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -65,8 +65,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "听风细雨",
-      "artifactName": "NovelMuse-Setup-${version}-${arch}.${ext}",
+      "shortcutName": "砚舟",
+      "artifactName": "砚舟-Setup-${version}-${arch}.${ext}",
       "deleteAppDataOnUninstall": false
     }
   }

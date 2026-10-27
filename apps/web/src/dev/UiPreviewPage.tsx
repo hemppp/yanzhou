@@ -280,7 +280,7 @@ export function UiPreviewPage() {
                 <PanelLeft />
               </Button>
               <nav className="flex items-center gap-1 text-xs text-muted-foreground">
-                <span>听风细雨</span>
+                <span>砚舟</span>
                 <span className="text-border">/</span>
                 <span className="font-medium text-foreground">第一章 夜班</span>
               </nav>

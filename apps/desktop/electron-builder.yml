@@ -18,13 +18,13 @@
 # 目标平台：仅 Windows x64（D1）。分发形态：NSIS 安装版 + 标准便携版 zip（D4.6：单文件便携 exe 已移除）。
 #   便携版 zip 不由 electron-builder 的 `zip` target 产出（它是**平铺**的，
 #   6273 个文件直接铺在压缩包根，用户解压会炸开目录）；改由
-#   scripts/package-portable-zip.mjs 加壳（顶层 NovelMuse/ + 使用说明.txt）后压缩。
+#   scripts/package-portable-zip.mjs 加壳（顶层 砚舟/ + 使用说明.txt）后压缩。
 #   见 ADR D4.4。`pnpm dist:zip` 一步到位。
 # 不做：macOS / Linux / arm64 / Squirrel / MSI / AppX / 代码签名 / electron-updater。
 
 appId: com.novelmuse.desktop
-productName: NovelMuse
-copyright: Copyright © 2026 NovelMuse
+productName: 砚舟
+copyright: Copyright © 2026 砚舟
 
 directories:
   # 产物输出目录（D1 冻结：F:\new1.2\release\desktop；/release/ 已在 .gitignore:28）
@@ -77,7 +77,7 @@ win:
       arch:
         - x64
   icon: build-resources/icon.ico
-  artifactName: NovelMuse-${version}-${arch}.${ext}
+  artifactName: 砚舟-${version}-${arch}.${ext}
 
 nsis:
   oneClick: false
@@ -86,7 +86,7 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 听风细雨
-  artifactName: NovelMuse-Setup-${version}-${arch}.${ext}
+  artifactName: 砚舟-Setup-${version}-${arch}.${ext}
   deleteAppDataOnUninstall: false
 
 # D4.4（2026-10-06）：便携版改为标准绿色 zip（解压即用），由
@@ -94,9 +94,9 @@ nsis:
 #
 # D4.6（2026-10-06，同日修订，**取代 D4.5**）：移除单文件便携 exe，便携版只保留 zip。
 #   用户决策：exe 形态在低完整性/沙箱环境与首启解压反馈上都不可靠（见 D4.5-1 的两个假象），
-#   且与 zip 形态功能重复；`release/desktop/NovelMuse-Portable-<version>-x64.exe` 已删除。
+#   且与 zip 形态功能重复；`release/desktop/砚舟-Portable-<version>-x64.exe` 已删除。
 #   ⇒ `win.target` 只剩 `nsis`；`portable` 段与 `dist:portable` 脚本一并移除。
-#   注意：便携版 zip 仍叫 `NovelMuse-Portable-<version>-x64.zip`，与已删除的 exe 同名不同扩展名，
+#   注意：便携版 zip 仍叫 `砚舟-Portable-<version>-x64.zip`，与已删除的 exe 同名不同扩展名，
 #   不要因为文件名带 Portable 就以为是 exe 目标产出的。
 # ---- 以下为 D4.5 的历史记录（已废弃，勿据此恢复）------------------------------
 # D4.5（2026-10-06，同日修订）：在 zip 之外**并行提供**单文件便携 exe。

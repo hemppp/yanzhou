@@ -1,4 +1,4 @@
-# NovelMuse 框架展示树
+# 砚舟 框架展示树
 
 > 目的：一屏看清「有哪些模块、各自负责什么」，而不是逐个文件罗列。
 > 粒度：到模块 / 关键目录层级；只有作为**装配点或契约**的文件才单列。
@@ -7,7 +7,7 @@
 图例：`[M]` = 应用 / 服务，`[P]` = 插件，`[L]` = 共享库，`[T]` = 工具链。
 
 ```text
-new1.2/                                  # NovelMuse monorepo（pnpm workspace，14 个 workspace 包）
+new1.2/                                  # 砚舟 monorepo（pnpm workspace，14 个 workspace 包）
 │
 ├─ apps/                                 # 可运行单元
 │  │

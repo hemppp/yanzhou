@@ -1,5 +1,5 @@
 // ============================================================
-// NovelMuse - 数据库初始化 (Drizzle ORM + sql.js)
+// 砚舟 - 数据库初始化 (Drizzle ORM + sql.js)
 //
 // sql.js 是纯 JavaScript/WebAssembly 实现的 SQLite，
 // 无需原生编译，无需 Visual Studio Build Tools。
@@ -93,14 +93,14 @@ let _path: typeof import('path') | null = null;
 async function getFs() {
   if (_fs) return _fs;
   if (isBrowser) {
-    console.warn('[NovelMuse DB] 浏览器环境下不支持文件持久化，使用内存模式。');
+    console.warn('[砚舟 DB] 浏览器环境下不支持文件持久化，使用内存模式。');
     return null;
   }
   try {
     _fs = await import('fs');
     return _fs;
   } catch {
-    console.warn('[NovelMuse DB] fs 模块不可用，使用内存模式。');
+    console.warn('[砚舟 DB] fs 模块不可用，使用内存模式。');
     return null;
   }
 }
@@ -112,7 +112,7 @@ async function getPath() {
     _path = await import('path');
     return _path;
   } catch {
-    console.warn('[NovelMuse DB] path 模块不可用。');
+    console.warn('[砚舟 DB] path 模块不可用。');
     return null;
   }
 }
@@ -132,10 +132,10 @@ async function loadSqlModule(): Promise<Awaited<ReturnType<InitSqlJsFn>> | null>
     const sqlJsModule = await import('sql.js');
     const initSqlJs = sqlJsModule.default as InitSqlJsFn;
     _sqlModule = await initSqlJs();
-    console.log('[NovelMuse DB] sql.js WebAssembly 模块已加载。');
+    console.log('[砚舟 DB] sql.js WebAssembly 模块已加载。');
     return _sqlModule;
   } catch (e) {
-    console.error('[NovelMuse DB] sql.js 模块加载失败:', e);
+    console.error('[砚舟 DB] sql.js 模块加载失败:', e);
     return null;
   }
 }
@@ -155,42 +155,42 @@ async function loadDatabaseFromFile(path: string): Promise<import('sql.js').Data
   const backupPath = `${path}.bak`;
 
   if (fs.existsSync(path)) {
-    console.log(`[NovelMuse DB] 从文件加载数据库: ${path}`);
+    console.log(`[砚舟 DB] 从文件加载数据库: ${path}`);
     try {
       const buffer = fs.readFileSync(path);
       if (buffer.length === 0) {
         // 空文件 - 可能被其他进程覆盖，尝试从备份恢复
-        console.warn('[NovelMuse DB] 数据库文件为空，尝试从备份恢复...');
+        console.warn('[砚舟 DB] 数据库文件为空，尝试从备份恢复...');
         if (fs.existsSync(backupPath)) {
           const backupBuffer = fs.readFileSync(backupPath);
           if (backupBuffer.length > 0) {
-            console.log('[NovelMuse DB] 已从备份恢复');
+            console.log('[砚舟 DB] 已从备份恢复');
             return new SQL.Database(backupBuffer);
           }
         }
-        console.warn('[NovelMuse DB] 备份不可用，创建新数据库');
+        console.warn('[砚舟 DB] 备份不可用，创建新数据库');
         return new SQL.Database();
       }
       return new SQL.Database(buffer);
     } catch (e) {
-      console.error('[NovelMuse DB] 加载数据库失败，尝试从备份恢复:', e);
+      console.error('[砚舟 DB] 加载数据库失败，尝试从备份恢复:', e);
       if (fs.existsSync(backupPath)) {
         try {
           const backupBuffer = fs.readFileSync(backupPath);
           if (backupBuffer.length > 0) {
-            console.log('[NovelMuse DB] 已从备份恢复');
+            console.log('[砚舟 DB] 已从备份恢复');
             return new SQL.Database(backupBuffer);
           }
         } catch (backupErr) {
-          console.error('[NovelMuse DB] 备份恢复失败:', backupErr);
+          console.error('[砚舟 DB] 备份恢复失败:', backupErr);
         }
       }
-      console.warn('[NovelMuse DB] 无可用备份，创建空数据库');
+      console.warn('[砚舟 DB] 无可用备份，创建空数据库');
       return new SQL.Database();
     }
   }
 
-  console.log(`[NovelMuse DB] 数据库文件不存在，创建新数据库: ${path}`);
+  console.log(`[砚舟 DB] 数据库文件不存在，创建新数据库: ${path}`);
   return new SQL.Database();
 }
 
@@ -288,7 +288,7 @@ async function _doWrite(): Promise<void> {
       }
     }
   } catch (e) {
-    console.error('[NovelMuse DB] 数据库持久化失败:', e);
+    console.error('[砚舟 DB] 数据库持久化失败:', e);
   }
 }
 
@@ -310,7 +310,7 @@ export function getSqlJsDb(): DrizzleDb | null {
  */
 function bootstrapTables(): void {
   if (!_sqlite) return;
-  console.log('[NovelMuse DB] 使用内联建表（迁移文件不可用）');
+  console.log('[砚舟 DB] 使用内联建表（迁移文件不可用）');
 
   const statements = [
     // 用户
@@ -699,10 +699,10 @@ function bootstrapTables(): void {
     try {
       _sqlite.exec(sql);
     } catch (e) {
-      console.warn(`[NovelMuse DB] 内联建表语句跳过（可能已存在）: ${e}`);
+      console.warn(`[砚舟 DB] 内联建表语句跳过（可能已存在）: ${e}`);
     }
   }
-  console.log('[NovelMuse DB] ✅ 内联建表完成');
+  console.log('[砚舟 DB] ✅ 内联建表完成');
 }
 
 /**
@@ -714,13 +714,13 @@ async function runMigrations(): Promise<void> {
 
   const fs = await getFs();
   if (!fs) {
-    console.warn('[NovelMuse DB] 无法运行迁移：文件系统不可用。');
+    console.warn('[砚舟 DB] 无法运行迁移：文件系统不可用。');
     return;
   }
 
   const path = await getPath();
   if (!path) {
-    console.warn('[NovelMuse DB] 无法运行迁移：path 模块不可用。');
+    console.warn('[砚舟 DB] 无法运行迁移：path 模块不可用。');
     return;
   }
 
@@ -742,7 +742,7 @@ async function runMigrations(): Promise<void> {
   // 查找迁移文件
   const migrationsDir = path.resolve(_moduleDir, '../drizzle');
   if (!fs.existsSync(migrationsDir)) {
-    console.warn('[NovelMuse DB] 迁移目录不存在:', migrationsDir);
+    console.warn('[砚舟 DB] 迁移目录不存在:', migrationsDir);
     // 迁移目录缺失时使用内联建表兜底
     bootstrapTables();
     return;
@@ -775,7 +775,7 @@ async function runMigrations(): Promise<void> {
         try {
           _sqlite!.run(trimmed);
         } catch (stmtErr) {
-          console.warn(`[NovelMuse DB] 迁移语句跳过（可能已存在）: ${String(stmtErr)}`);
+          console.warn(`[砚舟 DB] 迁移语句跳过（可能已存在）: ${String(stmtErr)}`);
           failed = true;
         }
       }
@@ -785,24 +785,24 @@ async function runMigrations(): Promise<void> {
         Date.now(),
       ]);
       if (failed) {
-        console.warn(`[NovelMuse DB] 已应用迁移 ${file}（部分语句跳过）`);
+        console.warn(`[砚舟 DB] 已应用迁移 ${file}（部分语句跳过）`);
       } else {
-        console.log(`[NovelMuse DB] 已执行迁移: ${file}`);
+        console.log(`[砚舟 DB] 已执行迁移: ${file}`);
       }
       executed++;
     } catch (e) {
-      console.error(`[NovelMuse DB] 迁移文件执行失败: ${file}`, e);
+      console.error(`[砚舟 DB] 迁移文件执行失败: ${file}`, e);
       // 任一迁移文件整体失败则放弃后续迁移，改用默认建表兜底
-      console.warn('[NovelMuse DB] 迁移中断，改为兜底建表以保证服务可用');
+      console.warn('[砚舟 DB] 迁移中断，改为兜底建表以保证服务可用');
       break;
     }
   }
 
   if (skipped > 0) {
-    console.log(`[NovelMuse DB] 跳过 ${skipped} 个已应用的迁移文件。`);
+    console.log(`[砚舟 DB] 跳过 ${skipped} 个已应用的迁移文件。`);
   }
   if (executed === 0 && skipped > 0) {
-    console.log('[NovelMuse DB] 所有迁移已是最新的。');
+    console.log('[砚舟 DB] 所有迁移已是最新的。');
   }
 }
 
@@ -819,7 +819,7 @@ async function runMigrations(): Promise<void> {
  */
 export async function initSqlJs(dbPath?: string): Promise<DrizzleDb | null> {
   if (isBrowser) {
-    console.warn('[NovelMuse DB] 运行在浏览器环境，数据库不可用。数据将存储在内存中。');
+    console.warn('[砚舟 DB] 运行在浏览器环境，数据库不可用。数据将存储在内存中。');
     return null;
   }
 
@@ -857,7 +857,7 @@ async function _doInit(): Promise<DrizzleDb | null> {
   try {
     _db = drizzle(_sqlite, { schema }) as DrizzleDb;
   } catch (e) {
-    console.error('[NovelMuse DB] drizzle-orm/sql-js 加载失败:', e);
+    console.error('[砚舟 DB] drizzle-orm/sql-js 加载失败:', e);
     _sqlite.close();
     _sqlite = null;
     return null;
@@ -868,13 +868,13 @@ async function _doInit(): Promise<DrizzleDb | null> {
     _db.select().from(schema.projects).limit(1).all();
   } catch {
     // 表不存在，尝试自动运行迁移
-    console.log('[NovelMuse DB] 表未初始化，正在自动运行迁移...');
+    console.log('[砚舟 DB] 表未初始化，正在自动运行迁移...');
     try {
       await runMigrations();
-      console.log('[NovelMuse DB] 迁移执行成功。');
+      console.log('[砚舟 DB] 迁移执行成功。');
     } catch (migErr) {
       console.warn(
-        '[NovelMuse DB] 自动迁移失败。请手动运行 `drizzle-kit push` 来创建表。',
+        '[砚舟 DB] 自动迁移失败。请手动运行 `drizzle-kit push` 来创建表。',
         migErr,
       );
     }
@@ -884,7 +884,7 @@ async function _doInit(): Promise<DrizzleDb | null> {
   try {
     _db.select().from(schema.users).limit(1).all();
   } catch {
-    console.log('[NovelMuse DB] users 表不存在，正在创建...');
+    console.log('[砚舟 DB] users 表不存在，正在创建...');
     try {
       if (_sqlite) {
         _sqlite.run(`
@@ -901,10 +901,10 @@ async function _doInit(): Promise<DrizzleDb | null> {
           )
         `);
         _sqlite.run(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`);
-        console.log('[NovelMuse DB] users 表创建成功。');
+        console.log('[砚舟 DB] users 表创建成功。');
       }
     } catch (userErr) {
-      console.warn('[NovelMuse DB] users 表创建失败', userErr);
+      console.warn('[砚舟 DB] users 表创建失败', userErr);
     }
   }
 
@@ -913,12 +913,12 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const userCols = _sqlite!.exec("PRAGMA table_info(users)");
     const hasIsAdmin = userCols[0]?.values.some((row: unknown[]) => row[1] === 'is_admin');
     if (!hasIsAdmin) {
-      console.log('[NovelMuse DB] users 表缺少 is_admin 列，正在添加...');
+      console.log('[砚舟 DB] users 表缺少 is_admin 列，正在添加...');
       _sqlite!.run('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
-      console.log('[NovelMuse DB] users.is_admin 列已添加。');
+      console.log('[砚舟 DB] users.is_admin 列已添加。');
     }
   } catch (isAdminErr) {
-    console.warn('[NovelMuse DB] 检查 users.is_admin 列失败:', isAdminErr);
+    console.warn('[砚舟 DB] 检查 users.is_admin 列失败:', isAdminErr);
   }
 
   // 确保 projects 表有 user_id 列（数据隔离）
@@ -926,20 +926,20 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const cols = _sqlite!.exec("PRAGMA table_info(projects)");
     const hasUserId = cols[0]?.values.some((row: unknown[]) => row[1] === 'user_id');
     if (!hasUserId) {
-      console.log('[NovelMuse DB] projects 表缺少 user_id 列，正在添加...');
+      console.log('[砚舟 DB] projects 表缺少 user_id 列，正在添加...');
       _sqlite!.run('ALTER TABLE projects ADD COLUMN user_id TEXT');
       // 为已有项目设置默认 user_id（取第一个用户）
       const firstUser = _sqlite!.exec('SELECT id FROM users LIMIT 1');
       if (firstUser[0]?.values[0]) {
         const defaultUserId = firstUser[0].values[0][0] as string;
         _sqlite!.run(`UPDATE projects SET user_id = ? WHERE user_id IS NULL OR user_id = ''`, [defaultUserId]);
-        console.log(`[NovelMuse DB] 已将已有项目关联到用户 ${defaultUserId}`);
+        console.log(`[砚舟 DB] 已将已有项目关联到用户 ${defaultUserId}`);
       }
       _sqlite!.run('CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id)');
-      console.log('[NovelMuse DB] projects.user_id 列添加成功。');
+      console.log('[砚舟 DB] projects.user_id 列添加成功。');
     }
   } catch (userIdErr) {
-    console.warn('[NovelMuse DB] 检查 projects.user_id 列失败', userIdErr);
+    console.warn('[砚舟 DB] 检查 projects.user_id 列失败', userIdErr);
   }
 
   // 确保 projects 表有 mode 列（创作模式：manual = 手写框架 / auto = AI 写作框架）
@@ -948,12 +948,12 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const cols = _sqlite!.exec("PRAGMA table_info(projects)");
     const hasMode = cols[0]?.values.some((row: unknown[]) => row[1] === 'mode');
     if (!hasMode) {
-      console.log('[NovelMuse DB] projects 表缺少 mode 列，正在添加...');
+      console.log('[砚舟 DB] projects 表缺少 mode 列，正在添加...');
       _sqlite!.run('ALTER TABLE projects ADD COLUMN mode TEXT');
-      console.log('[NovelMuse DB] projects.mode 列添加成功。');
+      console.log('[砚舟 DB] projects.mode 列添加成功。');
     }
   } catch (modeErr) {
-    console.warn('[NovelMuse DB] 检查 projects.mode 列失败', modeErr);
+    console.warn('[砚舟 DB] 检查 projects.mode 列失败', modeErr);
   }
 
   // 确保 projects 表有 brief 列（AI 写作的开书设定，JSON 文本）。
@@ -962,19 +962,19 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const cols = _sqlite!.exec("PRAGMA table_info(projects)");
     const hasBrief = cols[0]?.values.some((row: unknown[]) => row[1] === 'brief');
     if (!hasBrief) {
-      console.log('[NovelMuse DB] projects 表缺少 brief 列，正在添加...');
+      console.log('[砚舟 DB] projects 表缺少 brief 列，正在添加...');
       _sqlite!.run('ALTER TABLE projects ADD COLUMN brief TEXT');
-      console.log('[NovelMuse DB] projects.brief 列添加成功。');
+      console.log('[砚舟 DB] projects.brief 列添加成功。');
     }
   } catch (briefErr) {
-    console.warn('[NovelMuse DB] 检查 projects.brief 列失败', briefErr);
+    console.warn('[砚舟 DB] 检查 projects.brief 列失败', briefErr);
   }
 
   // 确保 user_settings 表存在（迁移文件可能遗漏）
   try {
     _db.select().from(schema.userSettings).limit(1).all();
   } catch {
-    console.log('[NovelMuse DB] user_settings 表不存在，正在创建...');
+    console.log('[砚舟 DB] user_settings 表不存在，正在创建...');
     try {
       if (_sqlite) {
         _sqlite.run(`
@@ -986,17 +986,17 @@ async function _doInit(): Promise<DrizzleDb | null> {
             updated_at INTEGER NOT NULL
           )
         `);
-        console.log('[NovelMuse DB] user_settings 表创建成功。');
+        console.log('[砚舟 DB] user_settings 表创建成功。');
       }
     } catch (settingsErr) {
-      console.warn('[NovelMuse DB] user_settings 表创建失败:', settingsErr);
+      console.warn('[砚舟 DB] user_settings 表创建失败:', settingsErr);
     }
   }
 
     // 迁移：为已有 user_settings 表添加 ai_provider_config 列
     try {
       _sqlite!.run("ALTER TABLE user_settings ADD COLUMN ai_provider_config TEXT");
-      console.log("[NovelMuse DB] user_settings.ai_provider_config 列已添加。");
+      console.log("[砚舟 DB] user_settings.ai_provider_config 列已添加。");
     } catch {
       // 列已存在，忽略
     }
@@ -1006,20 +1006,20 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const chapCols = _sqlite!.exec("PRAGMA table_info(chapters)");
     const hasDeletedAt = chapCols[0]?.values.some((row: unknown[]) => row[1] === 'deleted_at');
     if (!hasDeletedAt) {
-      console.log('[NovelMuse DB] chapters 缺少 deleted_at 列，正在添加...');
+      console.log('[砚舟 DB] chapters 缺少 deleted_at 列，正在添加...');
       _sqlite!.run('ALTER TABLE chapters ADD COLUMN deleted_at INTEGER');
-      console.log('[NovelMuse DB] chapters.deleted_at 列添加成功。');
+      console.log('[砚舟 DB] chapters.deleted_at 列添加成功。');
     }
     _sqlite!.run('CREATE INDEX IF NOT EXISTS idx_chapters_deleted_at ON chapters(deleted_at)');
   } catch (chapColErr) {
-    console.warn('[NovelMuse DB] 检查 chapters.deleted_at 列失败', chapColErr);
+    console.warn('[砚舟 DB] 检查 chapters.deleted_at 列失败', chapColErr);
   }
 
   // reference_books 表（参考书持久化）
   try {
     _db.select().from(schema.referenceBooks).limit(1).all();
   } catch {
-    console.log('[NovelMuse DB] reference_books 表不存在，正在创建...');
+    console.log('[砚舟 DB] reference_books 表不存在，正在创建...');
     try {
       if (_sqlite) {
         _sqlite.run(`
@@ -1038,10 +1038,10 @@ async function _doInit(): Promise<DrizzleDb | null> {
           )
         `);
         _sqlite.run(`CREATE INDEX IF NOT EXISTS idx_reference_books_project_id ON reference_books(project_id)`);
-        console.log('[NovelMuse DB] reference_books 表创建成功。');
+        console.log('[砚舟 DB] reference_books 表创建成功。');
       }
     } catch (refErr) {
-      console.warn('[NovelMuse DB] reference_books 表创建失败:', refErr);
+      console.warn('[砚舟 DB] reference_books 表创建失败:', refErr);
     }
   }
 
@@ -1050,7 +1050,7 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const itemCols = _sqlite!.exec("PRAGMA table_info(items)");
     const hasCurrentHolders = itemCols[0]?.values.some((row: unknown[]) => row[1] === 'current_holders');
     if (!hasCurrentHolders) {
-      console.log('[NovelMuse DB] items 表缺少 current_holders 列，正在添加...');
+      console.log('[砚舟 DB] items 表缺少 current_holders 列，正在添加...');
       _sqlite!.run('ALTER TABLE items ADD COLUMN current_holders TEXT');
 
       // 数据迁移：从 holders 流转记录推导填充 currentHolders
@@ -1073,15 +1073,15 @@ async function _doInit(): Promise<DrizzleDb | null> {
               if (action === 'gained' || action === 'transferred') currentHolders.push(cid);
             }
           } catch (e) {
-            console.warn(`[NovelMuse DB] 物品 ${id} 的 holders 解析失败，已置空`, e);
+            console.warn(`[砚舟 DB] 物品 ${id} 的 holders 解析失败，已置空`, e);
           }
         }
         _sqlite!.run('UPDATE items SET current_holders = ? WHERE id = ?', [JSON.stringify(currentHolders), id]);
       }
-      console.log('[NovelMuse DB] items.current_holders 列添加并迁移成功。');
+      console.log('[砚舟 DB] items.current_holders 列添加并迁移成功。');
     }
   } catch (itemColErr) {
-    console.warn('[NovelMuse DB] 检查 items.current_holders 列失败', itemColErr);
+    console.warn('[砚舟 DB] 检查 items.current_holders 列失败', itemColErr);
   }
 
   // 确保 items 表有 relations 列（物品间关系：配对 / 包含 / 部件 / 对立 / 变形）
@@ -1089,7 +1089,7 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const itemCols2 = _sqlite!.exec("PRAGMA table_info(items)");
     const hasRelations = itemCols2[0]?.values.some((row: unknown[]) => row[1] === 'relations');
     if (!hasRelations) {
-      console.log('[NovelMuse DB] items 表缺少 relations 列，正在添加...');
+      console.log('[砚舟 DB] items 表缺少 relations 列，正在添加...');
       _sqlite!.run('ALTER TABLE items ADD COLUMN relations TEXT');
       // 历史数据：默认空数组
       const allItems = _sqlite!.exec("SELECT id FROM items");
@@ -1097,10 +1097,10 @@ async function _doInit(): Promise<DrizzleDb | null> {
         const id = row[0] as string;
         _sqlite!.run('UPDATE items SET relations = ? WHERE id = ?', [JSON.stringify([]), id]);
       }
-      console.log('[NovelMuse DB] items.relations 列添加并初始化完成。');
+      console.log('[砚舟 DB] items.relations 列添加并初始化完成。');
     }
   } catch (itemRelationsErr) {
-    console.warn('[NovelMuse DB] 检查 items.relations 列失败', itemRelationsErr);
+    console.warn('[砚舟 DB] 检查 items.relations 列失败', itemRelationsErr);
   }
 
   // 确保 items 表有 credit_price 列（系统文：积分定价）
@@ -1108,12 +1108,12 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const itemCols3 = _sqlite!.exec("PRAGMA table_info(items)");
     const hasCreditPrice = itemCols3[0]?.values.some((row: unknown[]) => row[1] === 'credit_price');
     if (!hasCreditPrice) {
-      console.log('[NovelMuse DB] items 表缺少 credit_price 列，正在添加...');
+      console.log('[砚舟 DB] items 表缺少 credit_price 列，正在添加...');
       _sqlite!.run('ALTER TABLE items ADD COLUMN credit_price REAL');
-      console.log('[NovelMuse DB] items.credit_price 列添加成功。');
+      console.log('[砚舟 DB] items.credit_price 列添加成功。');
     }
   } catch (itemCreditPriceErr) {
-    console.warn('[NovelMuse DB] 检查 items.credit_price 列失败', itemCreditPriceErr);
+    console.warn('[砚舟 DB] 检查 items.credit_price 列失败', itemCreditPriceErr);
   }
 
   // 确保 characters 表有 role 列（角色定位：主角 / 配角 / 路人甲）
@@ -1122,12 +1122,12 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const charCols = _sqlite!.exec("PRAGMA table_info(characters)");
     const hasRole = charCols[0]?.values.some((row: unknown[]) => row[1] === 'role');
     if (!hasRole) {
-      console.log('[NovelMuse DB] characters 表缺少 role 列，正在添加...');
+      console.log('[砚舟 DB] characters 表缺少 role 列，正在添加...');
       _sqlite!.run('ALTER TABLE characters ADD COLUMN role TEXT');
-      console.log('[NovelMuse DB] characters.role 列添加成功。');
+      console.log('[砚舟 DB] characters.role 列添加成功。');
     }
   } catch (charRoleErr) {
-    console.warn('[NovelMuse DB] 检查 characters.role 列失败', charRoleErr);
+    console.warn('[砚舟 DB] 检查 characters.role 列失败', charRoleErr);
   }
 
   // 确保 locations 表有 world 列（多世界/穿越小说支持）
@@ -1136,12 +1136,12 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const locCols = _sqlite!.exec("PRAGMA table_info(locations)");
     const hasWorld = locCols[0]?.values.some((row: unknown[]) => row[1] === 'world');
     if (!hasWorld) {
-      console.log('[NovelMuse DB] locations 表缺少 world 列，正在添加...');
+      console.log('[砚舟 DB] locations 表缺少 world 列，正在添加...');
       _sqlite!.run('ALTER TABLE locations ADD COLUMN world TEXT');
-      console.log('[NovelMuse DB] locations.world 列添加成功。');
+      console.log('[砚舟 DB] locations.world 列添加成功。');
     }
   } catch (locWorldErr) {
-    console.warn('[NovelMuse DB] 检查 locations.world 列失败', locWorldErr);
+    console.warn('[砚舟 DB] 检查 locations.world 列失败', locWorldErr);
   }
 
   // 确保 writing_stats 表有 created_at / updated_at 列
@@ -1151,15 +1151,15 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const hasCreatedAt = wsCols[0]?.values.some((row: unknown[]) => row[1] === 'created_at');
     const hasUpdatedAt = wsCols[0]?.values.some((row: unknown[]) => row[1] === 'updated_at');
     if (!hasCreatedAt) {
-      console.log('[NovelMuse DB] writing_stats 表缺少 created_at 列，正在添加...');
+      console.log('[砚舟 DB] writing_stats 表缺少 created_at 列，正在添加...');
       _sqlite!.run('ALTER TABLE writing_stats ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0');
     }
     if (!hasUpdatedAt) {
-      console.log('[NovelMuse DB] writing_stats 表缺少 updated_at 列，正在添加...');
+      console.log('[砚舟 DB] writing_stats 表缺少 updated_at 列，正在添加...');
       _sqlite!.run('ALTER TABLE writing_stats ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0');
     }
   } catch (wsColErr) {
-    console.warn('[NovelMuse DB] 检查 writing_stats 列失败:', wsColErr);
+    console.warn('[砚舟 DB] 检查 writing_stats 列失败:', wsColErr);
   }
 
   // 确保 snapshots 表有 updated_at 列
@@ -1168,13 +1168,13 @@ async function _doInit(): Promise<DrizzleDb | null> {
     const snapCols = _sqlite!.exec("PRAGMA table_info(snapshots)");
     const hasUpdatedAt = snapCols[0]?.values.some((row: unknown[]) => row[1] === 'updated_at');
     if (!hasUpdatedAt) {
-      console.log('[NovelMuse DB] snapshots 表缺少 updated_at 列，正在添加并用 created_at 回填...');
+      console.log('[砚舟 DB] snapshots 表缺少 updated_at 列，正在添加并用 created_at 回填...');
       _sqlite!.run('ALTER TABLE snapshots ADD COLUMN updated_at INTEGER');
       // 用 created_at 回填，确保现有快照有合理的 updatedAt
       _sqlite!.run('UPDATE snapshots SET updated_at = created_at WHERE updated_at IS NULL');
     }
   } catch (snapColErr) {
-    console.warn('[NovelMuse DB] 检查 snapshots.updated_at 列失败:', snapColErr);
+    console.warn('[砚舟 DB] 检查 snapshots.updated_at 列失败:', snapColErr);
   }
 
   // ---- 复合索引（性能优化：覆盖项目内按次序排列查询、章节内偏移查询、日期范围统计）----
@@ -1202,12 +1202,12 @@ async function _doInit(): Promise<DrizzleDb | null> {
       try {
         _sqlite!.run(`CREATE INDEX IF NOT EXISTS ${ix.name} ON ${ix.table} ${ix.cols}`);
       } catch (ixErr) {
-        console.warn(`[NovelMuse DB] 创建复合索引 ${ix.name} 失败:`, ixErr);
+        console.warn(`[砚舟 DB] 创建复合索引 ${ix.name} 失败:`, ixErr);
       }
     }
-    console.log(`[NovelMuse DB] 已确保 ${COMPOSITE_INDEXES.length} 个复合索引存在。`);
+    console.log(`[砚舟 DB] 已确保 ${COMPOSITE_INDEXES.length} 个复合索引存在。`);
   } catch (idxErr) {
-    console.warn('[NovelMuse DB] 复合索引创建阶段失败（非致命）:', idxErr);
+    console.warn('[砚舟 DB] 复合索引创建阶段失败（非致命）:', idxErr);
   }
 
   // 迁移可能修改了表结构（ALTER TABLE ADD COLUMN），强制立即落盘
@@ -1215,10 +1215,10 @@ async function _doInit(): Promise<DrizzleDb | null> {
   try {
     await persistToFile(true);
   } catch (persistErr) {
-    console.warn('[NovelMuse DB] 迁移后强制落盘失败（非致命）:', persistErr);
+    console.warn('[砚舟 DB] 迁移后强制落盘失败（非致命）:', persistErr);
   }
 
-  console.log('[NovelMuse DB] 数据库初始化完成。');
+  console.log('[砚舟 DB] 数据库初始化完成。');
   return _db;
 }
 
@@ -1273,7 +1273,7 @@ export async function closeSqlJs(): Promise<void> {
       await persistToFile(true); // 强制立即写入
       _sqlite?.close();
     } catch (e) {
-      console.error('[NovelMuse DB] 关闭时持久化失败:', e);
+      console.error('[砚舟 DB] 关闭时持久化失败:', e);
     } finally {
       _sqlite = null;
       _db = null;

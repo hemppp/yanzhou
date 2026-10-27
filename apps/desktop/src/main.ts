@@ -1,5 +1,5 @@
 /**
- * NovelMuse 桌面壳主进程入口。
+ * 砚舟 桌面壳主进程入口。
  *
  * 契约来源：ADR-0008 D12.1 / D12.3 / D12.4 / D13.4（冻结）。
  *
@@ -42,7 +42,15 @@ import type { LogLevel, UserDataLayout } from './types.js';
 import { buildNavigationPolicy, createMainWindow, resolveDevOrigin } from './window.js';
 import type { BrowserWindow } from 'electron';
 
-/** ADR D7.1 冻结的 userData 目录名（Windows: %APPDATA%\NovelMuse）。 */
+/**
+ * ★ ADR D7.1 **冻结**的 userData 目录名（Windows: `%APPDATA%\NovelMuse`）。
+ *
+ * ⚠️ 2026-10-27 品牌改名（听风细雨 → 砚舟）时**必须保持此值不变**：
+ *   Electron 的 `app.setName()` 直接决定 `app.getPath('userData')`，
+ *   改了它 ⇒ 新目录为空、老书稿全部"消失"（实际还在旧目录里，但用户看到的是丢稿）。
+ *   品牌名（productName / 安装包名 / 窗口标题）可以改，**数据目录名不能改**。
+ *   真要换目录，必须配一次显式迁移（把旧目录整体搬过去）——那是独立的一次改动。
+ */
 const APP_NAME = 'NovelMuse';
 
 /**
@@ -342,7 +350,7 @@ async function startServer(
       restartsInWindow: number;
     }): void => {
       fatal(
-        'NovelMuse 后端服务反复崩溃',
+        '砚舟 后端服务反复崩溃',
         `后端服务在 60 秒窗口内已重启 ${info.restartsInWindow} 次仍未稳定，已停止重试。\n\n` +
           `最后一次退出：exitCode=${String(info.exitCode)}，signal=${String(info.signalCode)}\n\n` +
           `--- stderr 末尾 ---\n${info.stderrTail}`,
@@ -371,8 +379,8 @@ async function startServer(
   if (failureInfo !== null) {
     const title =
       failureInfo.stage === 'early-exit'
-        ? 'NovelMuse 后端服务启动即退出'
-        : 'NovelMuse 后端服务启动失败';
+        ? '砚舟 后端服务启动即退出'
+        : '砚舟 后端服务启动失败';
     fatal(
       title,
       `启动阶段：${failureInfo.stage}\n原因：${failureInfo.reason}\n` +
@@ -385,7 +393,7 @@ async function startServer(
 
   const ready = controller.ready;
   if (ready === null) {
-    fatal('NovelMuse 后端服务未就绪', '握手/探针返回成功但未拿到就绪信息（内部状态异常）。', 1);
+    fatal('砚舟 后端服务未就绪', '握手/探针返回成功但未拿到就绪信息（内部状态异常）。', 1);
     return null;
   }
 
@@ -440,13 +448,13 @@ function maybeShowAdminPasswordDialog(password: string | null): void {
     if (mainWindow !== null && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: 'info',
-        title: 'NovelMuse 管理员初始密码',
+        title: '砚舟 管理员初始密码',
         message: '管理员初始密码（仅本次显示）',
         detail: body,
         buttons: ['知道了'],
       });
     } else {
-      dialog.showErrorBox('NovelMuse 管理员初始密码', body);
+      dialog.showErrorBox('砚舟 管理员初始密码', body);
     }
   } catch (error) {
     logger?.warn(`弹出管理员密码对话框失败：${String(error)}`);
@@ -529,7 +537,7 @@ async function main(): Promise<void> {
 
   logger = new ShellLogger(layout);
   logger.info(
-    `NovelMuse 桌面壳启动：version=${appVersion}，isPackaged=${String(isPackaged)}，` +
+    `砚舟 桌面壳启动：version=${appVersion}，isPackaged=${String(isPackaged)}，` +
       `userData=${userDataPath}`,
   );
 
@@ -559,7 +567,7 @@ async function main(): Promise<void> {
   const target = resolveServerTarget(isPackaged, layout);
   if (target === null) {
     fatal(
-      'NovelMuse 无法定位仓库根',
+      '砚舟 无法定位仓库根',
       `开发态需要从 ${__dirname} 向上找到 pnpm-workspace.yaml，但未找到。`,
       1,
     );
@@ -567,7 +575,7 @@ async function main(): Promise<void> {
   }
   if (!fs.existsSync(target.entryPath)) {
     fatal(
-      'NovelMuse 后端入口缺失',
+      '砚舟 后端入口缺失',
       `未找到 server 入口文件：${target.entryPath}\n` +
         (isPackaged
           ? '请确认安装包内的 resources/app-server 已正确解包（D7.2 播种）。'
@@ -609,7 +617,7 @@ async function main(): Promise<void> {
 
   maybeShowAdminPasswordDialog(controller?.adminPasswordCapturedThisRun ?? null);
 
-  logger.info('NovelMuse 桌面壳启动完成（D12.3 全部 8 步已完成）。');
+  logger.info('砚舟 桌面壳启动完成（D12.3 全部 8 步已完成）。');
 }
 
 // D12.4：主进程自身异常 ⇒ 记日志，**不静默退出**。
@@ -621,5 +629,5 @@ process.on('unhandledRejection', (reason) => {
 });
 
 void main().catch((error: unknown) => {
-  fatal('NovelMuse 启动失败', `主进程启动流程抛出异常：\n${String(error)}`, 1);
+  fatal('砚舟 启动失败', `主进程启动流程抛出异常：\n${String(error)}`, 1);
 });

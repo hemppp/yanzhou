@@ -63,14 +63,14 @@
 |---|---|
 | 平台 | **仅 `win32` / `x64`**（`pnpm-workspace.yaml:27-31` `supportedArchitectures: {os:[win32], cpu:[x64]}`） |
 | 分发形态 | ① NSIS 安装版 ② 标准便携版 zip（解压即用，D4.4）——**单文件便携 exe 已于 D4.6 移除** |
-| 应用显示名 `productName` | `NovelMuse` |
+| 应用显示名 `productName` | `砚舟` |
 | 应用 ID `appId` | `com.novelmuse.desktop` |
 | 桌面壳包名 | `@novel/desktop`，版本随 `novel-companion` 根版本（当前 `0.2.0`） |
 | 快捷方式名 `shortcutName` | `听风细雨` |
 | 产物输出目录 | `F:\new1.2\release\desktop`（`/release/` 已在 `.gitignore:28`） |
-| NSIS 安装包文件名 | `NovelMuse-Setup-${version}-x64.exe` |
-| 便携版文件名（单文件 exe） | ~~`NovelMuse-Portable-${version}-x64.exe`（自解压，D4.5）~~ **已于 D4.6 移除，不再产出** |
-| 便携版文件名（绿色 zip） | `NovelMuse-Portable-${version}-x64.zip`（内含顶层 `NovelMuse/`，D4.4） |
+| NSIS 安装包文件名 | `砚舟-Setup-${version}-x64.exe` |
+| 便携版文件名（单文件 exe） | ~~`砚舟-Portable-${version}-x64.exe`（自解压，D4.5）~~ **已于 D4.6 移除，不再产出** |
+| 便携版文件名（绿色 zip） | `砚舟-Portable-${version}-x64.zip`（内含顶层 `砚舟/`，D4.4） |
 
 **不做**：macOS / Linux / arm64 / Squirrel / MSI / AppX。**不做** macOS/Linux 目标是硬约束（见 D18）。
 
@@ -257,29 +257,29 @@ pnpm install
 1. **首启极慢且无反馈**。双击后要把 490 MB 解包内容释放到 `%TEMP%`，耗时以分钟计；未配 `splashImage` 时 `portable.nsi:11-13` 走 `SetSilent silent`，全程无窗口，用户会判定「双击没反应 / 启动失败」。（D4.2-修订 加启动图只是缓解，不改变形态本身非常规。）
 2. **单文件 exe 易被拦**。未签名的自解压 exe 常被邮件网关、网盘与杀软直接拒绝或标记。
 
-**决策**：改用**标准绿色便携版**——一个普通 `.zip`，解压后得到顶层 `NovelMuse/` 目录，进去双击 `NovelMuse.exe` 即运行。删除 `portable` target 与 `portable.splashImage`（连同 `build-resources/splash.bmp`）。
+**决策**：改用**标准绿色便携版**——一个普通 `.zip`，解压后得到顶层 `砚舟/` 目录，进去双击 `砚舟.exe` 即运行。删除 `portable` target 与 `portable.splashImage`（连同 `build-resources/splash.bmp`）。
 
-**为什么不直接用 electron-builder 的 `zip` target**：实测它产出的压缩包是**平铺**的——6273 个文件（`chrome_*.pak`、`*.dll`、`NovelMuse.exe`、`locales/`、`resources/` …）直接铺在压缩包根，用户解压会把目标目录炸开一片，不符合「一个文件夹」的绿色版惯例。
+**为什么不直接用 electron-builder 的 `zip` target**：实测它产出的压缩包是**平铺**的——6273 个文件（`chrome_*.pak`、`*.dll`、`砚舟.exe`、`locales/`、`resources/` …）直接铺在压缩包根，用户解压会把目标目录炸开一片，不符合「一个文件夹」的绿色版惯例。
 
 **实现**：`apps/desktop/scripts/package-portable-zip.mjs`（新增）。职责：
 
-1. 校验 `release/desktop/win-unpacked/NovelMuse.exe` 存在（否则提示先跑 `--dir`）。
-2. 把 `win-unpacked/` **复制**到 `%TEMP%` 下的干净暂存目录，重命名为顶层 `NovelMuse/`。
+1. 校验 `release/desktop/win-unpacked/砚舟.exe` 存在（否则提示先跑 `--dir`）。
+2. 把 `win-unpacked/` **复制**到 `%TEMP%` 下的干净暂存目录，重命名为顶层 `砚舟/`。
 3. 写入 `使用说明.txt`（用法 / 首启较慢提示 / 默认管理员账号 / 数据目录 / 系统要求 / 版本）。
-4. 用 Windows 自带 `tar --format=zip` 打成 `release/desktop/NovelMuse-Portable-<version>-x64.zip`。
+4. 用 Windows 自带 `tar --format=zip` 打成 `release/desktop/砚舟-Portable-<version>-x64.zip`。
 5. 打印体积、耗时与 SHA256；无论成败都清理暂存目录。
 
 **为什么必须先复制到暂存区（关键，勿优化掉）**：直接对 `win-unpacked/` 打包会把该目录树上的 ACL 一并写进 zip。在受限/沙箱环境（如 Codex 沙箱、DSH 工作区）里仓库树会被注入低完整性标签（`Mandatory Label\Low Mandatory Level`、`Everyone:(DENY)(DC)`、`CodexSandboxUsers` 等），解压出来的副本继承这些 ACE 后 **Electron 启动即崩**：加载 V8 snapshot 时 CHECK 失败，stderr 报 `Received fatal exception EXCEPTION_BREAKPOINT`（`electron::fuses::IsLoadBrowserProcessSpecificV8SnapshotEnabled`），退出码 `0x80000003`（= `-2147483645`），且**不写任何日志**——极难定位。复制到 `%TEMP%` 后条目权限是干净的标准 ACL。
 
-> 实测对照（同一份 `win-unpacked`，仅位置不同）：原地 `F:\new1.2\release\desktop\win-unpacked` → 立即崩、无日志；复制到 `F:\ptest2` / `C:\...\Temp\ptest3` / `D:\t6work\ptest` → 正常起窗（5 进程，窗口标题 `听风细雨 - 伴写小说工具`）。三处 `NovelMuse.exe` SHA256 完全一致（`FD3D6AF4…25A45`），排除二进制差异。
+> 实测对照（同一份 `win-unpacked`，仅位置不同）：原地 `F:\new1.2\release\desktop\win-unpacked` → 立即崩、无日志；复制到 `F:\ptest2` / `C:\...\Temp\ptest3` / `D:\t6work\ptest` → 正常起窗（5 进程，窗口标题 `听风细雨 - 伴写小说工具`）。三处 `砚舟.exe` SHA256 完全一致（`FD3D6AF4…25A45`），排除二进制差异。
 
 **一键入口**：`pnpm -C apps/desktop dist:zip` = `build-server-payload` → `bundle-shell` → `electron-builder --win --x64 --dir` → `package-portable-zip`。
 
-**验收实测（2026-10-06）**：早期构建为 199732376 B / SHA256 `9d59d6ddf9aba8d3f13ffb8f49f6d80dc02ce786bdf136ce370cdb2f4f3b4bc8`（7223 条目）；**最终发布构件**（`release/desktop/NovelMuse-Portable-0.2.0-x64.zip`，即 GitHub v0.2.0 Release 资产）为 **199732384 B（190.48 MB）**，SHA256 `eeaa7a48998e0333c095e78360162fb83dc0386f28c8f6ed8127fc1055e660ec`，**7224 条目**，顶层为 `NovelMuse/`；解压约 5 s；解压后双击 exe → 5 进程、窗口标题 `听风细雨 - 伴写小说工具`、`main.log` 有正常启动记录。
+**验收实测（2026-10-06）**：早期构建为 199732376 B / SHA256 `9d59d6ddf9aba8d3f13ffb8f49f6d80dc02ce786bdf136ce370cdb2f4f3b4bc8`（7223 条目）；**最终发布构件**（`release/desktop/砚舟-Portable-0.2.0-x64.zip`，即 GitHub v0.2.0 Release 资产）为 **199732384 B（190.48 MB）**，SHA256 `eeaa7a48998e0333c095e78360162fb83dc0386f28c8f6ed8127fc1055e660ec`，**7224 条目**，顶层为 `砚舟/`；解压约 5 s；解压后双击 exe → 5 进程、窗口标题 `听风细雨 - 伴写小说工具`、`main.log` 有正常启动记录。
 
 **数据落点不变**：仍是 `%APPDATA%\NovelMuse`（R13 结论），升级时覆盖文件夹即可保留书稿。
 
-> ⚠️ **该结论已由 D4.7（2026-10-08）修订**：直接双击 `NovelMuse.exe` 时落点仍是
+> ⚠️ **该结论已由 D4.7（2026-10-08）修订**：直接双击 `砚舟.exe` 时落点仍是
 > `%APPDATA%\NovelMuse`；但双击新附带的 `启动便携版.cmd` 时，`userData` 被
 > `--user-data-dir` 重定向到解压目录内的 `portable-data\`，**数据随文件夹走**。
 
@@ -287,7 +287,7 @@ pnpm install
 
 > ⛔ **本节已被 D4.6 取代，仅作历史记录。** `portable` target、`dist:portable` 脚本、
 > `portable.splashImage` 均已移除；下文的命令与配置**不要再执行**。
-> `#### D4.5-1` 的冒烟纪律仅对 `win-unpacked\NovelMuse.exe` 仍有参考价值。
+> `#### D4.5-1` 的冒烟纪律仅对 `win-unpacked\砚舟.exe` 仍有参考价值。
 
 > **背景**：D4.4 把便携版改成绿色 zip 后，用户仍要「一个 exe 双击即用」。判断：zip 需「解压 → 进目录 → 双击」三步，单文件 exe 一步；D4.4 列的两条硬伤已缓解——① 负载已裁剪（240.8 MB → 68.2 MB），静默解压从 ~4.5 分钟降到 ~1–2 分钟，且配 `splashImage` 后首启全程有启动图反馈；② 未签名 exe 的拦截风险如实记录，由用户在 zip 与 exe 之间自行选择。
 
@@ -302,20 +302,20 @@ pnpm install
     { "target": "portable", "arch": ["x64"] }
   ],
   "icon": "build-resources/icon.ico",
-  "artifactName": "NovelMuse-${version}-${arch}.${ext}"
+  "artifactName": "砚舟-${version}-${arch}.${ext}"
 },
 "portable": {
-  "artifactName": "NovelMuse-Portable-${version}-${arch}.${ext}",
+  "artifactName": "砚舟-Portable-${version}-${arch}.${ext}",
   "splashImage": "build-resources/splash.bmp",
-  "unpackDirName": "NovelMuse"
+  "unpackDirName": "砚舟"
 }
 ```
 
 一键入口：`pnpm -C apps/desktop dist:portable` = `build-server-payload` → `bundle-shell` → `electron-builder --win portable --x64`。
 
-**`splashImage` 不是可选项**：`portable.nsi:11-13` 在**未**定义 `SPLASH_IMAGE` 时执行 `SetSilent silent` ⇒ 双击后全程无窗口，用户会判定「没反应 / 启动失败」（这正是 132af47 之前的真实反馈）。配了启动图才会走 `.onGUIInit` 的 `BgImage::SetBg` 分支。`unpackDirName: NovelMuse` 让 `%TEMP%` 下的解压目录带产品名（否则是 `%TEMP%\app`）。
+**`splashImage` 不是可选项**：`portable.nsi:11-13` 在**未**定义 `SPLASH_IMAGE` 时执行 `SetSilent silent` ⇒ 双击后全程无窗口，用户会判定「没反应 / 启动失败」（这正是 132af47 之前的真实反馈）。配了启动图才会走 `.onGUIInit` 的 `BgImage::SetBg` 分支。`unpackDirName: 砚舟` 让 `%TEMP%` 下的解压目录带产品名（否则是 `%TEMP%\app`）。
 
-**首启实测**（2026-10-06，产物 `NovelMuse-Portable-0.2.0-x64.exe`，**122219604 B**，SHA256 `CBDF6A11CF09A96276178628FA231FDF4B1E9F33DDC3FB441EEEF8146C88CCB4`）：stub 起窗 → 解压 7223 条 → 窗口 `听风细雨 - 伴写小说工具`，耗时约 **64–102 s**；日志 `就绪探针通过：status=ok，database=connected，hostMode=all，plugins=27`；优雅关窗后 stub **自行退出（ExitCode=0）并删除 `%TEMP%\NovelMuse`**，日志 `server 子进程已按 stdin 协议自行退出（exitCode=0）`、`优雅关停完成（reason=before-quit）⇒ 退出进程。`
+**首启实测**（2026-10-06，产物 `砚舟-Portable-0.2.0-x64.exe`，**122219604 B**，SHA256 `CBDF6A11CF09A96276178628FA231FDF4B1E9F33DDC3FB441EEEF8146C88CCB4`）：stub 起窗 → 解压 7223 条 → 窗口 `听风细雨 - 伴写小说工具`，耗时约 **64–102 s**；日志 `就绪探针通过：status=ok，database=connected，hostMode=all，plugins=27`；优雅关窗后 stub **自行退出（ExitCode=0）并删除 `%TEMP%\砚舟`**，日志 `server 子进程已按 stdin 协议自行退出（exitCode=0）`、`优雅关停完成（reason=before-quit）⇒ 退出进程。`
 
 #### D4.5-1 冒烟纪律（**关键，勿重蹈覆辙**）
 
@@ -324,7 +324,7 @@ pnpm install
 | # | 症状 | 机制 |
 |---|---|---|
 | 1 | 双击 portable exe ⇒ 1 秒内弹 `NSIS Error`，正文 `Error writing temporary file. Make sure your temp folder is valid.`；不解压、`%TEMP%` 零新增条目（连 `ns*.tmp` 都没有） | stub 在 `.onInit` 阶段 `InitPluginsDir` 要往 `%TEMP%` 落插件/临时文件，Low IL 进程被拒 |
-| 2 | 直接运行 `win-unpacked\NovelMuse.exe` ⇒ 无窗口、无日志、`ExitCode=0` 静默退出 | Chromium 单实例锁文件建不了：stderr `process_singleton_win.cc:318 Lock file can not be created: 拒绝访问。(0x5)` ⇒ `app.requestSingleInstanceLock()` 返回 false ⇒ `main.ts:451-456` 立即 `app.quit()`（位于 `app.whenReady()` 与 logger 构造**之前**，故不落任何日志） |
+| 2 | 直接运行 `win-unpacked\砚舟.exe` ⇒ 无窗口、无日志、`ExitCode=0` 静默退出 | Chromium 单实例锁文件建不了：stderr `process_singleton_win.cc:318 Lock file can not be created: 拒绝访问。(0x5)` ⇒ `app.requestSingleInstanceLock()` 返回 false ⇒ `main.ts:451-456` 立即 `app.quit()`（位于 `app.whenReady()` 与 logger 构造**之前**，故不落任何日志） |
 
 **判据（实测）**：只有「exe 在 `F:\new1.2` 下**且** `%TEMP%` 在工作区之外」才失败；把同一份字节复制到 `D:\…` / 无标签目录即正常，或让 `TEMP` 指向工作区内也可绕过。**产物二进制本身无缺陷**，与其他机器的下载者无关（下载到本地的文件继承的是正常 ACL）。
 
@@ -338,16 +338,16 @@ pnpm install
 
 ### D4.6 移除单文件便携 exe（**2026-10-06 决策，取代 D4.5**）
 
-**决策**（用户要求「删除 exe 那个便携式」）：便携版**只保留 zip 一种形态**。删除 `release/desktop/NovelMuse-Portable-0.2.0-x64.exe`（122219604 B）及仓库内同字节副本 `release/__t_Frel.exe`；`win.target` 回退为**只有 `nsis`**；`portable` 配置段与 `dist:portable` 脚本一并移除。
+**决策**（用户要求「删除 exe 那个便携式」）：便携版**只保留 zip 一种形态**。删除 `release/desktop/砚舟-Portable-0.2.0-x64.exe`（122219604 B）及仓库内同字节副本 `release/__t_Frel.exe`；`win.target` 回退为**只有 `nsis`**；`portable` 配置段与 `dist:portable` 脚本一并移除。
 
 **理由**：
 1. **形态冗余**：D4.4 的绿色 zip 与 D4.5 的单文件 exe 交付同一套 `win-unpacked/`，功能完全重叠；两套维护（含 `splash.bmp`、`gen-splash.py`）是净成本。
 2. **exe 形态本身最不可靠**：它是 NSIS 自解压 stub，首启实测 **64–102 s** 且依赖 `portable.nsi` 的启动图分支；而 zip 解压约 5 s、解压后直接是普通 exe，没有 stub 这一层。D4.5-1 记录的两个假象（`Error writing temporary file`、无窗口静默 exit 0）**只影响 exe 形态**。
 3. **与本地运行方式的现实一致**：用户实际运行的正是 zip 解压目录（实测 `%APPDATA%\NovelMuse\app-runtime\app-server\node_modules\better-sqlite3` junction 指向 `D:\下载\NovelMuse-Portable-0.2.0-x64\NovelMuse\resources\app.asar.unpacked\...`）。
 
-**保留项**：便携版 zip 的**文件名不变**，仍叫 `NovelMuse-Portable-<version>-x64.zip` —— 「Portable」描述的是便携形态，**不是** portable target。`package-portable-zip.mjs`、`build-resources/splash.bmp`、`scripts/gen-splash.py` 均保留（splash 只有 exe 形态引用，现为无用资产，但删除与否不影响构建）。
+**保留项**：便携版 zip 的**文件名不变**，仍叫 `砚舟-Portable-<version>-x64.zip` —— 「Portable」描述的是便携形态，**不是** portable target。`package-portable-zip.mjs`、`build-resources/splash.bmp`、`scripts/gen-splash.py` 均保留（splash 只有 exe 形态引用，现为无用资产，但删除与否不影响构建）。
 
-**冒烟纪律 1/2 是否仍需要**：**不再需要为 exe 执行**（该形态已不存在）。纪律 3/4（清 `ELECTRON_RUN_AS_NODE`、先看 `logs\main.log`）对 `win-unpacked\NovelMuse.exe` 仍然有效。
+**冒烟纪律 1/2 是否仍需要**：**不再需要为 exe 执行**（该形态已不存在）。纪律 3/4（清 `ELECTRON_RUN_AS_NODE`、先看 `logs\main.log`）对 `win-unpacked\砚舟.exe` 仍然有效。
 
 ### D4.7 便携版预置运行时（**2026-10-08 决策，闭合 R13；免首启播种**）
 
@@ -361,15 +361,15 @@ pnpm install
    「绿色便携」名不副实。D20-R13 自 2026-10-06 起登记为未落地缺口。
 
 **决策**：`package-portable-zip.mjs` 在打包时把运行时**预置**进 zip，并附一个启动器。
-产物仍是同一个 `NovelMuse-Portable-<version>-x64.zip`（文件名不变，D4.6 保留项不变）。
+产物仍是同一个 `砚舟-Portable-<version>-x64.zip`（文件名不变，D4.6 保留项不变）。
 
 **预置布局（冻结）**：
 
 ```
-NovelMuse/
+砚舟/
 ├─ 启动便携版.cmd          ← 启动器：--user-data-dir="<解压目录>\portable-data"
 ├─ 使用说明.txt
-├─ NovelMuse.exe / resources/ …   （electron-builder 的 win-unpacked 原样）
+├─ 砚舟.exe / resources/ …   （electron-builder 的 win-unpacked 原样）
 └─ portable-data/                 ← ★ 新增：预置的 userData
    ├─ app-runtime/
    │  ├─ app-server/         ← 逐字复制自 resources/app-server
@@ -413,10 +413,10 @@ D7.1 布局与 D7.3/D7.4/D8.2 三个 junction 全部照常（`<userData>/app-run
 **代价**：zip 由 199.7 MB 增至 217.3 MB（+17.6 MB 压缩增量；解压后磁盘多 93.4 MB）。
 换来的是便携模式首启 12.4 s → 4.1 s，且用户目录不再多一份 76 MB。
 
-**验收实测（2026-10-08）**：产物 `release/desktop/NovelMuse-Portable-0.2.0-x64.zip`，
+**验收实测（2026-10-08）**：产物 `release/desktop/砚舟-Portable-0.2.0-x64.zip`，
 **227893452 B（217.34 MB）**，SHA256 `78b15b81ef432a068452710cb1a93f5b24535563a3792013821ef5e002edb0c5`，
 12466 条目。解压到 `D:\Temp\nm-f` 后双击启动器：
-- `userData=D:\Temp\nm-f\NovelMuse\portable-data`；
+- `userData=D:\Temp\nm-f\砚舟\portable-data`；
 - `布局：seeded=false，reseeded=false，appServerPresent=true`；
 - `就绪探针通过：status=ok，database=connected，hostMode=all，plugins=27`，**4.1 s**；
 - `%APPDATA%\NovelMuse` 的 `app-runtime\version.json` 与 `data\novelmuse.db`
@@ -557,7 +557,7 @@ stderr 行正则：  ^\[Server\] Cordis 基座已就绪 → http://localhost:(\d
 - **B 系统代理解析**：宿主没有 ⇒ `session.defaultSession.resolveProxy('https://api.openai.com/')` → `parseChromiumProxy()` 解析 Chromium PAC 结果（接受 `PROXY` / `HTTP` / `HTTPS` 前缀；`SOCKS*` / `DIRECT` 跳过），命中则写 `HTTPS_PROXY` / `HTTP_PROXY`，并补默认 `NO_PROXY=localhost,127.0.0.1,::1`（**不覆盖**宿主已有值）。
 解析不到或抛错 ⇒ 不注入、不阻断启动，落一条 INFO 日志。
 
-**实测（2026-10-09，`win-unpacked\NovelMuse.exe` + 新建 `--user-data-dir`，两句均逐字来自日志）**：
+**实测（2026-10-09，`win-unpacked\砚舟.exe` + 新建 `--user-data-dir`，两句均逐字来自日志）**：
 
 | 场景 | `logs/main.log` | `logs/server.out.log` |
 |---|---|---|
@@ -1019,8 +1019,8 @@ sigint.txt exists: false
   "name": "@novel/desktop",
   "version": "0.2.0",
   "private": true,
-  "description": "NovelMuse 桌面端（Electron 主进程 + 内嵌 server 子进程）",
-  "author": "NovelMuse",
+  "description": "砚舟 桌面端（Electron 主进程 + 内嵌 server 子进程）",
+  "author": "砚舟",
   "main": "dist/main.cjs",
   "dependencies": {
     "better-sqlite3": "12.11.1",
@@ -1034,8 +1034,8 @@ sigint.txt exists: false
   },
   "build": {
     "appId": "com.novelmuse.desktop",
-    "productName": "NovelMuse",
-    "copyright": "Copyright © 2026 NovelMuse",
+    "productName": "砚舟",
+    "copyright": "Copyright © 2026 砚舟",
     "directories": {
       "output": "../../release/desktop",
       "buildResources": "build-resources"
@@ -1061,7 +1061,7 @@ sigint.txt exists: false
         { "target": "nsis", "arch": ["x64"] }
       ],
       "icon": "build-resources/icon.ico",
-      "artifactName": "NovelMuse-${version}-${arch}.${ext}"
+      "artifactName": "砚舟-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -1070,7 +1070,7 @@ sigint.txt exists: false
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "听风细雨",
-      "artifactName": "NovelMuse-Setup-${version}-${arch}.${ext}",
+      "artifactName": "砚舟-Setup-${version}-${arch}.${ext}",
       "deleteAppDataOnUninstall": false
     }
   }
@@ -1083,7 +1083,7 @@ sigint.txt exists: false
 
 **关于便携版 `portable.splashImage`（D4.4 曾废弃 → D4.5 恢复 → **D4.6 再次废弃，终态**）**：`portable` target 已于 D4.6 移除，故 `splashImage` / `build-resources/splash.bmp` **不再被任何构建引用**。该文件（640×400 24-bit BMP / 768054 B，由 `python apps/desktop/scripts/gen-splash.py` 生成）与 `gen-splash.py` **保留在仓库**（不再参与打包，删除与否不影响构建）。D4.5-1 中「未配 `splashImage` 会走 `SetSilent silent` ⇒ 首启全程无窗口」的论述随之失效——**因为该形态本身已不存在**。
 
-**关于 `portable` 的冒烟纪律**：见 D4.5-1。D4.6 移除 exe 形态后，纪律 1/2（把产物搬到 Medium IL 位置）**仅对 `win-unpacked\NovelMuse.exe` 仍有意义**。
+**关于 `portable` 的冒烟纪律**：见 D4.5-1。D4.6 移除 exe 形态后，纪律 1/2（把产物搬到 Medium IL 位置）**仅对 `win-unpacked\砚舟.exe` 仍有意义**。
 
 ### D16.3 为什么 `asarUnpack` 必须含 `bindings` 与 `file-uri-to-path`
 `better-sqlite3` 通过 `bindings` 包定位 `.node` 文件，`bindings` 又依赖 `file-uri-to-path`。asar 内动态 `require` 裸说明符实测失败（探针 `Cannot find module 'bindings'`）⇒ 三者必须一起解包。同时 `**/*.node` 本身必须解包（原生模块无法从 asar 内 `dlopen`）。
@@ -1186,7 +1186,7 @@ release/updates/
 
 | # | 等级 | 待验证项 | 验证方式 | 若不成立的退路 |
 |---|---|---|---|---|
-| R1 | **高** | `spawn(process.execPath, ['--import','tsx', entry], { env: { ELECTRON_RUN_AS_NODE:'1' } })` 在 Electron 44.5.1 下可用 | t4 冒烟：`--win dir --x64` 后运行 `win-unpacked\NovelMuse.exe`，看能否打印端口就绪行 | 改用备选：直接 spawn `<app-server>/node_modules/tsx/dist/cli.mjs`（D4.2） |
+| R1 | **高** | `spawn(process.execPath, ['--import','tsx', entry], { env: { ELECTRON_RUN_AS_NODE:'1' } })` 在 Electron 44.5.1 下可用 | t4 冒烟：`--win dir --x64` 后运行 `win-unpacked\砚舟.exe`，看能否打印端口就绪行 | 改用备选：直接 spawn `<app-server>/node_modules/tsx/dist/cli.mjs`（D4.2） |
 | R2 | **高** | electron-builder 的 `asarUnpack` + `dependencies` 里的 `better-sqlite3` 能在 asar 侧完成 ABI 重建，且 D8.2 的 junction 方案可行 | t4 冒烟后检查 `resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node` 存在且为 **1921024 B**（F26）；并在应用内查 `/api/health.database === 'connected'` | 退化到 D8.2 的 `extraResources` 方案 + `afterPack` 钩子 |
 | R3 | **高** | D13.3 的 stdin 控制通道在 Windows 上确实能触发 `closeGracefully` | t3/t6 实测：应用内点「重启」→ 观察 `<userData>/data/novelmuse.db-wal` 是否被正常收尾、`[Server] 收到 stdin，正在优雅关闭...` 是否出现在 `server.err.log` | 无等价零改动方案；须 captain 批准 D13.3 的退化路径 |
 | R4 | **中** | Mode B 依赖闭包完整性（189 packages 基线是否真的够） | t4 起真机冒烟，检查 `server.err.log` 无 `Cannot find package`；并跑一次 AI `/api/ai/gateway` 的 5 个 feature | 按报错补包 |

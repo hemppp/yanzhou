@@ -2,7 +2,7 @@ import { useChapterStore } from '@novel-plugins/data-core/stores';
 import { useState } from 'react';
 import { Download, FileText, Code, File, FileType, Package } from 'lucide-react';
 import { exportBook } from '../services/data/exportService';
-import { exportNovelMusePackage, downloadNovelMusePackage } from '../services/misc/projectExportService';
+import { export砚舟Package, download砚舟Package } from '../services/misc/projectExportService';
 
 export function ExportDialog() {
   const chapters = useChapterStore((s) => s.chapters);
@@ -38,8 +38,8 @@ export function ExportDialog() {
   };
 
   const handleProjectExport = () => {
-    const pkg = exportNovelMusePackage();
-    downloadNovelMusePackage(pkg);
+    const pkg = export砚舟Package();
+    download砚舟Package(pkg);
   };
 
   const toggleSelect = (id: string) => {

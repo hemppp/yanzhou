@@ -1,5 +1,5 @@
 // ============================================================
-// NovelMuse - 缓存查询的 React 绑定（useCachedQuery）
+// 砚舟 - 缓存查询的 React 绑定（useCachedQuery）
 //
 // 背景：queryClient（`../api/queryClient`）已经提供了进程内缓存、请求去重与
 // 失效能力，但它只是 Promise 层——组件 `await` 它的时候没有任何「旧值可先渲染」

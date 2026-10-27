@@ -1,6 +1,6 @@
 # 设计系统 — 空山雨后
 
-> 本文件是 NovelMuse 视觉规范的单一真相。此前嵌在 `README.md` 里（占 140 行），
+> 本文件是 砚舟 视觉规范的单一真相。此前嵌在 `README.md` 里（占 140 行），
 > 2026-09-20 为精简自述文件抽出，内容不变。
 > 相关：[墨韵工艺层迁移](ink-wash-migration.md) · [工作台标签页设计](ui-tab-workspace-design.md)
 

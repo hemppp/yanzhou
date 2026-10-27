@@ -1,5 +1,5 @@
 /**
- * NovelMuse 桌面壳窗口装配。
+ * 砚舟 桌面壳窗口装配。
  *
  * 契约来源：ADR-0008 D12.2（冻结）。
  *  - 初始尺寸 1440×900，最小 1024×640。
@@ -176,7 +176,7 @@ export function createMainWindow(options: CreateMainWindowOptions): BrowserWindo
     show: false,
     autoHideMenuBar: true,
     backgroundColor: WINDOW_BACKGROUND_COLOR,
-    title: 'NovelMuse',
+    title: '砚舟',
     webPreferences,
   });
 

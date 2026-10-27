@@ -1,4 +1,4 @@
-# NovelMuse 停靠系统重构 · 最终架构与单一真源结论
+# 砚舟 停靠系统重构 · 最终架构与单一真源结论
 
 > **状态**：收尾完成（task-2 cleanup-eng）
 > **契约真源**：`docs/architecture/dock-protocol-adr.md`（ADR-0007，789 行，P0 冻结）
@@ -10,7 +10,7 @@
 
 ## 0. 一句话结论
 
-**NovelMuse 的面板系统已从「自研绝对定位浮窗引擎 + 功能转轮罗盘气泡」整体迁移到 dockview@8.4.0 停靠系统；主题色收敛为唯一真源 `apps/plugins/shared/ui-kit/src/styles/vscode-dark-modern.css`（117 个 `--vscode-*` token），全仓其他任何文件都不得定义 `--vscode-*`。**
+**砚舟 的面板系统已从「自研绝对定位浮窗引擎 + 功能转轮罗盘气泡」整体迁移到 dockview@8.4.0 停靠系统；主题色收敛为唯一真源 `apps/plugins/shared/ui-kit/src/styles/vscode-dark-modern.css`（117 个 `--vscode-*` token），全仓其他任何文件都不得定义 `--vscode-*`。**
 
 这两条都有**可机检脚本**兜底，不依赖人工审查：
 

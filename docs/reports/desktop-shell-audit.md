@@ -31,13 +31,13 @@
 
 | 冻结项 | 代码位置 | 判定 |
 | --- | --- | --- |
-| productName=NovelMuse | `apps/desktop/package.json:33` | 符合 |
+| productName=砚舟 | `apps/desktop/package.json:33` | 符合 |
 | appId=com.novelmuse.desktop | `apps/desktop/package.json:32` | 符合 |
 | 壳包名 @novel/desktop、version 随根 0.1.0 | `apps/desktop/package.json:2-3`（根 `package.json` version 亦 0.1.0） | 符合 |
 | shortcutName=听风细雨 | `apps/desktop/package.json:67` | 符合 |
 | 输出目录 `F:\new1.2\release\desktop` | `apps/desktop/package.json:36`（`../../release/desktop`） | 符合 |
-| NSIS 名 `NovelMuse-Setup-${version}-x64.exe` | `apps/desktop/package.json:68`（`NovelMuse-Setup-${version}-${arch}.${ext}`，x64 展开即冻结名） | 符合 |
-| 便携名 `NovelMuse-Portable-${version}-x64.exe` | `apps/desktop/package.json:72`（`NovelMuse-Portable-${version}-${arch}.${ext}`） | 符合 |
+| NSIS 名 `砚舟-Setup-${version}-x64.exe` | `apps/desktop/package.json:68`（`砚舟-Setup-${version}-${arch}.${ext}`，x64 展开即冻结名） | 符合 |
+| 便携名 `砚舟-Portable-${version}-x64.exe` | `apps/desktop/package.json:72`（`砚舟-Portable-${version}-${arch}.${ext}`） | 符合 |
 | 仅 win32/x64，不做 mac/Linux/arm64/Squirrel/MSI/AppX | `apps/desktop/package.json:54-61`（target 仅 nsis+portable，arch 仅 x64） | 符合（不做项见 D16.4） |
 
 ### D2 文件清单与冻结约束（ADR:78-111）
@@ -236,7 +236,7 @@
 | D16.2 `asar:true`、`asarUnpack` 三项、`extraResources` 三项 | `apps/desktop/package.json:43,44-48,49-53` | 符合（字面一致） |
 | D16.2 `win{target nsis+portable x64,icon,artifactName}` | `apps/desktop/package.json:54-61` | 符合 |
 | D16.2 `nsis{…shortcutName 听风细雨…}` | `apps/desktop/package.json:62-71` | 符合 |
-| D16.2 `portable{artifactName NovelMuse-Portable-…}` | `apps/desktop/package.json:72-74` | 符合 |
+| D16.2 `portable{artifactName 砚舟-Portable-…}` | `apps/desktop/package.json:72-74` | 符合 |
 | D16.2 末注（artifactName 覆盖优先级 / `!node_modules/**/*` 是否保留，均「需人工确认」） | `apps/desktop/electron-builder.yml:31-38` 注释记录了删除该项的实测理由（否则 40 个依赖 `filesCount=0`、asar 内零 node_modules、`asarUnpack` 三项落空） | 需人工确认（本报告 §5 给出结论建议） |
 | D16.3 `asarUnpack` 必含 bindings/file-uri-to-path | `apps/desktop/package.json:44-48` | 符合 |
 | D16.4 不做 Squirrel/签名/electron-updater/afterSign/notarize | `apps/desktop/package.json:30-74` 无相关键 | 符合 |

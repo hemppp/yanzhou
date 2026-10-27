@@ -1,4 +1,4 @@
-# NovelMuse 插件化清单
+# 砚舟 插件化清单
 
 > 生成于 **2026-09-15**；**2026-09-29 更新**（插件层按创作模式物理拆分 `manual / auto / shared / local`）；**2026-10-09 复核**：`GET /api/health` 实测 = **27** 个插件 —— 上表漏记了 `manual/workbench` 与 `auto/workbench` 两个目录插件，且 `apps/plugins/local/` 当前并不存在（不随仓库分发）。
 > 数据来源：`GET /api/health` 实测 + 源码静态扫描（行数、路由、模式归属均实测，非文档推测）。
