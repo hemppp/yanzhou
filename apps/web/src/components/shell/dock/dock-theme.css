@@ -231,10 +231,31 @@
   background-color: var(--vscode-tab-inactiveBackground);
 }
 
-/* ★ 单列布局：隐藏所有 dockview 原生组头（含原生标签）。
-   文档标签栏改由 .dock-docbar 承担；隐藏后组内容占满整个组高。
-   ★ 2026-10-25 分屏：多组时同样隐藏（每栏的标签由 .dock-docbar 按聚焦组渲染）。 */
+/* ★ 单列布局：隐藏**单组**时的 dockview 原生组头，文档标签栏由 `.dock-docbar` 承担。
+   ★ 2026-10-28 VS Code「Editor Groups」对齐（作者口径「标签页要并排分屏」）：
+     **多组（分屏）时改为显示原生组头** —— 它天生就是"每组一条标签栏"，
+     栏 A 只显示 A 的标签、栏 B 只显示 B 的，这才是 Editor Groups 的形态。
+     同时 dockview 内置**跨组拖标签**，不需要我们自绘落点判定。
+
+   ⚠️ 判据用**显式类 `is-editor-groups`**（由 DockShell 按 `splitScope.split` 加上），
+     不用 `:has()`：dockview 的 DOM 是
+     `.dv-grid-view > .dv-split-view-container > .dv-view-container > .dv-view > .dv-groupview`，
+     两个组**不是兄弟**，`dv-groupview ~ dv-groupview` 永远不成立（实测踩过）。 */
 .dock-main .dv-tabs-and-actions-container {
+  display: none;
+}
+
+/* 多组（Editor Groups）⇒ 显示每栏自己的组头。
+   ⚠️ **必须 `!important`**：dockview 在挂载/重排时会往组头写**内联**
+      `style="display: none"`（实测抓到），而内联样式优先级高于任何选择器
+      （与特异性无关）—— 不加 `!important` 这条规则永远不生效。
+      加 `!important` 是 CSS 里唯一能压过普通内联声明的办法。 */
+.dock-shell .dock-main.is-editor-groups .dv-tabs-and-actions-container {
+  display: flex !important;
+}
+
+/* 多组时顶部那条整宽自绘标签栏退场（每栏已有自己的标签栏，再留一条会重复） */
+.dock-shell:has(.dock-main.is-editor-groups) .dock-docbar {
   display: none;
 }
 

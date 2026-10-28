@@ -886,7 +886,14 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
       </div>
 
       {/* 中心：dockview（单列 —— 全部面板以标签形式堆叠在中心组；组头由 CSS 隐藏） */}
-      <main className="dock-main" aria-label="编辑区">
+      <main
+        // ★ 2026-10-28 VS Code「Editor Groups」：多组时给 `.dock-main` 打标记 ——
+        //   CSS 据此把**每栏自己的原生组头**显示出来、并隐藏顶部那条整宽自绘标签栏。
+        //   判据用 `splitScope.split`（DockShell 已有的真源，随分组增删实时更新），
+        //   不用 `:has()` 猜 DOM 层级（dockview 的两个组不是兄弟节点，实测不成立）。
+        className={splitScope?.split ? 'dock-main is-editor-groups' : 'dock-main'}
+        aria-label="编辑区"
+      >
         {/* ★ 2026-10-25：拖拽标签时的左右落区层（只在拖拽中挂载，平时不吞事件） */}
         <DocSplitDropZone
           active={dragState !== null}
