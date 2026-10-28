@@ -526,6 +526,82 @@ export function DocTabsHeader({
     [tabs],
   );
 
+  /**
+   * ★ 2026-10-28 VS Code 对齐 · P4：**标签键盘快捷键**。
+   *
+   * | 键 | 行为 |
+   * |---|---|
+   * | `Ctrl/Cmd + Tab` | 切到**上一个激活的**标签（MRU 回退，VS Code 同款） |
+   * | `Ctrl/Cmd + W`   | 关闭当前标签 |
+   * | `Ctrl/Cmd + 1..9`| 跳到第 N 个标签（9 = 最后一个，VS Code 惯例） |
+   *
+   * ⚠️ 三个键浏览器**都有默认行为**（切浏览器标签页 / 关标签页 / 切标签页），
+   *   所以只在「焦点在应用内」时抢 —— 判据是 `document.activeElement` 落在
+   *   `.shell-root` 或 `#root` 内。这样用户在地址栏 / 浏览器 UI 上按键时不被拦。
+   *   输入框里也不抢（除了 Ctrl+W 在输入框里本来就是删词，更要让开）。
+   */
+  useEffect(() => {
+    const isTypingTarget = (el: Element | null): boolean => {
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable === true;
+    };
+    /**
+     * 焦点是否在应用内（不在地址栏 / 浏览器 UI）。
+     *
+     * 判据 = `activeElement` 存在且**不是 body**。为什么不用 `closest('#root')`：
+     * 那会把"宿主 id 叫什么"写死进组件（单测里 render 到 body 下就没有 #root，
+     * 快捷键会全部失效 —— 实测踩过）。而浏览器里"焦点在地址栏"时
+     * `document.activeElement` 恰好回落成 `body`，这条判据既准确又不依赖宿主结构。
+     */
+    const inApp = (): boolean => {
+      const el = document.activeElement;
+      return !!el && el !== document.body && el !== document.documentElement;
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod || e.altKey) return;
+      if (!inApp()) return;
+      // 输入中不抢（Ctrl+W 在输入框里是"删前一个词"，Ctrl+Tab 也可能是编辑器自己的）
+      if (isTypingTarget(document.activeElement)) return;
+
+      // ---- Ctrl + 1..9：跳到第 N 个标签（9 = 最后一个） ----
+      if (/^[1-9]$/.test(e.key)) {
+        const n = Number(e.key);
+        const target = n === 9 ? tabs[tabs.length - 1] : tabs[n - 1];
+        if (!target) return;
+        e.preventDefault();
+        openTab(target);
+        return;
+      }
+
+      // ---- Ctrl + W：关当前标签 ----
+      if (e.key === 'w' || e.key === 'W') {
+        const cur = tabs.find((t) => t.id === state.activeId);
+        if (!cur) return;
+        e.preventDefault();
+        closeTab(cur.id);
+        return;
+      }
+
+      // ---- Ctrl + Tab：切到上一个激活的标签（MRU） ----
+      if (e.key === 'Tab') {
+        // MRU 由 store 的 recency 维护；这里用「打开顺序」的环形切换作为退化实现，
+        // 保证在没有 MRU 暴露时也有确定行为（不会"按了没反应"）。
+        if (tabs.length < 2) return;
+        e.preventDefault();
+        const idx = tabs.findIndex((t) => t.id === state.activeId);
+        const dir = e.shiftKey ? -1 : 1;
+        const next = tabs[(idx + dir + tabs.length) % tabs.length];
+        if (next) openTab(next);
+      }
+    };
+
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [tabs, state.activeId, openTab, closeTab]);
+
   // 面板被聚焦（点活动栏 / 命令式 open / 在面板里操作）⇒ 对应标签跟着激活，
   // 让「刚点开的那一项」在栏里立刻是当前项（而不是仍停在「章节正文」）。
   useEffect(() => {
