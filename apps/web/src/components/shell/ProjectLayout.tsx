@@ -160,6 +160,12 @@ export function ProjectLayout() {
   var baseOpen = usePanelOpenStore(function(s) { return s.baseOpen; });
   var syncFromView = usePanelOpenStore(function(s) { return s._syncFromView; });
   var setActiveKey = usePanelOpenStore(function(s) { return s._setActive; });
+  // ★ 2026-10-28 VS Code 对齐：预览位（单一槽位）。DockShell 是纯 UI，故由这里注入。
+  var previewOpen = usePanelOpenStore(function(s) { return s.openPreview; });
+  /** 活动栏单击 / 标签单击 ⇒ 记为「预览」；已打开的面板会顺带转正（见 store） */
+  var handlePreviewOpen = useCallback(function(key: string) {
+    previewOpen(key);
+  }, [previewOpen]);
 
   // ★ 插件化：面板列表来自插件注册表（内置 12 面板 + 插件新增面板）
   // ★ 按当前项目创作模式过滤：手写台只渲染 manual + shared 面板（auto 面板归 AI 工作台）
@@ -553,6 +559,9 @@ export function ProjectLayout() {
             baseOpen={baseOpen}
             onOpenChange={syncFromView}
             onActiveChange={setActiveKey}
+            // ★ 2026-10-28 VS Code 对齐：预览打开 —— DockShell 保持纯 UI，
+            //   store 由这里注入（活动栏单击 / 标签单击都会走这条）。
+            onPreviewOpen={handlePreviewOpen}
             // ★ t1：底部细条 =「N 条问题 Ctrl+J」；N 来自真实批注（见 shell/issues.tsx），
             //   展开区渲染真实问题清单。
             bottomPanel={{ issueCount: issueCount, children: <BottomIssueList /> }}

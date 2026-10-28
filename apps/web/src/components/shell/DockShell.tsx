@@ -307,6 +307,7 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
     baseOpen,
     onOpenChange,
     onActiveChange,
+    onPreviewOpen,
     bottomPanel,
   } = props;
 
@@ -366,8 +367,8 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
   const defByKeyRef = useRef(defByKey);
   defByKeyRef.current = defByKey;
 
-  const propsRef = useRef({ openKeys, baseOpen, onOpenChange, onActiveChange, centerDefault });
-  propsRef.current = { openKeys, baseOpen, onOpenChange, onActiveChange, centerDefault };
+  const propsRef = useRef({ openKeys, baseOpen, onOpenChange, onActiveChange, onPreviewOpen, centerDefault });
+  propsRef.current = { openKeys, baseOpen, onOpenChange, onActiveChange, onPreviewOpen, centerDefault };
 
   /** 受控优先：外部给了 openKeys 就用它，否则用 defaultOpen 推导的内部状态。 */
   const initialOpenKeys = useMemo(() => {
@@ -678,6 +679,28 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
         // ★ 2026-10-11 单列布局：一律作为**中心组**标签堆叠（不再有左右/底部槽）。
         a.addPanel(buildAddSpec(def));
       },
+      /**
+       * ★ 2026-10-28：预览打开 —— 先让 store 记预览位（它负责"替换旧预览"），
+       * 再按 store 的新集合同步视图（`onOpenChange` 会驱动受控 effect 增删面板）。
+       *
+       * ⚠️ 不能只调 `openPanel`：那只会 addPanel，store 不知道这是"预览"，
+       *    标签就不会显示斜体、也不会在下次点击时被替换 —— 预览语义整个丢失。
+       */
+      openPanelPreview(key: string) {
+        const a = apiRef.current;
+        if (!a) return;
+        const def = defByKeyRef.current.get(key);
+        if (!def) return;
+        // store 侧记预览位（已打开则只聚焦并转正，见 store 实现）
+        propsRef.current.onPreviewOpen?.(key);
+        // 视图侧：已存在只聚焦，否则 addPanel
+        const existing = a.getPanel(panelInstanceId(key));
+        if (existing) {
+          existing.api.setActive();
+          return;
+        }
+        a.addPanel(buildAddSpec(def));
+      },
       closePanel(key: string) {
         const a = apiRef.current;
         if (!a) return;
@@ -822,7 +845,11 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
       if (p) {
         api.closePanel(key);
       } else {
-        api.openPanel(key);
+        // ★ 2026-10-28 VS Code 对齐：活动栏**单击 = 预览打开**（斜体标签、单一预览位），
+        //   与点标签的语义一致 —— 浏览面板不会把 5 个名额耗尽。
+        //   想固定就双击标签，或再次点它（已打开 ⇒ 转正）。
+        //   视图侧的 openPanel 仍负责真正 addPanel；store 的 openPreview 记预览位。
+        api.openPanelPreview(key);
       }
     },
     [api],

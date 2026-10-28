@@ -97,6 +97,15 @@ export function resolveDockMeta(def: DockPanelDef): ResolvedDockMeta {
  */
 export interface DockShellApi {
   openPanel(key: string): void;
+  /**
+   * ★ 2026-10-28 VS Code 对齐：以**预览**方式打开（活动栏单击 / 标签单击）。
+   *
+   * 与 `openPanel` 的差别只在"复用唯一预览位"——具体由 store 的 `openPreview` 实现，
+   * 本层只负责"store 说改集合了就同步视图"。之所以放在 API 层而不是让 DockShell
+   * 直接 import store：DockShell 一直保持**纯 UI**（不依赖任何 store）的边界，
+   * 这里沿用它既有的 `api` 回调注入方式。
+   */
+  openPanelPreview(key: string): void;
   closePanel(key: string): void;
   focusPanel(key: string): void;
   /**
@@ -175,6 +184,14 @@ export interface DockShellProps {
   /** 可选：面板打开 / 关闭 / 聚焦的回调（t4 用于把状态写回 panelNavigation） */
   onOpenChange?: (keys: string[]) => void;
   onActiveChange?: (key: string | null) => void;
+  /**
+   * ★ 2026-10-28 VS Code 对齐：请求以**预览**方式记录某个面板（活动栏单击 / 标签单击）。
+   *
+   * 为什么用回调而不是让 DockShell import store：DockShell 保持**纯 UI**
+   * （只吃 props、不依赖任何 store），这条边界从 t1 就定下了，破坏它会让
+   * 「停靠内核可被任意宿主复用」的承诺失效。store 侧由 ProjectLayout 注入。
+   */
+  onPreviewOpen?: (key: string) => void;
   /**
    * 底部面板细条（t1 外壳改造）。
    *

@@ -225,6 +225,8 @@ export function DocTabsHeader({
   // ---- ★ 动态标签真源（见文件头「全动态标签」） ----
   const openPanelKeys = usePanelOpenStore((s) => s.keys);
   const focusedPanelKey = usePanelOpenStore((s) => s.activeKey);
+  // ★ 2026-10-28 VS Code 对齐：预览标签 key（斜体显示用）
+  const previewKey = usePanelOpenStore((s) => s.previewKey);
   // ★ 2026-10-11：基础标签（章节正文）也由 store 驱动（可关、计入总上限）
   const baseOpen = usePanelOpenStore((s) => s.baseOpen);
   const builtinPanels = usePluginRegistry((s) => s.builtinPanels);
@@ -461,9 +463,20 @@ export function DocTabsHeader({
   }, [overflowMenu]);
 
   // ---- 打开 / 激活 ----
-  const openTab = useCallback((tab: DocTab) => {
+  /**
+   * 打开 / 聚焦一个标签。
+   *
+   * ★ 2026-10-28 VS Code 对齐：
+   *   · **单击**（`pin` 缺省）= 以**预览**方式打开 —— 复用同一个预览位，
+   *     浏览一圈面板不会把 5 个名额耗尽；
+   *   · **双击**（`pin: true`）= 转正为固定标签。
+   *   · 已打开的标签点一下 = 聚焦 + 转正（VS Code 里点已打开的预览标签也会固定它）。
+   * 基础标签（章节正文）不参与预览语义 —— 它是文档本身，没有"预览态"。
+   */
+  const openTab = useCallback((tab: DocTab, opts?: { pin?: boolean }) => {
     setState((s) => (s.activeId === tab.id ? s : { ...s, activeId: tab.id }));
     setMenuPos(null);
+    const wantPin = opts?.pin === true;
     // 真实动作（标签集合由 store 推导，这里只切激活态 + 触发打开）：
     //  · 基础标签（章节正文）= 中心编辑区本身，不是业务面板 ⇒ store 置 baseOpen + 切回中心组；
     //  · 功能面板标签 ⇒ 打开/聚焦真实面板（未 ready 时静默排队、ready 后回放）。
@@ -471,7 +484,20 @@ export function DocTabsHeader({
       usePanelOpenStore.getState().openBase();
       focusDocBase();
     } else if (tab.panelKey) {
-      getPanelNavigation().open(tab.panelKey);
+      const nav = getPanelNavigation();
+      const store = usePanelOpenStore.getState();
+      const alreadyOpen = store.keys.includes(tab.panelKey);
+      if (wantPin) {
+        // 双击 / 显式固定：走 open（会转正），再确保 previewKey 清掉
+        nav.open(tab.panelKey);
+        store.pinPreview(tab.panelKey);
+      } else if (alreadyOpen) {
+        // 点已打开的标签 = 聚焦（并把它从预览转正 —— 用户主动点它了）
+        nav.open(tab.panelKey);
+      } else {
+        // 单击未打开的面板 = 预览打开
+        nav.openPreview(tab.panelKey);
+      }
     }
     // ★ 2026-10-26 分屏：点**非聚焦栏**的标签时，除了打开该面板，还要把焦点切到它所在的栏
     //   （否则视口还停在另一栏，用户会觉得"点了没反应"）。由 DockShell 注入的回调完成。
@@ -553,18 +579,28 @@ export function DocTabsHeader({
           const label = labelOf(t);
           // ★ 分屏角标：只在分屏时出现（groupIndex 有值）；标出这个标签在第几栏
           const showGroupBadge = t.groupIndex !== undefined;
+          // ★ 2026-10-28 VS Code 对齐：这一格是不是「预览标签」（斜体显示）
+          const isPreviewTab =
+            t.kind === 'panel' && t.panelKey !== undefined && t.panelKey === previewKey;
           return (
             <div
               key={t.id}
               data-tab-id={t.id}
-              className={active ? 'shell-doctab is-active' : 'shell-doctab'}
+              className={
+                active
+                  ? (isPreviewTab ? 'shell-doctab is-active is-preview' : 'shell-doctab is-active')
+                  : (isPreviewTab ? 'shell-doctab is-preview' : 'shell-doctab')
+              }
+              data-preview={isPreviewTab ? 'true' : undefined}
               data-group-index={showGroupBadge ? t.groupIndex : undefined}
               onPointerDown={(e) => onTabPointerDown(e, t)}
               onContextMenu={(e) => openTabMenu(e, t)}
               title={
                 showGroupBadge
                   ? `${label} · 第 ${t.groupIndex} 栏${t.groupActive ? '（当前聚焦）' : '（点击切到该栏）'}`
-                  : dragEnabled ? `${label}（按住拖到编辑区左右边缘可分屏）` : label
+                  : isPreviewTab
+                    ? `${label}（预览 · 双击固定，或开始编辑它）`
+                    : dragEnabled ? `${label}（按住拖到编辑区左右边缘可分屏）` : label
               }
             >
               <button
@@ -573,6 +609,7 @@ export function DocTabsHeader({
                 className="shell-doctab-main"
                 title={label}
                 onClick={() => openTab(t)}
+                onDoubleClick={() => openTab(t, { pin: true })}
               >
                 {showGroupBadge ? (
                   <span

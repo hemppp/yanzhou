@@ -57,6 +57,17 @@ export interface PanelOpenState {
   /** 当前聚焦（dockview active panel）的 key；无则 null */
   activeKey: string | null;
   /**
+   * ★ 2026-10-28 VS Code 对齐：**当前唯一的「预览标签」key**（null = 没有预览）。
+   *
+   * 语义（与 VS Code 同款）：
+   *   · 单击打开 = 预览 —— 斜体标签，**占同一格**；再单击别的面板就把它**替换**掉，
+   *     不会越开越多（浏览不污染标签栏）；
+   *   · 双击 / 主动"固定" = 转正 —— 从 `previewKey` 里移除，变成普通固定标签；
+   *   · 预览标签也计入 `keys`（它是一个真实打开的面板），也参与 LRU 淘汰。
+   * 全局只有一个预览槽位（不是每个面板各记一份），这正是 VS Code 的行为。
+   */
+  previewKey: string | null;
+  /**
    * ★ 2026-10-11：「章节正文」基础标签是否打开（默认 true）。
    * 它代表中心编辑区本身（不是业务面板），故不进 `keys`；但**计入总标签上限** ——
    * 见 `MAX_OPEN_PANELS` 上方注释。关闭它 = 关掉中心文档标签（可从「+」菜单恢复）。
@@ -64,6 +75,16 @@ export interface PanelOpenState {
   baseOpen: boolean;
   /** 打开或聚焦面板。已打开 ⇒ 只聚焦（不新增、不重排）；未打开 ⇒ 打开并按上限淘汰 */
   open: (key: string) => void;
+  /**
+   * ★ 2026-10-28 VS Code 对齐：**以「预览」方式打开**（单击标签 / 单击活动栏）。
+   *
+   * 与 `open` 的唯一区别：若当前已有预览标签且不是这一个，**先把旧的预览关掉**
+   * 再打开新的 —— 于是"浏览一圈面板"永远只占一个位，不会把 5 个名额耗尽。
+   * 其余语义（上限、LRU、activeKey）与 `open` 完全一致。
+   */
+  openPreview: (key: string) => void;
+  /** ★ 2026-10-28：把预览标签**转正**（双击 / 编辑内容 / 主动固定） */
+  pinPreview: (key?: string) => void;
   /** 已打开则聚焦，未打开则打开。语义等同 `open`（保留旧名仅为对称，ADR §2.3.1） */
   focus: (key: string) => void;
   /** 切换：未打开 → 打开（同样受上限约束）；已打开 → 关闭 */
@@ -468,19 +489,57 @@ export function seedPanelOpenKeys(keys: readonly string[] | null | undefined): b
 export const usePanelOpenStore = create<PanelOpenState>((set, get) => ({
   keys: [],
   activeKey: null,
+  previewKey: null,
   baseOpen: true,
+
+  /**
+   * ★ 2026-10-28：预览语义 = **替换掉旧的预览位**。
+   *
+   * 抽成内部函数（不进 state），因为 `open` / `openPreview` / `_syncFromView`
+   * 都要用同一套规则，各写一遍必然漂移（本文件历史上就踩过类似的重复实现）。
+   *
+   * 返回「要打开的新集合」：调用方负责 set。
+   */
+  openPreview: (key) => {
+    const state = get();
+    // 点的是已经开着的面板：只聚焦 + **转正**（VS Code 里点已打开的预览标签也会固定它）
+    if (state.keys.includes(key)) {
+      touchRecency(key);
+      set({ activeKey: key, previewKey: state.previewKey === key ? null : state.previewKey });
+      return;
+    }
+    touchRecency(key);
+    const prevPreview = state.previewKey;
+    // 旧预览若还开着且不是本次目标 ⇒ 先踢掉，再把新的加进来（保证预览位唯一）
+    const base = prevPreview && prevPreview !== key && state.keys.includes(prevPreview)
+      ? state.keys.filter((k) => k !== prevPreview)
+      : state.keys;
+    const limited = limitOpenKeys(base.concat(key), state.baseOpen);
+    notifyEviction(limited.evicted);
+    set({ keys: limited.keys, activeKey: key, previewKey: key });
+  },
+
+  /** 预览转正：只清 previewKey（面板本身已在 keys 里，无需动集合） */
+  pinPreview: (key) => {
+    const state = get();
+    const target = key ?? state.previewKey;
+    if (!target || state.previewKey !== target) return;
+    set({ previewKey: null });
+  },
 
   // ADR §4.3-2 + §4.4：已打开 ⇒ 只更新焦点；否则 concat 后裁到上限（淘汰最久未用者）
   open: (key) => {
     touchRecency(key);
     const state = get();
     if (state.keys.includes(key)) {
-      set({ activeKey: key });
+      // ★ 2026-10-28：显式 open（活动栏双击 / 命令 / 快捷键）视为"我要它留下" ⇒ 转正
+      set({ activeKey: key, previewKey: state.previewKey === key ? null : state.previewKey });
       return;
     }
     const limited = limitOpenKeys(state.keys.concat(key), state.baseOpen);
     notifyEviction(limited.evicted);
-    set({ keys: limited.keys, activeKey: key });
+    // 显式 open ⇒ 不留预览位（若预览的是别的面板，也要一并清掉，避免悬空 previewKey）
+    set({ keys: limited.keys, activeKey: key, previewKey: null });
   },
 
   // ADR §2.3.1：语义等同 open（保留旧名仅为对称）
@@ -493,29 +552,37 @@ export const usePanelOpenStore = create<PanelOpenState>((set, get) => ({
       set({
         keys: state.keys.filter((k) => k !== key),
         activeKey: state.activeKey === key ? null : state.activeKey,
+        // 关掉的正是预览标签 ⇒ 预览位一并清空
+        previewKey: state.previewKey === key ? null : state.previewKey,
       });
       return;
     }
     touchRecency(key);
     const limited = limitOpenKeys(state.keys.concat(key), state.baseOpen);
     notifyEviction(limited.evicted);
-    set({ keys: limited.keys, activeKey: key });
+    set({ keys: limited.keys, activeKey: key, previewKey: null });
   },
 
   close: (key) =>
     set((state) => ({
       keys: state.keys.filter((k) => k !== key),
       activeKey: state.activeKey === key ? null : state.activeKey,
+      // ★ 2026-10-28：关掉的是预览标签 ⇒ 预览位一并清空（避免悬空 key）
+      previewKey: state.previewKey === key ? null : state.previewKey,
     })),
 
   closeAll: (opts) =>
     set((state) => {
       const except = opts?.except;
       if (!except || except.length === 0) {
-        return { keys: [], activeKey: null };
+        return { keys: [], activeKey: null, previewKey: null };
       }
       const kept = state.keys.filter((k) => except.includes(k));
-      return { keys: kept, activeKey: kept.includes(state.activeKey ?? '') ? state.activeKey : null };
+      return {
+        keys: kept,
+        activeKey: kept.includes(state.activeKey ?? '') ? state.activeKey : null,
+        previewKey: state.previewKey && kept.includes(state.previewKey) ? state.previewKey : null,
+      };
     }),
 
   opened: () => get().keys,
@@ -566,6 +633,9 @@ export const usePanelOpenStore = create<PanelOpenState>((set, get) => ({
     set((state) => ({
       keys: next,
       activeKey: state.activeKey && next.includes(state.activeKey) ? state.activeKey : null,
+      // ★ 2026-10-28：预览标签若被视图移除（用户点 × / 被 LRU 淘汰）⇒ 预览位清空，
+      //   否则 `previewKey` 会指向一个已不存在的面板，标签条再也画不出斜体态。
+      previewKey: state.previewKey && next.includes(state.previewKey) ? state.previewKey : null,
     }));
   },
 
@@ -604,6 +674,13 @@ if (typeof window !== 'undefined') {
 export interface PanelNavigation {
   /** 打开或聚焦面板。已存在则只聚焦（ADR §4.2 缺省 allowMultiple=false） */
   open(key: string): void;
+  /**
+   * ★ 2026-10-28 VS Code 对齐：以**预览**方式打开（复用唯一的预览位）。
+   * 与 `open` 的差别只在"旧预览会被替换掉"；上限 / LRU 语义相同。
+   */
+  openPreview(key: string): void;
+  /** ★ 2026-10-28：把预览标签转正（双击 / 主动固定） */
+  pinPreview(key?: string): void;
   /** 已打开则聚焦，未打开则打开（语义等同 open —— 保留旧名仅为对称） */
   focus(key: string): void;
   /** 切换：未打开→打开，已打开→关闭 */
@@ -630,6 +707,24 @@ export function getPanelNavigation(): PanelNavigation {
     open: (key) => {
       s().open(key);
       openOrFocus(key);
+    },
+    /**
+     * ★ 2026-10-28：预览打开。
+     * 关键差别在**视图侧**：若旧预览面板还挂在视图里而 store 已把它从 keys 移除，
+     * 必须把新集合推给视图（`pushKeysToView`）—— 否则旧面板会赖在标签栏上不走，
+     * 预览位变成"越点越多"。这一步是本功能最容易漏的地方。
+     */
+    openPreview: (key) => {
+      const before = s().keys.slice();
+      s().openPreview(key);
+      const after = s().keys;
+      // 集合有变化（新增 or 替换掉了旧预览）⇒ 让视图跟随；否则只需聚焦
+      const changed = after.length !== before.length || after.some((k) => !before.includes(k));
+      if (changed) pushKeysToView();
+      else openOrFocus(key);
+    },
+    pinPreview: (key) => {
+      s().pinPreview(key);
     },
     focus: (key) => {
       s().focus(key);

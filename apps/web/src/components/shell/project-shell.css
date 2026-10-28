@@ -556,10 +556,23 @@ button.shell-statusbar-item:active {
 .shell-doctab.is-active {
   /* ★ t6 去自加蓝：参考图口径下，活动文档标签是**顶部 2px 中性深灰**强调线
      （实测参考图 x286..415 / y36-37 是深灰 `#383838`，不是 VS Code 蓝）。
-     原值 `var(--vscode-focusBorder)` 是蓝色，属 remodel 自己引入的蓝。 */
+     原值 `var(--vscode-focusBorder)` 是蓝色，属 remodel 自己引入的蓝。
+     ★ 2026-10-27 起换用 VS Code 2026 主题的蓝（作者口径：用 VS Code 的蓝）。 */
   border-top-color: var(--vscode-tab-activeBorderTop);
   background-color: var(--vscode-tab-activeBackground);
   color: var(--vscode-tab-activeForeground);
+}
+
+/* ★ 2026-10-28 VS Code 对齐：**预览标签 = 斜体**。
+   VS Code 用斜体区分"这是我随手点开看的，不是固定打开的"；
+   再点别的文件它就会被替换掉。只在标签名上斜，不整体倾斜（关闭按钮/角标保持正体）。 */
+.shell-doctab.is-preview .shell-doctab-label {
+  font-style: italic;
+}
+
+/* 预览标签的关闭按钮默认也显示（VS Code 里预览标签的 × 常驻，因为它随时会被替换） */
+.shell-doctab.is-preview .shell-doctab-close {
+  opacity: 0.55;
 }
 
 .shell-doctab-main {
