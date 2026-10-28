@@ -33,27 +33,30 @@ describe('panelOpenStore · 打开数量上限（ADR §4.4）', () => {
   });
   afterEach(() => _resetPanelOpenStore());
 
-  it('上限常量 = 3，且首屏种子（2 个）不触发淘汰', () => {
-    expect(MAX_OPEN_PANELS).toBe(3);
+  it('上限常量 = 5，且首屏种子（2 个）不触发淘汰', () => {
+    // ★ 2026-10-27：作者口径改为「5 个功能面板 + 正文」，故常量从 3 变 5。
+    expect(MAX_OPEN_PANELS).toBe(5);
     expect(seedPanelOpenKeys(['chapters', 'ai-chat'])).toBe(true);
     expect(keys()).toEqual(['chapters', 'ai-chat']);
   });
 
-  it('打开第 4 个 ⇒ 裁到 3 个，淘汰最久没用过的那个', () => {
-    for (const k of ['a', 'b', 'c']) open(k);
-    setActive('c'); // 刚看过 c
-    open('d'); // 第 4 个
+  it('打开第 6 个 ⇒ 裁到 5 个，淘汰最久没用过的那个', () => {
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    setActive('e'); // 刚看过 e
+    open('f'); // 第 6 个
     expect(keys()).toHaveLength(MAX_OPEN_PANELS);
-    expect(keys()).toEqual(['b', 'c', 'd']); // 最久没用过的是 a ⇒ 被淘汰
+    expect(keys()).toEqual(['b', 'c', 'd', 'e', 'f']); // 最久没用过的是 a ⇒ 被淘汰
   });
 
   it('淘汰依据是「最近使用」而不是「最早打开」', () => {
     open('a');
     open('b');
     open('c');
-    setActive('a'); // 回头看了 a ⇒ a 变成最近使用
     open('d');
-    expect(keys()).toEqual(['a', 'c', 'd']); // 被淘汰的是 b，不是最早打开的 a
+    open('e');
+    setActive('a'); // 回头看了 a ⇒ a 变成最近使用
+    open('f');
+    expect(keys()).toEqual(['a', 'c', 'd', 'e', 'f']); // 被淘汰的是 b，不是最早打开的 a
   });
 
   it('重复打开已存在的面板只聚焦，不新增也不淘汰', () => {
@@ -65,20 +68,18 @@ describe('panelOpenStore · 打开数量上限（ADR §4.4）', () => {
     expect(seen).toHaveLength(0);
   });
 
-  it('toggle 打开第 4 个时同样受上限约束', () => {
-    for (const k of ['a', 'b', 'c']) open(k);
-    getPanelNavigation().toggle('d');
-    expect(keys()).toEqual(['b', 'c', 'd']);
+  it('toggle 打开第 6 个时同样受上限约束', () => {
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    getPanelNavigation().toggle('f');
+    expect(keys()).toEqual(['b', 'c', 'd', 'e', 'f']); // a 最久未用 ⇒ 淘汰
   });
 
   it('视图回写超过上限时裁剪，且不会误杀刚打开的那个', () => {
-    open('a');
-    open('b');
-    open('c');
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
     // 模拟活动栏：走 DockShellApi.openPanel 直接 addPanel（绕过 store 的 open），
-    // DockShell 随后整集合回写 = [a,b,c,d] —— d 是刚开的，绝不能被裁掉。
-    syncFromView(['a', 'b', 'c', 'd']);
-    expect(keys()).toEqual(['b', 'c', 'd']);
+    // DockShell 随后整集合回写 = [a..f] —— f 是刚开的，绝不能被裁掉。
+    syncFromView(['a', 'b', 'c', 'd', 'e', 'f']);
+    expect(keys()).toEqual(['b', 'c', 'd', 'e', 'f']);
   });
 
   /**
@@ -88,21 +89,19 @@ describe('panelOpenStore · 打开数量上限（ADR §4.4）', () => {
    *   裁剪会把它自己判成最久没用过的当场淘汰 ⇒ 用户「点一次没反应、再点一次才开」。
    */
   it('刚打开的面板位次已陈旧时也不会自淘汰（活动栏路径的吞点击）', () => {
-    open('d'); // ① 先开过 ⇒ 在 recency 里留下记录
-    getPanelNavigation().close('d'); // 关掉不清 recency（视图层减少操作不动使用序）
-    open('a');
-    open('b');
-    open('c');
-    expect(keys()).toEqual(['a', 'b', 'c']);
-    // ② 活动栏路径：直接 addPanel + 整集合回写。d 是刚被加进视图的那个。
-    syncFromView(['a', 'b', 'c', 'd']);
-    // 被淘汰的必须是**别的**面板（此处是位次最旧的 a），绝不能是刚点的 d。
-    expect(keys()).toEqual(['b', 'c', 'd']);
+    open('f'); // ① 先开过 ⇒ 在 recency 里留下记录
+    getPanelNavigation().close('f'); // 关掉不清 recency（视图层减少操作不动使用序）
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    expect(keys()).toEqual(['a', 'b', 'c', 'd', 'e']);
+    // ② 活动栏路径：直接 addPanel + 整集合回写。f 是刚被加进视图的那个。
+    syncFromView(['a', 'b', 'c', 'd', 'e', 'f']);
+    // 被淘汰的必须是**别的**面板（此处是位次最旧的 a），绝不能是刚点的 f。
+    expect(keys()).toEqual(['b', 'c', 'd', 'e', 'f']);
   });
 
   it('淘汰时抛出可见提示（不是静默挤掉）', () => {
-    for (const k of ['a', 'b', 'c']) open(k);
-    const seen = collectToasts(() => open('d'));
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    const seen = collectToasts(() => open('f'));
     expect(seen).toHaveLength(1);
     expect(seen[0]?.message ?? '').toContain(`最多同时打开 ${MAX_OPEN_PANELS} 个`);
   });
@@ -121,11 +120,11 @@ describe('panelOpenStore · 打开数量上限（ADR §4.4）', () => {
   });
 
   it('同一批淘汰只提示一次（收敛过程去抖）', () => {
-    for (const k of ['a', 'b', 'c']) open(k);
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
     const seen = collectToasts(() => {
-      open('d');
-      syncFromView(['a', 'b', 'c', 'd']); // 收敛过程中的重复上报
-      syncFromView(['a', 'b', 'c', 'd']);
+      open('f');
+      syncFromView(['a', 'b', 'c', 'd', 'e', 'f']); // 收敛过程中的重复上报
+      syncFromView(['a', 'b', 'c', 'd', 'e', 'f']);
     });
     expect(seen).toHaveLength(1);
   });
@@ -216,11 +215,13 @@ describe('panelOpenStore · 打开集合持久化（刷新保留）', () => {
 });
 
 /**
- * ★ 2026-10-11 用户口径（「打开的页面是叠加的可以打开页面，最多打开三个页面」+
- *   「正文也当动态标签」）：基础标签（章节正文）是文档标签栏的**第 1 格动态标签**，
- *   可关闭、且**计入总上限** —— 总标签数（基础标签 + 功能面板）≤ MAX_OPEN_PANELS。
+ * ★ 2026-10-27 口径（作者：「5 个功能面板 + 正文」）：
+ *   基础标签（章节正文）**不占**功能面板名额 —— 正文开着时屏幕上一共 6 个标签
+ *   （1 正文 + 5 面板）；关掉正文则 5 个面板。打开/关闭正文都不触发任何淘汰。
+ *
+ *   上一版口径是「总标签数 ≤ 3（含正文）」，本次一并推翻（见 panelOpenStore.ts 注释）。
  */
-describe('panelOpenStore · 基础标签也当动态标签（总上限 3）', () => {
+describe('panelOpenStore · 基础标签不占功能面板名额（上限 5）', () => {
   beforeEach(() => _resetPanelOpenStore());
   afterEach(() => _resetPanelOpenStore());
 
@@ -230,33 +231,32 @@ describe('panelOpenStore · 基础标签也当动态标签（总上限 3）', ()
     expect(baseOpen()).toBe(true);
   });
 
-  it('基础标签开着 ⇒ 功能面板最多 2 个（第 3 个触发 LRU 淘汰）', () => {
+  it('基础标签开着 ⇒ 仍可开满 5 个功能面板（不因正文而少一个名额）', () => {
     expect(baseOpen()).toBe(true);
-    open('a');
-    open('b');
-    expect(keys()).toEqual(['a', 'b']);
-    const seen = collectToasts(() => open('c'));
-    expect(keys()).toHaveLength(MAX_OPEN_PANELS - 1);
-    expect(keys()).toEqual(['b', 'c']); // 最久没用过的 a 被淘汰
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    expect(keys()).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(keys()).toHaveLength(MAX_OPEN_PANELS);
+  });
+
+  it('基础标签开着时开第 6 个 ⇒ 淘汰最久未用者（与正文无关）', () => {
+    expect(baseOpen()).toBe(true);
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    setActive('e');
+    const seen = collectToasts(() => open('f'));
+    expect(keys()).toEqual(['b', 'c', 'd', 'e', 'f']); // a 最久未用 ⇒ 淘汰
     expect(seen).toHaveLength(1);
   });
 
-  it('关掉基础标签 ⇒ 功能面板可回到 3 个', () => {
-    open('a');
-    open('b');
-    usePanelOpenStore.getState().closeBase();
-    open('c');
-    expect(keys()).toEqual(['a', 'b', 'c']);
-  });
-
-  it('重开基础标签时若已满 3 个功能面板 ⇒ 淘汰最久未用者，总数不超上限', () => {
-    usePanelOpenStore.getState().closeBase();
-    for (const k of ['a', 'b', 'c']) open(k);
-    setActive('c');
-    const seen = collectToasts(() => usePanelOpenStore.getState().openBase());
+  it('关掉 / 重开基础标签不影响功能面板集合，也不触发淘汰', () => {
+    for (const k of ['a', 'b', 'c', 'd', 'e']) open(k);
+    const before = keys().slice();
+    const seen = collectToasts(() => usePanelOpenStore.getState().closeBase());
+    expect(baseOpen()).toBe(false);
+    expect(keys()).toEqual(before); // 一个都没被踢
+    expect(seen).toHaveLength(0);
+    usePanelOpenStore.getState().openBase();
     expect(baseOpen()).toBe(true);
-    expect(keys()).toEqual(['b', 'c']); // 最久没用过的 a 被淘汰，基础标签占回名额
-    expect(seen).toHaveLength(1);
+    expect(keys()).toEqual(before);
   });
 
   it('closeBase / openBase 幂等', () => {

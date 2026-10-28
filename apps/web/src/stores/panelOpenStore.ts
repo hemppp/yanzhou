@@ -26,7 +26,7 @@
 //   `open()` **必须静默排队**、不得抛错，挂载后回放。
 //
 // ## 上限 3（2026-10-07 用户口径，ADR §4.4）
-//   最多同时打开 `MAX_OPEN_PANELS = 3` 个面板；打开第 4 个时淘汰**最久没用过**
+//   最多同时打开 `MAX_OPEN_PANELS = 5` 个面板；打开第 6 个时淘汰**最久没用过**
 //   的那一个（LRU：以「被打开 / 被聚焦」的时间为准，见 `touchRecency`）。
 //   `opened()` 仍返回**打开顺序**（DockShell 首次构建布局的输入，顺序本身不再决定淘汰）。
 //   与旧行为的两点区别，都是为了避免「做了但用户不知道」：
@@ -184,28 +184,33 @@ export function focusDocBase(): void {
 // ---- ★ 2026-10-07 修订：打开数量上限（ADR §4.4） ---------------------------
 
 /**
- * 同时打开的面板数量上限。
+ * 同时打开的**功能面板**数量上限（★ 2026-10-27 口径变更：3 → 5）。
  *
- * 历史：旧实现 `MAX_OPEN_PANELS = 3` 曾在 ADR §4.2（D10）被**删除**，理由是
- * 「打开第 4 个时静默挤掉第 1 个」让用户不知道面板去哪了
- * （`docs/design/ui-tab-workspace-design.md:139` 判定为「做了但用户不知道」的错误）。
- * 2026-10-07 用户口径（m01407）：上限**要**，但被挤掉的必须是「最久没用过的」，
- * 而且必须看得见 —— 于是上限回归、淘汰依据改为 LRU、并补一条 toast。
+ * ★ 口径：**5 个功能面板**，**不含**「章节正文」基础标签。
+ *   正文是文档本身（不是功能面板），开着它不占名额 —— 于是正文 + 5 个面板
+ *   = 屏幕上一共 6 个标签。这是作者明确的口径（"5 个功能面板 + 正文"）。
+ *
+ * 历史沿革（勿凭直觉改回去）：
+ *   · 旧实现 `MAX_OPEN_PANELS = 3` 曾在 ADR §4.2（D10）被**删除**，理由是
+ *     「打开第 4 个时静默挤掉第 1 个」让用户不知道面板去哪了；
+ *   · 2026-10-07 上限回归（LRU 淘汰 + toast 可见）；
+ *   · 2026-10-11 口径改为「总标签数 ≤ 3（含正文）」；
+ *   · **2026-10-27 改为「功能面板 ≤ 5（不含正文）」** —— 对齐 VS Code 的
+ *     "多页同时打开"手感（标签条本就支持横向滚动，历史上限的前提已不存在）。
  */
-export const MAX_OPEN_PANELS = 3;
+export const MAX_OPEN_PANELS = 5;
 
 /**
  * ★ 2026-10-11 用户口径（「打开的页面是叠加的可以打开页面，最多打开三个页面」+
  *   「正文也当动态标签」）：
  *
- * 「章节正文」现在是文档标签栏的**第 1 格动态标签** —— 可关闭、且**计入总上限**。
+ * 「章节正文」是文档标签栏的**第 1 格动态标签** —— 可关闭，但**不占功能面板名额**。
  * 它代表中心编辑区本身（DockShell 的 `CENTER_DEFAULT_PANEL_ID`），**不是**业务面板，
  * 故用这个保留 key 表达，存在 `PanelOpenState.baseOpen` 里（不进 `keys`）。
  *
- * 上限口径 = **总标签数**（基础标签 + 功能面板）≤ `MAX_OPEN_PANELS`。实现上等价于
- * 「功能面板数 ≤ MAX - (baseOpen ? 1 : 0)」—— 基础标签本身**不参与 LRU 淘汰**
- * （它是文档本身，被自动收起会很突兀；用户可用标签上的 × 手动关它）。
- * 于是：基础标签开着 ⇒ 最多 2 个功能面板；关掉 ⇒ 最多 3 个。
+ * ★ 2026-10-27 口径 = **功能面板数** ≤ `MAX_OPEN_PANELS`（= 5），不随正文开关变化。
+ *   正文开着时屏幕上一共 6 个标签（1 正文 + 5 面板），关掉正文则 5 个。
+ *   基础标签**不参与 LRU 淘汰**（它是文档本身，被自动收起会很突兀；用户可用 × 手动关）。
  */
 export const BASE_TAB_KEY = 'doc:chapter';
 
@@ -242,12 +247,12 @@ function ageRank(key: string): number {
  * 把打开集合裁到**功能面板允许数**，返回**新集合**与**被淘汰者**。
  * 淘汰顺序：最久没用过 → 次久没用过 …；集合自身顺序（= 打开顺序）保持不变。
  *
- * ★ 2026-10-11：「最多打开三个页面」是**总标签数**（基础标签 + 功能面板）。
- *   基础标签开着时占 1 个名额 ⇒ 功能面板上限 = `MAX_OPEN_PANELS - 1`；关掉 ⇒ 恢复 3。
- *   基础标签自身**不参与**淘汰（`baseOpen` 只影响名额，不进 `keys`）。
+ * ★ 2026-10-27：口径改为「**功能面板** ≤ `MAX_OPEN_PANELS`」，**不再受 `baseOpen` 影响**。
+ *   正文标签开着与否都不占名额（它不属于 `keys`，只是 `baseOpen` 布尔）。
+ *   故这里不再需要 `baseOpen` 参与计算 —— 保留参数只为兼容既有调用点。
  */
-function limitOpenKeys(keys: string[], baseOpen = false): { keys: string[]; evicted: string[] } {
-  const max = baseOpen ? MAX_OPEN_PANELS - 1 : MAX_OPEN_PANELS;
+function limitOpenKeys(keys: string[], _baseOpen = false): { keys: string[]; evicted: string[] } {
+  const max = MAX_OPEN_PANELS;
   if (keys.length <= max) return { keys, evicted: [] };
   const byAge = keys.slice().sort((a, b) => ageRank(b) - ageRank(a));
   const evicted = byAge.slice(0, keys.length - max);

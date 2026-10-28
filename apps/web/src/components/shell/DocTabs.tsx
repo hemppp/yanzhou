@@ -50,7 +50,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ChevronDown } from 'lucide-react';
 import type { IDockviewPanelHeaderProps } from 'dockview';
 import { useChapterStore, useOutlineStore } from '@/stores';
 import { BASE_TAB_KEY, focusDocBase, getPanelNavigation, usePanelOpenStore } from '@/stores/panelOpenStore';
@@ -194,6 +194,13 @@ export function DocTabsHeader({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const addBtnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  /** 标签横向滚动容器（激活标签自动滚入视野用） */
+  const listRef = useRef<HTMLDivElement | null>(null);
+  /** 溢出列表按钮 + 菜单坐标（portal 到 body，与「+」菜单同款处理） */
+  const overflowBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [overflowMenu, setOverflowMenu] = useState<{ top: number; right: number } | null>(null);
+  /** 标签条是否真的溢出（决定「▾」按钮出不出） */
+  const [overflowing, setOverflowing] = useState(false);
 
   // 按「+」按钮的视口矩形摆放菜单（右对齐按钮右缘，下方 4px），并夹在视口内。
   const placeMenu = useCallback(() => {
@@ -371,6 +378,88 @@ export function DocTabsHeader({
     };
   }, [tabMenu]);
 
+  /**
+   * ★ 2026-10-28 VS Code 对齐：**激活标签自动滚入视野**。
+   *
+   * 为什么需要：标签条是 `overflow-x:auto`（可横向滚动），上限提到 5 个功能面板 +
+   * 正文 = 最多 6 个标签后，很容易溢出。而激活一个**看不见的**标签（活动栏点开、
+   * 命令式 open、Ctrl+N 切换）时，若不滚过去，用户会以为"点了没反应" ——
+   * 这正是 VS Code 里 `revealActive` 那条逻辑在做的事。
+   *
+   * 实现要点：
+   *   · 用 `scrollIntoView({ block:'nearest', inline:'nearest' })` 而不是手算偏移：
+   *     前者对 RTL / 变宽标签 / 缩放都成立，且 `nearest` 保证"已经可见就不动"
+   *     （避免每次切换都把标签条抖一下）。
+   *   · 只在 `activeId` 变化时跑，不在每次 render 跑。
+   */
+  useEffect(() => {
+    const list = listRef.current;
+    const id = state.activeId;
+    if (!list || !id) return;
+    const el = list.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(id)}"]`);
+    // ⚠️ 能力检测：jsdom（单测）与部分老环境**没有实现** scrollIntoView，
+    //   直接调用会抛 TypeError 打红整组测试。这里不是"静默失败"——
+    //   该 API 只在浏览器里有视觉意义，缺失时什么也不做是正确语义。
+    if (typeof el?.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [state.activeId]);
+
+  /**
+   * ★ 2026-10-28：检测标签条**是否溢出**（决定「▾」按钮出不出）。
+   * 用 `scrollWidth > clientWidth + 1`（+1 吸收亚像素取整），在 ResizeObserver
+   * 与标签数量变化时重测 —— 窗口缩放、分屏、开关标签都会改变可用宽度。
+   */
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const measure = () => {
+      const next = list.scrollWidth > list.clientWidth + 1;
+      setOverflowing((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    // ⚠️ 能力检测：jsdom 无 ResizeObserver。缺失时退化为"只在 resize / 标签数变化时测"，
+    //   真实浏览器不受影响（有 RO 才能感知"面板被侧栏挤窄"这类非窗口事件）。
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    ro?.observe(list);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [tabs.length]);
+
+  /** 摆放溢出菜单（右对齐按钮右缘，下方 4px，夹在视口内） */
+  const placeOverflowMenu = useCallback(() => {
+    const btn = overflowBtnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    setOverflowMenu({
+      top: Math.round(r.bottom + 4),
+      right: Math.round(Math.max(4, window.innerWidth - r.right)),
+    });
+  }, []);
+
+  // 点外部 / Esc 关掉溢出菜单（与「+」菜单同款）
+  useEffect(() => {
+    if (!overflowMenu) return;
+    const onDown = (ev: MouseEvent) => {
+      const el = ev.target as Node;
+      if ((el as HTMLElement).closest?.('.shell-doctab-overflow-menu')) return;
+      if (overflowBtnRef.current?.contains(el as Node)) return;
+      setOverflowMenu(null);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') setOverflowMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [overflowMenu]);
+
   // ---- 打开 / 激活 ----
   const openTab = useCallback((tab: DocTab) => {
     setState((s) => (s.activeId === tab.id ? s : { ...s, activeId: tab.id }));
@@ -458,7 +547,7 @@ export function DocTabsHeader({
 
   return (
     <div className="shell-doctabs" ref={rootRef} role="group" aria-label="文档标签">
-      <div className="shell-doctabs-list">
+      <div className="shell-doctabs-list" ref={listRef}>
         {tabs.map((t) => {
           const active = t.id === state.activeId;
           const label = labelOf(t);
@@ -467,6 +556,7 @@ export function DocTabsHeader({
           return (
             <div
               key={t.id}
+              data-tab-id={t.id}
               className={active ? 'shell-doctab is-active' : 'shell-doctab'}
               data-group-index={showGroupBadge ? t.groupIndex : undefined}
               onPointerDown={(e) => onTabPointerDown(e, t)}
@@ -509,6 +599,29 @@ export function DocTabsHeader({
       </div>
 
       <div className="shell-doctabs-actions">
+        {/*
+          ★ 2026-10-28 VS Code 对齐：**溢出时把所有已打开标签列出来**。
+          标签条横向可滚，但滚动条被隐藏（`scrollbar-width:none`）——
+          标签一多，用户既看不到"还有几个"，也没法快速跳到被挤到视野外的那个。
+          VS Code 的做法是右上角一个「▾ 打开项列表」。这里同款：
+          只在**确实溢出**时出现（标签少时不占位置），点开列出全部 + 当前激活打勾。
+        */}
+        {overflowing ? (
+          <button
+            type="button"
+            ref={overflowBtnRef}
+            className="shell-doctab-overflow"
+            title={`列出全部 ${tabs.length} 个已打开的标签`}
+            aria-label="列出全部已打开的标签"
+            aria-haspopup="menu"
+            aria-expanded={overflowMenu !== null}
+            onClick={() => (overflowMenu ? setOverflowMenu(null) : placeOverflowMenu())}
+          >
+            <ChevronDown size={13} aria-hidden="true" />
+            <span className="mc-num">{tabs.length}</span>
+          </button>
+        ) : null}
+
         {/* ★ 2026-10-26：显式「分屏」入口 —— 把当前聚焦的标签拆到右侧。
             此前只有「拖标签到边缘」和「标签右键菜单」两条路，用户找不到（实测反馈）。
             再点一次（已在分屏）则是「合并分屏」，一个按钮两态，位置固定。 */}
@@ -594,6 +707,54 @@ export function DocTabsHeader({
             )
           : null}
       </div>
+
+      {/*
+        ★ 2026-10-28 VS Code 对齐：**溢出标签列表**（点右上「▾ N」打开）。
+        与「+」菜单 / 右键菜单同款 —— portal 到 body，避开 `.shell-doctabs{overflow:hidden}` 的裁剪。
+        列出**全部**已打开标签（不只溢出的那些）：VS Code 的 open editors 列表也是这样，
+        因为用户的诉求是"一眼看到我打开了什么、快速跳过去"。
+      */}
+      {overflowMenu
+        ? createPortal(
+            <div
+              className="shell-doctab-menu shell-doctab-overflow-menu"
+              role="menu"
+              aria-label="已打开的标签"
+              style={{ top: overflowMenu.top, right: overflowMenu.right }}
+            >
+              <div className="shell-doctab-overflow-title">
+                已打开 {tabs.length} 个
+              </div>
+              {tabs.map((t) => {
+                const isActive = t.id === state.activeId;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isActive}
+                    className={
+                      isActive
+                        ? 'shell-doctab-menu-item shell-doctab-overflow-item is-active'
+                        : 'shell-doctab-menu-item shell-doctab-overflow-item'
+                    }
+                    title={labelOf(t)}
+                    onClick={() => {
+                      openTab(t);
+                      setOverflowMenu(null);
+                    }}
+                  >
+                    <span className="shell-doctab-overflow-check" aria-hidden="true">
+                      {isActive ? '✓' : ''}
+                    </span>
+                    <span className="shell-doctab-overflow-label">{labelOf(t)}</span>
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {/* ★ 2026-10-25 标签右键菜单：拖拽的等价入口（触屏 / 无鼠标可用） */}
       {tabMenu

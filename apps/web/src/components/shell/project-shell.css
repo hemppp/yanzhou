@@ -520,7 +520,15 @@ button.shell-statusbar-item:active {
 .shell-doctab {
   display: inline-flex;
   align-items: center;
+  /* ★ 2026-10-28 VS Code 对齐「多页同时打开」：
+     `flex: 0 0 auto` + **min-width** ⇒ 标签**不被挤扁**，空间不够时撑出横向滚动。
+     之前只有 max-width、没有 min-width 且默认可收缩，导致开 6 个标签时每个都被
+     压成几个字（实测 760px 视口下 scrollWidth 恒等于 clientWidth，永远不"溢出"，
+     所以溢出列表也永远不出现）—— 那等于"多标签"名存实亡。
+     min-width 取 110px：够放「第三章 侧门」这种 5 字标题 + 关闭按钮，
+     低于它才允许省略号（VS Code 的 tab min width 也是这个量级）。 */
   flex: 0 0 auto;
+  min-width: 110px;
   max-width: 220px;
   height: 100%;
   padding: 0 var(--space-1) 0 var(--space-4);
@@ -648,6 +656,63 @@ button.shell-statusbar-item:active {
 .shell-doctab-add:hover {
   background-color: var(--vscode-toolbar-hoverBackground);
   color: var(--vscode-editor-foreground);
+}
+
+/* ★ 2026-10-28 VS Code 对齐：标签溢出时的「▾ N」按钮（只在真的溢出时渲染）。
+   与「+」同尺寸同交互；数字用等宽字形，避免 1 位/2 位时按钮宽度跳动。 */
+.shell-doctab-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-0);
+  height: 22px;
+  margin-right: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--vscode-tab-inactiveForeground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.shell-doctab-overflow:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-editor-foreground);
+}
+
+/* 溢出列表：复用 .shell-doctab-menu 的浮层样式，这里只补"标题行 + 勾选列" */
+.shell-doctab-overflow-title {
+  padding: var(--space-1) var(--space-3);
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.shell-doctab-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 280px;
+}
+
+.shell-doctab-overflow-item.is-active {
+  color: var(--vscode-editor-foreground);
+  font-weight: 500;
+}
+
+.shell-doctab-overflow-check {
+  flex: 0 0 auto;
+  width: 12px;
+  color: var(--vscode-focusBorder);
+  font-size: 10px;
+}
+
+.shell-doctab-overflow-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ★ 2026-10-25：「合并分屏」——分屏态下才出现，不依赖具体标签 */
