@@ -1,8 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-// ★ VS Code Dark Modern token 层必须**最先**引入：它定义 :root / html.dark 的
-//   全量 --vscode-* 变量，并把旧 shadcn/daisyUI 变量位映射到它们之上。
+// ★ 视觉身份真源（--yz-*）必须**最先**引入：它是全站唯一定义字面色值的层，
+//   下面所有 token 层（--vscode-* / --background / --ink* …）都写成它的别名。
+//   契约：docs/design/yanzhou-visual-identity.md §5
+import '@novel-plugins/ui-kit/styles/identity.css';
+// ★ VS Code Dark Modern token 层：定义 :root / html.dark 的全量 --vscode-* 变量，
+//   并把旧 shadcn/daisyUI 变量位映射到它们之上。
 //   定义在 :root 意味着**任何插件包无需 import 本文件**即可消费（ADR 约定 C-1）。
 import '@novel-plugins/ui-kit/styles/vscode-dark-modern.css';
 import './styles/globals.css';

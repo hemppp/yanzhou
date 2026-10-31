@@ -157,7 +157,10 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
           left: 0,
           right: 0,
           height: 80,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%)',
+          // ★ 2026-10-30（P5）：改走 token。原来这条是硬编码纯黑，
+          //   会把封面顶部的色相一起洗掉；且与底部遮罩各自写死、无法统一调。
+          background:
+            'var(--cover-scrim-strong, linear-gradient(180deg, rgba(14,20,26,0.38) 0%, rgba(14,20,26,0) 100%))',
           pointerEvents: 'none',
           zIndex: 1,
         }}

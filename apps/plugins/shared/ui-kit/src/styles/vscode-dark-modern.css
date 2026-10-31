@@ -37,112 +37,112 @@ html.dark {
   /* ==========================================================
    * 5.3.1 编辑器（编辑器背景 / 前景）
    * ========================================================== */
-  --vscode-editor-background: light-dark(hsl(0 0% 99.2%), hsl(210 5% 7%));
+  --vscode-editor-background: var(--yz-ground);
   /* 中心编辑区面：比 chrome 低一档（参考图正文底 #f6f6f6） */
-  --vscode-editorSurface-background: light-dark(hsl(0 0% 96.5%), hsl(0 0% 7%));
-  --vscode-editor-foreground: light-dark(hsl(0 0% 5%), hsl(0 0% 91%));
-  --vscode-editor-lineHighlight: light-dark(hsl(0 0% 96%), hsl(0 0% 14%));
-  --vscode-editor-selection: light-dark(hsl(0 0% 40% / 0.22), hsl(0 0% 62% / 0.40));  /* t6 去自加蓝：原 hsl(207 88% 40% / …) */
-  --vscode-editor-inactiveSelection: light-dark(hsl(0 0% 62% / 0.22), hsl(0 0% 26% / 0.6));
-  --vscode-editorCursor-foreground: light-dark(hsl(0 0% 12%), hsl(0 0% 84%));
-  --vscode-editorGroup-border: light-dark(hsl(0 0% 90%), hsl(0 0% 22%));
+  --vscode-editorSurface-background: var(--yz-surface);
+  --vscode-editor-foreground: var(--yz-ink);
+  --vscode-editor-lineHighlight: var(--yz-hover);
+  --vscode-editor-selection: var(--yz-sel-bg);  /* t6 去自加蓝：原 hsl(207 88% 40% / …) */
+  --vscode-editor-inactiveSelection: var(--yz-sel-bg-inactive);
+  --vscode-editorCursor-foreground: var(--yz-ink);
+  --vscode-editorGroup-border: var(--yz-line);
 
   /* ==========================================================
    * 5.3.2 侧边栏（侧边栏）
    * ========================================================== */
-  --vscode-sideBar-background: light-dark(hsl(0 0% 99.2%), hsl(210 4% 10%));
-  --vscode-sideBar-foreground: light-dark(hsl(0 0% 14%), hsl(0 0% 84%));
-  --vscode-sideBar-border: light-dark(hsl(0 0% 90%), hsl(0 0% 16%));
-  --vscode-sideBarSectionHeader-background: light-dark(hsl(0 0% 96%), hsl(0 0% 14%));
-  --vscode-sideBarSectionHeader-foreground: light-dark(hsl(0 0% 18%), hsl(0 0% 78%));
-  --vscode-sideBarSectionHeader-border: light-dark(hsl(0 0% 90%), hsl(0 0% 22%));
+  --vscode-sideBar-background: var(--yz-surface);
+  --vscode-sideBar-foreground: var(--yz-ink-2);
+  --vscode-sideBar-border: var(--yz-line);
+  --vscode-sideBarSectionHeader-background: var(--yz-hover);
+  --vscode-sideBarSectionHeader-foreground: var(--yz-ink-2);
+  --vscode-sideBarSectionHeader-border: var(--yz-line);
 
   /* ==========================================================
    * 5.3.3 活动栏（活动栏）
    * ========================================================== */
-  --vscode-activityBar-background: light-dark(hsl(0 0% 99.2%), hsl(210 4% 10%));
-  --vscode-activityBar-foreground: light-dark(hsl(0 0% 42%), hsl(0 0% 60%));
-  --vscode-activityBar-inactiveForeground: light-dark(hsl(0 0% 58%), hsl(0 0% 45%));
-  --vscode-activityBar-activeBorder: light-dark(hsl(209 100% 40%), hsl(198 53% 48%));
+  --vscode-activityBar-background: var(--yz-surface);
+  --vscode-activityBar-foreground: var(--yz-ink-2);
+  --vscode-activityBar-inactiveForeground: var(--yz-ink-3);
+  --vscode-activityBar-activeBorder: var(--yz-azurite);
   /* ★ t6 尺寸对齐参考图：活动条目底色。参考图（1489×931）活动条目占应用区 y37..72，
      底色众数 ≈ #e8e8e8（229..235，含截图压缩噪声）＝ hsl(0 0% 91%)；
      原值 95%(#f2f2f2) 比参考图亮 10 级。 */
-  --vscode-activityBar-activeBackground: light-dark(hsl(0 0% 91%), hsl(0 0% 11%));
-  --vscode-activityBar-border: light-dark(hsl(0 0% 90%), hsl(0 0% 14%));
-  --vscode-activityBarBadge-background: light-dark(hsl(0 0% 42%), hsl(0 0% 62%));
-  --vscode-activityBarBadge-foreground: light-dark(hsl(0 0% 100%), hsl(0 0% 98%));
+  --vscode-activityBar-activeBackground: var(--yz-hover);
+  --vscode-activityBar-border: var(--yz-line);
+  --vscode-activityBarBadge-background: var(--yz-cinnabar);
+  --vscode-activityBarBadge-foreground: var(--yz-on-cinnabar);
 
   /* ==========================================================
    * 5.3.4 面板 / 停靠区（面板）
    * ========================================================== */
-  --vscode-panel-background: light-dark(hsl(0 0% 99.2%), hsl(210 4% 10%));
-  --vscode-panel-foreground: light-dark(hsl(0 0% 5%), hsl(0 0% 86%));
-  --vscode-panel-border: light-dark(hsl(0 0% 90%), hsl(210 2% 17%));
-  --vscode-panelTitle-activeBackground: light-dark(hsl(0 0% 99.2%), hsl(0 0% 9%));
-  --vscode-panelTitle-activeForeground: light-dark(hsl(0 0% 4%), hsl(0 0% 96%));
-  --vscode-panelTitle-inactiveForeground: light-dark(hsl(0 0% 45%), hsl(0 0% 55%));
-  --vscode-panelTitle-border: light-dark(hsl(0 0% 90%), hsl(0 0% 22%));
-  --vscode-panelSectionHeader-background: light-dark(hsl(0 0% 96%), hsl(0 0% 14%));
+  --vscode-panel-background: var(--yz-surface);
+  --vscode-panel-foreground: var(--yz-ink-2);
+  --vscode-panel-border: var(--yz-line);
+  --vscode-panelTitle-activeBackground: var(--yz-ground);
+  --vscode-panelTitle-activeForeground: var(--yz-ink);
+  --vscode-panelTitle-inactiveForeground: var(--yz-ink-3);
+  --vscode-panelTitle-border: var(--yz-line);
+  --vscode-panelSectionHeader-background: var(--yz-hover);
   /* dockview 落区预览底（ADR §5.6 拖拽预览指示器） */
-  --vscode-panel-dropBackground: light-dark(hsl(0 0% 45% / 0.16), hsl(0 0% 60% / 0.25));  /* t6 去自加蓝：原 hsl(207 88% 45%/50% / …) */
+  --vscode-panel-dropBackground: var(--yz-drop-bg);  /* t6 去自加蓝：原 hsl(207 88% 45%/50% / …) */
 
   /* ==========================================================
    * 5.3.5 状态栏（状态栏）
    * ========================================================== */
-  --vscode-statusBar-background: light-dark(hsl(0 0% 99.2%), hsl(210 4% 10%));
-  --vscode-statusBar-foreground: light-dark(hsl(0 0% 17%), hsl(0 0% 88%));
-  --vscode-statusBar-border: light-dark(hsl(0 0% 90%), hsl(0 0% 22%));
-  --vscode-statusBarItem-hoverBackground: light-dark(hsl(0 0% 94%), hsl(0 0% 24%));
-  --vscode-statusBarItem-activeBackground: light-dark(hsl(0 0% 91%), hsl(0 0% 28%));
-  --vscode-statusBarItem-prominentBackground: light-dark(hsl(0 0% 93%), hsl(0 0% 26%));
-  --vscode-statusBarItem-remoteBackground: light-dark(hsl(0 0% 93%), hsl(0 0% 26%));
+  --vscode-statusBar-background: var(--yz-surface);
+  --vscode-statusBar-foreground: var(--yz-ink-2);
+  --vscode-statusBar-border: var(--yz-line);
+  --vscode-statusBarItem-hoverBackground: var(--yz-hover);
+  --vscode-statusBarItem-activeBackground: var(--yz-hover-2);
+  --vscode-statusBarItem-prominentBackground: var(--yz-azurite);
+  --vscode-statusBarItem-remoteBackground: var(--yz-malachite);
 
   /* ==========================================================
    * 5.3.6 标题栏（标题栏）
    * ========================================================== */
-  --vscode-titleBar-activeBackground: light-dark(hsl(0 0% 99.2%), hsl(210 4% 10%));
-  --vscode-titleBar-activeForeground: light-dark(hsl(0 0% 12%), hsl(0 0% 91%));
-  --vscode-titleBar-inactiveBackground: light-dark(hsl(0 0% 97%), hsl(0 0% 9%));
-  --vscode-titleBar-border: light-dark(hsl(0 0% 90%), hsl(0 0% 14%));
+  --vscode-titleBar-activeBackground: var(--yz-surface);
+  --vscode-titleBar-activeForeground: var(--yz-ink);
+  --vscode-titleBar-inactiveBackground: var(--yz-surface);
+  --vscode-titleBar-border: var(--yz-line);
   /* 工作台顶栏（原 ProjectLayout header） */
-  --vscode-topBar-background: light-dark(hsl(0 0% 99.2%), hsl(0 0% 9%));
+  --vscode-topBar-background: var(--yz-surface);
 
   /* ==========================================================
    * 5.3.7 标签：活动与非活动（标签活动与非活动）
    * ========================================================== */
-  --vscode-tab-activeBackground: light-dark(hsl(0 0% 99.2%), hsl(0 0% 9%));
-  --vscode-tab-activeForeground: light-dark(hsl(0 0% 4%), hsl(0 0% 98%));
-  --vscode-tab-activeBorderTop: light-dark(hsl(209 100% 40%), hsl(198 53% 48%));
-  --vscode-tab-activeBorder: light-dark(hsl(0 0% 83%), hsl(0 0% 26%));
-  --vscode-tab-inactiveBackground: light-dark(hsl(0 0% 99.2%), hsl(0 0% 11%));
-  --vscode-tab-inactiveForeground: light-dark(hsl(0 0% 42%), hsl(0 0% 58%));
+  --vscode-tab-activeBackground: var(--yz-ground);
+  --vscode-tab-activeForeground: var(--yz-ink);
+  --vscode-tab-activeBorderTop: var(--yz-azurite);
+  --vscode-tab-activeBorder: var(--yz-line);
+  --vscode-tab-inactiveBackground: var(--yz-surface);
+  --vscode-tab-inactiveForeground: var(--yz-ink-3);
   /* ★ t6 色板对齐：失焦组的**活动**标签底。原 `light-dark(hsl(0 0% 98%), hsl(0 0% 10%))`
    * 在亮色下算成 #fafafa（250），比 chrome 的 #fdfdfd（253）暗 3 级。而 dockview 里
    * **只有一个组时中心组也会带 `dv-inactive-group` 类**（实测 groupClass 含该串），
    * 于是中栏组头带整条落在 250，而参考图同一条带是 253。故对齐到 tab-activeBackground。 */
-  --vscode-tab-unfocusedActiveBackground: light-dark(hsl(0 0% 99.2%), hsl(0 0% 9%));
-  --vscode-tab-hoverBackground: light-dark(hsl(0 0% 96%), hsl(0 0% 15%));
-  --vscode-tab-border: light-dark(hsl(0 0% 90%), hsl(0 0% 16%));
-  --vscode-tab-lastPinnedBorder: light-dark(hsl(0 0% 83%), hsl(0 0% 30%));
+  --vscode-tab-unfocusedActiveBackground: var(--yz-ground);
+  --vscode-tab-hoverBackground: var(--yz-hover);
+  --vscode-tab-border: var(--yz-line);
+  --vscode-tab-lastPinnedBorder: var(--yz-line-strong);
 
   /* ==========================================================
    * 5.3.8 边框与聚焦边框（边框 / 聚焦边框）
    * ========================================================== */
-  --vscode-border: light-dark(hsl(0 0% 90%), hsl(210 2% 17%));
-  --vscode-divider: light-dark(hsl(0 0% 90%), hsl(0 0% 16%));
-  --vscode-splitter-background: light-dark(hsl(0 0% 90%), hsl(0 0% 14%));
+  --vscode-border: var(--yz-line);
+  --vscode-divider: var(--yz-line);
+  --vscode-splitter-background: var(--yz-line);
   /* Splitter 悬停 —— 拖拽抓手可见性关键 */
-  --vscode-splitter-hoverBackground: light-dark(hsl(0 0% 83%), hsl(0 0% 34%));
-  --vscode-splitter-activeBackground: light-dark(hsl(0 0% 62%), hsl(0 0% 46%));
+  --vscode-splitter-hoverBackground: var(--yz-azurite);
+  --vscode-splitter-activeBackground: var(--yz-azurite);
   /* 全局聚焦环（键盘焦点）
      ★ 2026-10-27「VS Code 2026 主题」对齐：恢复**蓝色**强调色。
        取值来源 = VS Code 2026 官方主题（extensions/theme-defaults/themes/2026-light.json
        的 focusBorder #0069CC / 2026-dark.json 的 #3994BC）。
        本仓此前是「严格中性灰、不用彩色」（2026-09 水墨化定稿），作者本次明确要求
        改用 VS Code 的蓝 ⇒ 只在这里与按钮/选中态三处引入彩色，其余保持中性。 */
-  --vscode-focusBorder: light-dark(hsl(209 100% 40%), hsl(198 53% 48%));
-  --vscode-widget-border: light-dark(hsl(0 0% 90%), hsl(210 2% 17%));
-  --vscode-widget-shadow: light-dark(hsl(0 0% 20% / 0.14), hsl(0 0% 0% / 0.36));
+  --vscode-focusBorder: var(--yz-azurite);
+  --vscode-widget-border: var(--yz-line);
+  --vscode-widget-shadow: var(--yz-widget-shadow);
 
   /* ==========================================================
    * 5.3.9 按钮（按钮）
@@ -150,70 +150,70 @@ html.dark {
   /* ★ 2026-10-27：主按钮改用 VS Code 2026 的蓝
      （light #0069CC / dark #297AA0，取自官方 2026-light.json / 2026-dark.json 的
       button.background）。hover 用同色相压深/提亮一档。 */
-  --vscode-button-background: light-dark(hsl(209 100% 40%), hsl(199 59% 39%));
-  --vscode-button-foreground: hsl(0 0% 100%);
-  --vscode-button-hoverBackground: light-dark(hsl(209 100% 33%), hsl(199 59% 46%));
-  --vscode-button-secondaryBackground: light-dark(hsl(0 0% 92%), hsl(0 0% 26%));
-  --vscode-button-secondaryForeground: light-dark(hsl(0 0% 12%), hsl(0 0% 94%));
-  --vscode-button-secondaryHoverBackground: light-dark(hsl(0 0% 93%), hsl(0 0% 32%));
-  --vscode-button-border: light-dark(hsl(0 0% 0% / 0.08), hsl(0 0% 100% / 0.08));
-  --vscode-toolbar-hoverBackground: light-dark(hsl(0 0% 92%), hsl(0 0% 24%));
-  --vscode-toolbar-activeBackground: light-dark(hsl(0 0% 93%), hsl(0 0% 28%));
+  --vscode-button-background: var(--yz-azurite);
+  --vscode-button-foreground: var(--yz-on-azurite);
+  --vscode-button-hoverBackground: var(--yz-azurite-hover);
+  --vscode-button-secondaryBackground: var(--yz-hover);
+  --vscode-button-secondaryForeground: var(--yz-ink);
+  --vscode-button-secondaryHoverBackground: var(--yz-hover-2);
+  --vscode-button-border: var(--yz-line);
+  --vscode-toolbar-hoverBackground: var(--yz-hover);
+  --vscode-toolbar-activeBackground: var(--yz-hover-2);
 
   /* ==========================================================
    * 5.3.10 输入框（输入框）
    * ========================================================== */
-  --vscode-input-background: light-dark(hsl(0 0% 100%), hsl(0 0% 7%));
-  --vscode-input-foreground: light-dark(hsl(0 0% 7%), hsl(0 0% 94%));
-  --vscode-input-border: light-dark(hsl(0 0% 89%), hsl(0 0% 26%));
-  --vscode-input-placeholderForeground: light-dark(hsl(0 0% 55%), hsl(0 0% 48%));
-  --vscode-inputOption-activeBorder: light-dark(hsl(0 0% 45%), hsl(0 0% 60%));
-  --vscode-inputOption-activeBackground: light-dark(hsl(0 0% 45% / 0.14), hsl(0 0% 60% / 0.25));  /* t6 去自加蓝：原 hsl(207 88% 45%/40% / …)，与上一行 activeBorder 同色相 */
-  --vscode-inputValidation-errorBackground: light-dark(hsl(0 80% 96%), hsl(0 63% 20%));
-  --vscode-inputValidation-errorBorder: light-dark(hsl(0 63% 45%), hsl(0 63% 50%));
-  --vscode-dropdown-background: light-dark(hsl(0 0% 100%), hsl(210 3% 13%));
-  --vscode-dropdown-border: light-dark(hsl(0 0% 89%), hsl(0 0% 26%));
+  --vscode-input-background: var(--yz-surface);
+  --vscode-input-foreground: var(--yz-ink);
+  --vscode-input-border: var(--yz-line);
+  --vscode-input-placeholderForeground: var(--yz-ink-3);
+  --vscode-inputOption-activeBorder: var(--yz-azurite);
+  --vscode-inputOption-activeBackground: var(--yz-azurite-tint);  /* t6 去自加蓝：原 hsl(207 88% 45%/40% / …)，与上一行 activeBorder 同色相 */
+  --vscode-inputValidation-errorBackground: var(--yz-cinnabar-tint);
+  --vscode-inputValidation-errorBorder: var(--yz-cinnabar);
+  --vscode-dropdown-background: var(--yz-surface);
+  --vscode-dropdown-border: var(--yz-line);
 
   /* ==========================================================
    * 5.3.11 滚动条（滚动条）
    *   注：themeStore.applyTheme() 已设 el.style.colorScheme，
    *   原生滚动条会跟随；下列变量用于自定义滚动条 ::-webkit-scrollbar。
    * ========================================================== */
-  --vscode-scrollbar-shadow: light-dark(hsl(0 0% 30% / 0.18), hsl(0 0% 8% / 0.6));
-  --vscode-scrollbarSlider-background: light-dark(hsl(0 0% 40% / 0.20), hsl(0 0% 50% / 0.20));
-  --vscode-scrollbarSlider-hoverBackground: light-dark(hsl(0 0% 40% / 0.34), hsl(0 0% 55% / 0.42));
-  --vscode-scrollbarSlider-activeBackground: light-dark(hsl(0 0% 40% / 0.48), hsl(0 0% 60% / 0.60));
+  --vscode-scrollbar-shadow: var(--yz-widget-shadow);
+  --vscode-scrollbarSlider-background: var(--yz-scrollbar);
+  --vscode-scrollbarSlider-hoverBackground: var(--yz-scrollbar-hover);
+  --vscode-scrollbarSlider-activeBackground: var(--yz-scrollbar-active);
 
   /* ==========================================================
    * 5.3.12 列表悬停与选中（列表悬停与选中）
    * ========================================================== */
-  --vscode-list-hoverBackground: light-dark(hsl(0 0% 93%), hsl(0 0% 22%));
-  --vscode-list-hoverForeground: light-dark(hsl(0 0% 7%), hsl(0 0% 94%));
-  --vscode-list-activeSelectionBackground: light-dark(hsl(209 100% 40% / 0.12), hsl(198 53% 48% / 0.26));
-  --vscode-list-activeSelectionForeground: light-dark(hsl(0 0% 4%), hsl(0 0% 98%));
-  --vscode-list-inactiveSelectionBackground: light-dark(hsl(0 0% 93%), hsl(0 0% 22%));
-  --vscode-list-inactiveSelectionForeground: light-dark(hsl(0 0% 12%), hsl(0 0% 88%));
-  --vscode-list-focusOutline: light-dark(hsl(0 0% 40%), hsl(0 0% 60%));
-  --vscode-list-highlightForeground: light-dark(hsl(0 0% 22%), hsl(0 0% 82%));
+  --vscode-list-hoverBackground: var(--yz-hover);
+  --vscode-list-hoverForeground: var(--yz-ink);
+  --vscode-list-activeSelectionBackground: var(--yz-azurite-tint);
+  --vscode-list-activeSelectionForeground: var(--yz-ink);
+  --vscode-list-inactiveSelectionBackground: var(--yz-hover);
+  --vscode-list-inactiveSelectionForeground: var(--yz-ink-2);
+  --vscode-list-focusOutline: var(--yz-azurite);
+  --vscode-list-highlightForeground: var(--yz-azurite);
   /* 拖拽落点行高亮（树 / 大纲重排复用） */
-  --vscode-list-dropBackground: light-dark(hsl(0 0% 45% / 0.16), hsl(0 0% 60% / 0.22));  /* t6 去自加蓝：原 hsl(207 88% 45%/50% / …) */
+  --vscode-list-dropBackground: var(--yz-drop-bg);  /* t6 去自加蓝：原 hsl(207 88% 45%/50% / …) */
 
   /* ==========================================================
    * 5.3.13 error / warning / info 语义色（语义色）
    *   success 为项目补充（VS Code 无独立 token）
    * ========================================================== */
-  --vscode-semantic-error: light-dark(hsl(0 68% 44%), hsl(0 68% 58%));
-  --vscode-semantic-error-background: light-dark(hsl(0 80% 96%), hsl(0 63% 20%));
-  --vscode-semantic-error-border: light-dark(hsl(0 63% 45%), hsl(0 63% 50%));
-  --vscode-semantic-warning: light-dark(hsl(36 90% 34%), hsl(36 90% 58%));
-  --vscode-semantic-warning-background: light-dark(hsl(36 90% 95%), hsl(36 60% 20%));
-  --vscode-semantic-warning-border: light-dark(hsl(36 70% 42%), hsl(36 70% 48%));
-  --vscode-semantic-info: light-dark(hsl(0 0% 34%), hsl(0 0% 66%));
-  --vscode-semantic-info-background: light-dark(hsl(0 0% 95%), hsl(0 0% 22%));
-  --vscode-semantic-info-border: light-dark(hsl(0 0% 55%), hsl(0 0% 55%));
-  --vscode-semantic-success: light-dark(hsl(145 55% 30%), hsl(145 55% 55%));
-  --vscode-semantic-success-background: light-dark(hsl(145 60% 95%), hsl(145 45% 18%));
-  --vscode-semantic-success-border: light-dark(hsl(145 50% 38%), hsl(145 50% 42%));
+  --vscode-semantic-error: var(--yz-cinnabar);
+  --vscode-semantic-error-background: var(--yz-cinnabar-tint);
+  --vscode-semantic-error-border: var(--yz-cinnabar);
+  --vscode-semantic-warning: var(--yz-ochre);
+  --vscode-semantic-warning-background: var(--yz-ochre-tint);
+  --vscode-semantic-warning-border: var(--yz-ochre);
+  --vscode-semantic-info: var(--yz-azurite);
+  --vscode-semantic-info-background: var(--yz-azurite-tint);
+  --vscode-semantic-info-border: var(--yz-azurite);
+  --vscode-semantic-success: var(--yz-malachite);
+  --vscode-semantic-success-background: var(--yz-malachite-tint);
+  --vscode-semantic-success-border: var(--yz-malachite);
 
   /* ==========================================================
    * 5.3.14 字体与浮层（P2 归并补齐）
@@ -226,21 +226,21 @@ html.dark {
    * 归并方向：真源为唯一真源（ADR §5.1），故把副本独有的定义**上收**到此处；
    *   副本已改为纯转发（@import 本文件），不再自行定义任何 token。
    * ========================================================== */
-  --vscode-descriptionForeground: light-dark(hsl(0 0% 44%), hsl(0 0% 58%));
-  --vscode-editorWidget-background: light-dark(hsl(0 0% 99.2%), hsl(210 3% 13%));
-  --vscode-editorWidget-border: light-dark(hsl(0 0% 89%), hsl(0 0% 26%));
-  --vscode-editorWidget-foreground: light-dark(hsl(0 0% 7%), hsl(0 0% 91%));
+  --vscode-descriptionForeground: var(--yz-ink-3);
+  --vscode-editorWidget-background: var(--yz-surface);
+  --vscode-editorWidget-border: var(--yz-line);
+  --vscode-editorWidget-foreground: var(--yz-ink);
   --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
   --vscode-font-family-mono: 'Cascadia Code', 'Consolas', 'Menlo', monospace;
   --vscode-font-size: 13px;
-  --vscode-menu-background: light-dark(hsl(0 0% 100%), hsl(210 3% 13%));
-  --vscode-menu-foreground: light-dark(hsl(0 0% 7%), hsl(0 0% 91%));
-  --vscode-sash-hoverBorder: light-dark(hsl(0 0% 55%), hsl(0 0% 58%));
-  --vscode-tab-unfocusedActiveForeground: light-dark(hsl(0 0% 10%), hsl(0 0% 92%));
+  --vscode-menu-background: var(--yz-surface);
+  --vscode-menu-foreground: var(--yz-ink);
+  --vscode-sash-hoverBorder: var(--yz-azurite);
+  --vscode-tab-unfocusedActiveForeground: var(--yz-ink-2);
   /* ★ t6 色板对齐：失焦组的**非活动**标签底同理（原 97% ≈ #f7f7f7），
    * 对齐到 tab-inactiveBackground，让标签带与参考图一样是整条 #fdfdfd。 */
-  --vscode-tab-unfocusedInactiveBackground: light-dark(hsl(0 0% 99.2%), hsl(0 0% 11%));
-  --vscode-tab-unfocusedInactiveForeground: light-dark(hsl(0 0% 48%), hsl(0 0% 54%));
+  --vscode-tab-unfocusedInactiveBackground: var(--yz-surface);
+  --vscode-tab-unfocusedInactiveForeground: var(--yz-ink-3);
 }
 
 /* ============================================================
@@ -288,28 +288,28 @@ html.dark {
      ★ 2026-10-27「现代中性」换肤：色相归零（原 220 冷灰 → 0 中性灰）、
        文字压深（13%→4%）、描边提亮（86%→90%）、主色压深（22%→9%）。
        与同文件 --vscode-* 真源**同批**调整，保证「外壳」与「面板」两套令牌不割裂。 */
-  --background: 0 0% 100%;
-  --foreground: 0 0% 4%;
-  --border: 0 0% 90%;
-  --ring: 209 100% 40%;                 /* VS Code 2026 focusBorder（2026-10-27 换用彩色强调） */
-  --input: 0 0% 90%;                      /* ⚠️ 语义是**输入框描边色**（shadcn 口径）；
+  --background: var(--yz-ground);
+  --foreground: var(--yz-ink);
+  --border: var(--yz-line);
+  --ring: var(--yz-azurite);                 /* VS Code 2026 focusBorder（2026-10-27 换用彩色强调） */
+  --input: var(--yz-line);                      /* ⚠️ 语义是**输入框描边色**（shadcn 口径）；
                                              原值 100% 纯白 ⇒ `border-input` 恒不可见 */
-  --destructive: 0 72% 45%;
-  --primary: 209 100% 40%;              /* VS Code 2026 button.background 亮档 */
-  --muted-foreground: 0 0% 45%;
+  --destructive: var(--yz-cinnabar);
+  --primary: var(--yz-azurite);              /* VS Code 2026 button.background 亮档 */
+  --muted-foreground: var(--yz-ink-2);
 
   /* —— 派生位：保持与核心位自洽（避免旧亮色值残留）—— */
   /* ★ t6 色板对齐（**保留**）：参考图没有任何纯白面板（外壳统一 `#fdfdfd` = `0 0% 99.2%`）。
      故 --card 仍取 99.2% 而非纯白 —— 否则面板与画布同白、只剩描边可分。 */
-  --card: 0 0% 99.2%;
-  --card-foreground: 0 0% 4%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 9%;
-  --destructive-foreground: 0 0% 98%;
+  --card: var(--yz-surface);
+  --card-foreground: var(--yz-ink);
+  --primary-foreground: var(--yz-on-azurite);
+  --secondary: var(--yz-hover);
+  --secondary-foreground: var(--yz-ink);
+  --muted: var(--yz-hover);
+  --accent: var(--yz-hover);
+  --accent-foreground: var(--yz-ink);
+  --destructive-foreground: var(--yz-on-cinnabar);
 }
 
 /* 暗档分支：与上面逐名对应，值取原 `light-dark()` 的第二参数。
@@ -319,22 +319,22 @@ html.dark {
      （background 13%→9%、card 13%→11%、border 22%→18%），文字提亮（85%→91%）。
      原 220 冷蓝色相一并归零 —— 暗色下发蓝是这套主题最旧的观感来源。 */
 html.dark {
-  --background: 0 0% 9%;
-  --foreground: 0 0% 91%;
-  --border: 0 0% 18%;
-  --ring: 198 53% 48%;
-  --input: 0 0% 18%;
-  --destructive: 0 62% 52%;
-  --primary: 198 53% 48%;               /* 2026-dark focusBorder / button */
-  --muted-foreground: 0 0% 64%;
+  --background: var(--yz-ground);
+  --foreground: var(--yz-ink);
+  --border: var(--yz-line);
+  --ring: var(--yz-azurite);
+  --input: var(--yz-line);
+  --destructive: var(--yz-cinnabar);
+  --primary: var(--yz-azurite);               /* 2026-dark focusBorder / button */
+  --muted-foreground: var(--yz-ink-2);
 
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 91%;
-  --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 16%;
-  --secondary-foreground: 0 0% 91%;
-  --muted: 0 0% 16%;
-  --accent: 0 0% 18%;
-  --accent-foreground: 0 0% 96%;
-  --destructive-foreground: 0 0% 98%;
+  --card: var(--yz-surface);
+  --card-foreground: var(--yz-ink);
+  --primary-foreground: var(--yz-on-azurite);
+  --secondary: var(--yz-hover);
+  --secondary-foreground: var(--yz-ink);
+  --muted: var(--yz-hover);
+  --accent: var(--yz-hover);
+  --accent-foreground: var(--yz-ink);
+  --destructive-foreground: var(--yz-on-cinnabar);
 }

@@ -15,41 +15,41 @@
        ★ 2026-10-27 起这一层是**文档一致性副本**：实际生效的是
          `ui-kit/src/styles/vscode-dark-modern.css` 的同名无层声明（无层恒胜有层，
          成因见该文件头注）。两边**必须同步改**，否则看代码的人会被误导。 */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 4%;
-    --card: 0 0% 99.2%;
-    --card-foreground: 0 0% 4%;
+    --background: var(--yz-ground);
+    --foreground: var(--yz-ink);
+    --card: var(--yz-surface);
+    --card-foreground: var(--yz-ink);
 
     /* —— 主色：墨（取代霁青）—— */
-    --primary: 209 100% 40%;               /* VS Code 2026 蓝（2026-10-27 换用彩色强调） */
-    --primary-foreground: 0 0% 100%;
+    --primary: var(--yz-azurite);               /* VS Code 2026 蓝（2026-10-27 换用彩色强调） */
+    --primary-foreground: var(--yz-on-azurite);
 
     /* —— 辅助色 —— */
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
+    --secondary: var(--yz-hover);
+    --secondary-foreground: var(--yz-ink);
+    --muted: var(--yz-hover);
+    --muted-foreground: var(--yz-ink-2);
+    --accent: var(--yz-hover);
+    --accent-foreground: var(--yz-ink);
     /* ⚠️ 严格黑白灰下危险色不再用红：改以「最深墨 + 描边」表达重量。
        若某处需要彩色警示，把下行换成 `0 72% 45%` 即可局部恢复。
        ★ 2026-10-27：shadcn 的 destructive 变体（删除按钮/危险弹窗）默认吃这个值，
          纯墨色分不出「危险」⇒ 恢复为克制的红（45% 明度，仍低饱和）。 */
-    --destructive: 0 72% 45%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: var(--yz-cinnabar);
+    --destructive-foreground: var(--yz-on-cinnabar);
 
     /* —— 边框 / 输入 / 焦点 —— */
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 209 100% 40%;                  /* 焦点环 = VS Code 2026 focusBorder */
+    --border: var(--yz-line);
+    --input: var(--yz-line);
+    --ring: var(--yz-azurite);                  /* 焦点环 = VS Code 2026 focusBorder */
 
     /* —— 弹层（popover）· 2026-10-27 新增 ——
        shadcn 的 Dialog / DropdownMenu / Popover / Command 默认用
        `bg-popover text-popover-foreground`；本仓此前**没有**这两个 token
        （tailwind.config.js 的 colors 里也没有 popover 键）⇒ 那些组件会「有形无皮」。
        值刻意别名到 card 面（弹层与卡片同色），保持"严格中性灰、不新造色相"。 */
-    --popover: 0 0% 99.2%;              /* 与 --card 同面 */
-    --popover-foreground: 0 0% 4%;
+    --popover: var(--yz-surface);              /* 与 --card 同面 */
+    --popover-foreground: var(--yz-ink);
 
     /* —— 圆角 ——
        ★ 2026-10-27「现代中性」换肤：从「苹果大圆角」收成 shadcn 基准档
@@ -87,17 +87,17 @@
 
        ★ 默认值刻意选成与旧灰阶**等价**（旧值 = mix(#1c1c1c P%, #ffffff)，
          P 由 `(255 − T) / 227` 反算），所以默认主题下渲染结果逐像素不变。 */
-    --cover-ink: #1c1c1c;
-    --cover-paper: #ffffff;
+    --cover-ink: hsl(var(--yz-ink));
+    --cover-paper: hsl(var(--yz-surface));
     /* 浓度倍率：整体压淡/加深 8 套封面的墨量（1 = 原样）。
        无单位数字 —— 组件里写作 `calc(P * var(--cover-wash-scale) * 1%)`，
        ⚠️ 不能写成百分比再相乘：calc 里 `% × %` 是非法值。 */
     --cover-wash-scale: 1;
-    --cover-line: #1c1c1c;
+    --cover-line: hsl(var(--yz-ink));
     /* 装饰层（SVG 的山/云/竹…）与文字分开：文字要深、装饰要淡。
        默认主题两者同值，所以外观与改前一致。 */
-    --cover-decor: #1c1c1c;
-    --cover-seal: #3a3a3a;
+    --cover-decor: hsl(var(--yz-ink));
+    --cover-seal: hsl(var(--yz-cinnabar));
 
     /* —— 书封上的**文字与浮层**（BookCard.tsx）——
        ★ 为什么抽出来（2026-09-18 实测）：
@@ -114,7 +114,7 @@
          **这是等价的** —— `color-mix(in srgb, #fff 65%, transparent)`
          算出来就是 `rgba(255,255,255,0.65)`，逐像素一致。
          所以默认主题外观不变，而主题只需换一个值就能整体翻面。 */
-    --cover-fg: #ffffff;
+    --cover-fg: hsl(var(--yz-cover-fg));
     /* 各处的白度（原值原样搬过来，别改 —— 改了默认主题就变样了） */
     --cover-title-alpha: 95%;
     --cover-meta-alpha: 65%;
@@ -144,25 +144,24 @@
          比逐个隐藏元素快得多，而且一眼就能看出遮罩的**方向与范围**。
        ★ 另外两个坑：`elementsFromPoint` **不含伪元素**；所以还配合查了
          `getComputedStyle(el, '::before'/'::after')`（本例确实没有）。
-       ★ 默认值 = 原硬编码渐变 + 原 opacity ⇒ 默认主题逐像素不变。 */
-    --cover-scrim: linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 0.35) 50%,
-      rgba(0, 0, 0, 0.75) 100%
-    );
-    --cover-scrim-opacity: 0.92;
+       ★ 2026-10-30（P5）：上面那段是**历史诊断**，现已改造 ——
+         原值是纯黑 0→0.75 + opacity 0.92，是为了补救**过淡的封面渐变**。
+         `BookCover` 的 wash 提浓（9.7%→26% 起）后，封面底部本身已有 9–13:1
+         的对比度，再叠 0.75 黑属过度补偿，且**纯黑会把模板色相洗成中性灰**。
+         现在改为 identity.css 的 `--yz-scrim`：同色相深墨、α 减半。 */
+    --cover-scrim: var(--yz-scrim);
+    --cover-scrim-opacity: 1;
 
     /* —— 语义色板（沿用旧命名，值改为「墨分五色」灰阶）——
        焦墨 9% / 浓墨 16% / 重墨 30% / 淡墨 50% / 清墨 68%。
        命名保留是为了不动组件；语义已从「山水色」转为「墨色深浅」。 */
-    --mountain-cyan: 0 0% 12%;             /* 主强调：浓墨 */
-    --mountain-light: 0 0% 52%;            /* 淡墨 */
-    --mountain-deep: 0 0% 20%;             /* 深墨（深锚点 / 文字强调） */
-    --mountain-pale: 0 0% 90%;             /* 极淡墨（纸面浅痕） */
-    --mist-blue: 0 0% 62%;                 /* 中淡墨 */
-    --mist-pale: 0 0% 92%;                 /* 淡雾 → 纸灰 */
-    --mist-deep: 0 0% 44%;                 /* 深雾 → 重墨偏淡 */
+    --mountain-cyan: var(--yz-azurite); /* 主强调 · 石青 */
+    --mountain-light: var(--yz-azurite-hover); /* 石青 · 悬停 */
+    --mountain-deep: var(--yz-azurite-700); /* 石青 · 最深档 */
+    --mountain-pale: var(--yz-azurite-tint); /* 石青淡底（color-mix 推导） */
+    --mist-blue: var(--yz-azurite-hover); /* 石青 · 悬停 */
+    --mist-pale: var(--yz-hover); /* 交互态·悬停 */
+    --mist-deep: var(--yz-ink-2); /* 前景·次 */
     /* ★ 遗留别名（2026-10 停靠重构）：`--ink*` 是水墨主题期的**前景色三元组**，
        现语义等价于 VS Code Dark Modern 的前景三级 ——
          --ink        ≈ --vscode-editor-foreground         (L41  hsl(220 14% 85%))
@@ -176,24 +175,24 @@
          所以一旦删除定义，这 187 处会静默失效（无效值 ⇒ 回落继承色），是纯视觉回归。
        ⇒ 迁移路径：随各消费文件逐步改引 `--vscode-*` 后，再删这三行。
          迁移完成前，本块是**唯一的** `--ink*` 真源（值仍为 HSL 三元组，勿改成整色值）。 */
-    --ink: 0 0% 4%;                        /* 前景·主（2026-10-27：与 --foreground 同档） */
-    --ink-light: 0 0% 38%;                 /* 前景·次 */
-    --ink-pale: 0 0% 58%;                  /* 前景·弱 */
-    --cinnabar: 0 0% 18%;                  /* 朱砂 → 最重墨 */
-    --cinnabar-pale: 0 0% 90%;
-    --willow: 0 0% 28%;                    /* 成功/生长 → 浓墨 */
-    --willow-pale: 0 0% 90%;
-    --ochre: 0 0% 46%;                     /* 警示 → 重墨 */
-    --ochre-pale: 0 0% 90%;
+    --ink: var(--yz-ink);                        /* 前景·主（2026-10-27：与 --foreground 同档） */
+    --ink-light: var(--yz-ink-2);                 /* 前景·次 */
+    --ink-pale: var(--yz-ink-3);                  /* 前景·弱 */
+    --cinnabar: var(--yz-cinnabar); /* 朱砂 · 全站唯一强调（印 / 危险） */
+    --cinnabar-pale: var(--yz-cinnabar-tint); /* 朱砂淡底（color-mix 推导） */
+    --willow: var(--yz-malachite); /* 石绿 · 成功 / 完成 */
+    --willow-pale: var(--yz-malachite-tint); /* 石绿淡底（color-mix 推导） */
+    --ochre: var(--yz-ochre); /* 赭石 · 警示 / 待审批 */
+    --ochre-pale: var(--yz-ochre-tint); /* 赭石淡底（color-mix 推导） */
 
     /* —— 质感 token：由「液态玻璃」转为「宣纸」——
        纸不折射、不染饱和度，故 blur 下调、saturate 归 100%，
        投影自中性墨黑发出（而非靛蓝），高光是纸面的「蛤白」。 */
     --glass-blur: 10px;
     --glass-saturate: 100%;
-    --glass-tint: 250 250 250;             /* 纸面基调 — 中性白（饱和度 0） */
+    --glass-tint: var(--yz-glass-tint);             /* 纸面基调 — 中性白（饱和度 0） */
     --glass-highlight: 255 255 255;        /* 顶部高光 (RGB 三元组) */
-    --glass-shadow: 0 0% 0%;               /* 投影色 → 纯墨黑 */
+    --glass-shadow: var(--yz-shadow-color);               /* 投影色 → 纯墨黑 */
 
     /* 各层级不透明度（纸是不透明的：整体上调；
        边框取墨线，比玻璃更低的不透明度即可形成"勾线"感。
@@ -230,25 +229,25 @@
 
     /* —— 实体分类色（知识库 / 状态看板里的实体类型）——
        区分手段由「色相」改为「墨阶」：靠深浅而非颜色。 */
-    --entity-character: 0 0% 12%;      /* 角色 · 焦墨 */
-    --entity-location: 0 0% 26%;       /* 地点 · 浓墨 */
-    --entity-item: 0 0% 36%;           /* 物品 · 重墨 */
-    --entity-foreshadow: 0 0% 46%;     /* 伏笔 · 中墨 */
-    --entity-event: 0 0% 58%;          /* 事件 · 淡墨 */
-    --entity-outline: 0 0% 68%;        /* 大纲 · 清墨 */
+    --entity-character: var(--yz-azurite); /* 角色 · 石青 */
+    --entity-location: var(--yz-malachite); /* 地点 · 石绿 */
+    --entity-item: var(--yz-ochre); /* 物品 · 赭石 */
+    --entity-foreshadow: var(--yz-cinnabar); /* 伏笔 · 朱砂 */
+    --entity-event: var(--yz-ink-2); /* 事件 · 次要前景 */
+    --entity-outline: var(--yz-ink-3); /* 大纲 · 弱前景 */
 
     /* —— 智能体色（AI 写作工作台的四官 + 写作官）—— */
-    --agent-plot: 0 0% 20%;            /* 剧情设计师 */
-    --agent-character: 0 0% 30%;       /* 角色设计师 */
-    --agent-continuity: 0 0% 40%;      /* 设定管家 */
-    --agent-convener: 0 0% 50%;        /* 定稿官 */
-    --agent-writer: 0 0% 8%;           /* 写作官 · 落笔最重 */
+    --agent-plot: var(--yz-azurite-700);            /* 剧情设计师 */
+    --agent-character: var(--yz-azurite);       /* 角色设计师 */
+    --agent-continuity: var(--yz-azurite-500);      /* 设定管家 */
+    --agent-convener: var(--yz-azurite-400);        /* 定稿官 */
+    --agent-writer: var(--yz-cinnabar); /* 写作官 · 落笔者（朱砂） */
 
     /* —— 状态色（阶段推进 / 门槛结果）—— */
-    --state-idle: 0 0% 72%;            /* 待开始 · 纸未着墨 */
-    --state-running: 0 0% 40%;         /* 进行中 · 墨在晕 */
-    --state-done: 0 0% 14%;            /* 已完成 · 墨已定 */
-    --state-blocked: 0 0% 8%;          /* 被挡下 · 焦墨压住 */
+    --state-idle: var(--yz-ink-3); /* 待开始 */
+    --state-running: var(--yz-azurite); /* 进行中 · 石青 */
+    --state-done: var(--yz-malachite); /* 已完成 · 石绿 */
+    --state-blocked: var(--yz-cinnabar); /* 被挡下 · 朱砂 */
 
     /* —— 章节区分墨阶（时间线章列头 / 事件类型标签）——
        原为 6 色高饱和板（#4a90d9 蓝 / #8b5cf6 紫 / #ec4899 粉 / #f97316 橙 /
@@ -259,14 +258,14 @@
        改为 8 档墨阶：明度 4%→38%，相邻差 4–5%，灰阶下可区分；
        最浅档（38%）在自身 10% 底上仍有 5.14:1，全部过 AA。
        ⚠️ 上限就是 38%：44% 起降到 4.16:1 不再达标，别往更浅调。 */
-    --chapter-1: 0 0% 4%;
-    --chapter-2: 0 0% 9%;
-    --chapter-3: 0 0% 14%;
-    --chapter-4: 0 0% 19%;
-    --chapter-5: 0 0% 24%;
-    --chapter-6: 0 0% 29%;
-    --chapter-7: 0 0% 33%;
-    --chapter-8: 0 0% 38%;
+    --chapter-1: var(--yz-chapter-1);
+    --chapter-2: var(--yz-chapter-2);
+    --chapter-3: var(--yz-chapter-3);
+    --chapter-4: var(--yz-chapter-4);
+    --chapter-5: var(--yz-chapter-5);
+    --chapter-6: var(--yz-chapter-6);
+    --chapter-7: var(--yz-chapter-7);
+    --chapter-8: var(--yz-chapter-8);
 
     /* ============================================================
      * 墨韵工艺层 · Ink Craft Layer（2026-09-18）
@@ -295,15 +294,15 @@
        越靠前越"深"（凹陷），越靠后越"浮"（抬升）。 */
     --paper-canvas: var(--background);      /* 底层宣纸 · 页面底 */
     --paper: var(--card);                   /* 承墨的纸 · 卡片/面板面 */
-    --paper-inset: var(--muted);            /* 凹陷 · 内嵌块 / 行 hover */
+    --paper-inset: var(--yz-sunken);            /* 凹陷 · 内嵌块 / 行 hover */
     --paper-field: var(--input);            /* 输入域 · 输入框/下拉底 */
-    --paper-hover: 0 0% 95%;                /* 交互态一档：轻浮起 */
-    --paper-hover-2: 0 0% 91%;              /* 交互态二档：按下/选中 */
+    --paper-hover: var(--yz-hover);                /* 交互态一档：轻浮起 */
+    --paper-hover-2: var(--yz-hover-2);              /* 交互态二档：按下/选中 */
 
     /* —— 墨线（勾线三档）：卡片不靠投影，靠一根 1px 墨线 —— */
     --paper-line: var(--border);            /* 常规勾线 */
-    --paper-line-strong: 0 0% 70%;          /* 强勾线 · 聚焦/选中/主按钮 */
-    --paper-line-soft: 0 0% 90%;            /* 弱勾线 · 分区/内部栅格 */
+    --paper-line-strong: var(--yz-line-strong);          /* 强勾线 · 聚焦/选中/主按钮 */
+    --paper-line-soft: var(--yz-line);            /* 弱勾线 · 分区/内部栅格 */
 
     /* —— 墨阶文字（tone）三档 ——
        tone   = 正文（= --foreground）
@@ -314,9 +313,9 @@
                    暗色 4.48–5.6:1 达标。任何"用户需要读"的内容一律用 tone-2。
                 （2026-09-16 审计 C1：gray-400 2.45:1 用在真实内容上属缺陷 —— 别重蹈）
        取值经对比度求解器验过，不是估的。 */
-    --tone: var(--foreground);
-    --tone-2: 0 0% 41%;
-    --tone-3: 0 0% 50%;
+    --tone: var(--yz-ink);
+    --tone-2: var(--yz-ink-2);
+    --tone-3: var(--yz-ink-3);
 
     /* —— 圆角档位（radius）：四级，替代到处写 rounded-[10px] ——
        ⚠️ 与既有 --radius(16px 苹果大圆角) 并存，不覆盖它：
@@ -356,14 +355,14 @@
        取法：色相借自该库的状态色，饱和度压到 16–36%（该库 15–20% chroma），
        明度按灰阶调子收紧。禁止用于大面积填充、正文、边框。
        实测：作为 11px 文字压在自身 10% 淡底上，亮色最低 4.57:1 / 暗色最低 5.54:1，全过 AA。 */
-    --sig-run: 210 18% 42%;                 /* 进行中 / 思考中 / 流式 */
-    --sig-done: 152 16% 34%;                /* 已完成 / 已落库 */
-    --sig-warn: 36 32% 38%;                 /* 待审批 / 存疑 / 漂移 */
-    --sig-stop: 4 34% 44%;                  /* 失败 / 被阻断 */
-    --sig-run-tint: 210 18% 42% / 0.1;
-    --sig-done-tint: 152 16% 34% / 0.1;
-    --sig-warn-tint: 36 32% 38% / 0.1;
-    --sig-stop-tint: 4 34% 44% / 0.1;
+    --sig-run: var(--yz-azurite);                 /* 进行中 / 思考中 / 流式 */
+    --sig-done: var(--yz-malachite);                /* 已完成 / 已落库 */
+    --sig-warn: var(--yz-ochre);                 /* 待审批 / 存疑 / 漂移 */
+    --sig-stop: var(--yz-cinnabar);                  /* 失败 / 被阻断 */
+    --sig-run-tint: var(--yz-azurite-tint);
+    --sig-done-tint: var(--yz-malachite-tint);
+    --sig-warn-tint: var(--yz-ochre-tint);
+    --sig-stop-tint: var(--yz-cinnabar-tint);
 
     /* —— 间距档位（space）：十一档尺子（2026-10-25）——
        ★ 为什么是 2px 基而不是 4px：**实测出来的**。全仓 ~2230 处间距声明里，
@@ -427,39 +426,39 @@
 
   /* —— 暗色模式（html.dark：底转深，前景转亮）—— */
   .dark {
-    --background: 0 0% 9%;                 /* 2026-10-27：与 --vscode-editor-background 暗档同源 */
-    --foreground: 0 0% 91%;
-    --card: 0 0% 11%;
-    --card-foreground: 0 0% 91%;
-    --primary: 198 53% 48%;                /* 暗档 = 2026-dark focusBorder */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 16%;
-    --secondary-foreground: 0 0% 91%;
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 18%;
-    --accent-foreground: 0 0% 96%;
+    --background: var(--yz-ground);                 /* 2026-10-27：与 --vscode-editor-background 暗档同源 */
+    --foreground: var(--yz-ink);
+    --card: var(--yz-surface);
+    --card-foreground: var(--yz-ink);
+    --primary: var(--yz-azurite);                /* 暗档 = 2026-dark focusBorder */
+    --primary-foreground: var(--yz-on-azurite);
+    --secondary: var(--yz-hover);
+    --secondary-foreground: var(--yz-ink);
+    --muted: var(--yz-hover);
+    --muted-foreground: var(--yz-ink-2);
+    --accent: var(--yz-hover);
+    --accent-foreground: var(--yz-ink);
     /* ≥20% 的灰在暗底上是可见的，故暗色档用中等红即可（不必反相成亮色） */
-    --destructive: 0 62% 52%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 198 53% 48%;
+    --destructive: var(--yz-cinnabar);
+    --destructive-foreground: var(--yz-on-cinnabar);
+    --border: var(--yz-line);
+    --input: var(--yz-line);
+    --ring: var(--yz-azurite);
 
     /* 弹层（popover）暗色档 —— 见 :root 同名注释。别名到 card 面。 */
-    --popover: 0 0% 11%;
-    --popover-foreground: 0 0% 91%;
+    --popover: var(--yz-surface);
+    --popover-foreground: var(--yz-ink);
 
     /* 遗留别名 `--ink*` 的暗色档（语义见上方 :root 同名的长注释）。
        三元组必须与亮色档分开声明，否则暗色下 `hsl(var(--ink))` 会拿到亮色的深值。 */
-    --ink: 0 0% 91%;
-    --ink-light: 0 0% 70%;
-    --ink-pale: 0 0% 52%;
+    --ink: var(--yz-ink);
+    --ink-light: var(--yz-ink-2);
+    --ink-pale: var(--yz-ink-3);
 
     /* 暗色质感：底色在暗档下近乎不显，高光更弱、叠加略高于玻璃期（底不透明） */
-    --glass-tint: 255 255 255;
+    --glass-tint: var(--yz-glass-tint);
     --glass-highlight: 255 255 255;
-    --glass-shadow: 0 0% 0%;
+    --glass-shadow: var(--yz-shadow-color);
     --glass-surface-bg: 0.06;
     --glass-surface-border: 0.10;
     --glass-surface-highlight: 0.04;
@@ -477,35 +476,35 @@
     --glass-modal-highlight: 0.12;
 
     /* —— 语义扩展层：暗底反相 —— 墨阶整体上翻，并保持彼此可辨的距离 —— */
-    --entity-character: 0 0% 92%;      /* 焦墨 → 最亮 */
-    --entity-location: 0 0% 78%;
-    --entity-item: 0 0% 68%;
-    --entity-foreshadow: 0 0% 58%;
-    --entity-event: 0 0% 48%;
-    --entity-outline: 0 0% 40%;
+    --entity-character: var(--yz-azurite); /* 角色 · 石青 */
+    --entity-location: var(--yz-malachite); /* 地点 · 石绿 */
+    --entity-item: var(--yz-ochre); /* 物品 · 赭石 */
+    --entity-foreshadow: var(--yz-cinnabar); /* 伏笔 · 朱砂 */
+    --entity-event: var(--yz-ink-2); /* 事件 · 次要前景 */
+    --entity-outline: var(--yz-ink-3); /* 大纲 · 弱前景 */
 
-    --agent-plot: 0 0% 82%;
-    --agent-character: 0 0% 72%;
-    --agent-continuity: 0 0% 62%;
-    --agent-convener: 0 0% 52%;
-    --agent-writer: 0 0% 95%;
+    --agent-plot: var(--yz-azurite-700);
+    --agent-character: var(--yz-azurite);
+    --agent-continuity: var(--yz-azurite-500);
+    --agent-convener: var(--yz-azurite-400);
+    --agent-writer: var(--yz-cinnabar); /* 写作官 · 落笔者（朱砂） */
 
-    --state-idle: 0 0% 38%;
-    --state-running: 0 0% 60%;
-    --state-done: 0 0% 88%;
-    --state-blocked: 0 0% 96%;
+    --state-idle: var(--yz-ink-3); /* 待开始 */
+    --state-running: var(--yz-azurite); /* 进行中 · 石青 */
+    --state-done: var(--yz-malachite); /* 已完成 · 石绿 */
+    --state-blocked: var(--yz-cinnabar); /* 被挡下 · 朱砂 */
 
     /* 章节墨阶：暗底反相 —— 与亮色模式同序（chapter-1 最重），
        在夜宣底上「重」= 更亮。最暗档（第 8 档）取 62%，
        保证压在自身 10% 底（≈夜底微亮）上仍过 AA。 */
-    --chapter-1: 0 0% 96%;
-    --chapter-2: 0 0% 91%;
-    --chapter-3: 0 0% 86%;
-    --chapter-4: 0 0% 81%;
-    --chapter-5: 0 0% 76%;
-    --chapter-6: 0 0% 71%;
-    --chapter-7: 0 0% 66%;
-    --chapter-8: 0 0% 62%;
+    --chapter-1: var(--yz-chapter-1);
+    --chapter-2: var(--yz-chapter-2);
+    --chapter-3: var(--yz-chapter-3);
+    --chapter-4: var(--yz-chapter-4);
+    --chapter-5: var(--yz-chapter-5);
+    --chapter-6: var(--yz-chapter-6);
+    --chapter-7: var(--yz-chapter-7);
+    --chapter-8: var(--yz-chapter-8);
 
     /* —— 墨韵工艺层：夜墨反相 ——
        纸面层级里的 --paper / --paper-canvas / --paper-inset / --paper-field
@@ -513,18 +512,18 @@
        这里只列**写死的档位**与信号色。 */
 
     /* 交互态：夜底上"浮起"= 更亮 */
-    --paper-hover: 0 0% 17%;
-    --paper-hover-2: 0 0% 21%;
+    --paper-hover: var(--yz-hover);
+    --paper-hover-2: var(--yz-hover-2);
 
     /* 勾线：夜墨里线要更亮才看得出 */
-    --paper-line-strong: 0 0% 36%;
-    --paper-line-soft: 0 0% 18%;
+    --paper-line-strong: var(--yz-line-strong);
+    --paper-line-soft: var(--yz-line);
 
     /* 墨阶文字：暗底上"浅"= 更亮，整体上翻。
        tone-3 从 52% 提到 60%：52% 压在 field(18%) 上只有 3.68:1，58% 也只有 4.48:1（差一点），
        60% 得 4.77:1 —— 暗色下这一档**也达标 AA**，比亮色那档更严。 */
-    --tone-2: 0 0% 68%;
-    --tone-3: 0 0% 60%;
+    --tone-2: var(--yz-ink-2);
+    --tone-3: var(--yz-ink-3);
 
     /* 投影：夜底上黑影不可见，改由高不透明度黑 + 勾线共同定位 */
     --shadow-card:
@@ -542,14 +541,14 @@
     --shadow-inset-field: inset 0 1px 2px hsl(0 0% 0% / 0.28);
 
     /* 信号色：暗底上提亮，饱和度略抬以抵消夜墨的"吸色" */
-    --sig-run: 210 20% 68%;
-    --sig-done: 152 18% 64%;
-    --sig-warn: 36 34% 70%;
-    --sig-stop: 4 36% 70%;
-    --sig-run-tint: 210 20% 68% / 0.14;
-    --sig-done-tint: 152 18% 64% / 0.14;
-    --sig-warn-tint: 36 34% 70% / 0.14;
-    --sig-stop-tint: 4 36% 70% / 0.14;
+    --sig-run: var(--yz-azurite);
+    --sig-done: var(--yz-malachite);
+    --sig-warn: var(--yz-ochre);
+    --sig-stop: var(--yz-cinnabar);
+    --sig-run-tint: var(--yz-azurite-tint);
+    --sig-done-tint: var(--yz-malachite-tint);
+    --sig-warn-tint: var(--yz-ochre-tint);
+    --sig-stop-tint: var(--yz-cinnabar-tint);
   }
 }
 
@@ -984,31 +983,51 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 .nm-btn-apple:hover { transform: translateY(-1px); }
 .nm-btn-apple:active { transform: scale(0.97); }
 
+/* ★ 2026-10-29 主按钮重做（作者口径「UI 太难看」）。
+   这是全站的主行动按钮（落地页 / 书架 / 新建向导 / 左栏空态共 8 处消费），
+   原来是一枚**半透明发光胶囊**：`border-radius: 980px` + `rgba(255,255,255,.22)`
+   发丝边 + `backdrop-filter: blur(16px)` + 双层发光投影，外加一条 `::after`
+   画的**手绘笔触描边**（水墨时期遗留，见下方已删规则）。
+   问题不在"好不好看"，而在**它不像按钮**：半透明 + 发光 + 胶囊 + 倾斜描边，
+   四种"轻"的语汇叠在一起，一屏里最该被看见的主行动反而最没有分量；
+   而且模糊底在深浅两档下取到的对比度不稳定（深色档尤甚）。
+   现在改成实心、方角（8px）、单层浅投影 —— 与左侧竖栏的控件圆角同档，
+   颜色/前景全取 token，深浅两档都成立。 */
 .nm-btn-apple-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  border-radius: 980px;                    /* 统一胶囊椭圆 */
-  border: 0.5px solid rgba(255,255,255,0.22);
-  background: hsl(var(--primary) / 0.82);  /* 半透明霁青 */
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  color: #fff;
-  padding: var(--space-4) var(--space-8);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: var(--space-3) var(--space-6);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  /* 关键：按钮**不继承衬线**。书架/落地页的父级带 `Noto Serif SC`，
+     继承下来会让按钮文字变成正文体，与"控件用无衬线"的全局规则冲突。 */
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 10px hsl(var(--primary) / 0.25), inset 0 1px 0 rgba(255,255,255,0.28);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px hsl(var(--glass-shadow) / 0.14);
 }
 .nm-btn-apple-primary:hover {
-  background: hsl(var(--primary) / 0.95);
-  box-shadow: 0 4px 14px hsl(var(--primary) / 0.40), inset 0 1px 0 rgba(255,255,255,0.30);
+  background: hsl(var(--primary) / 0.9);
+  box-shadow: 0 2px 6px hsl(var(--glass-shadow) / 0.18);
+}
+.nm-btn-apple-primary:active {
+  background: hsl(var(--primary));
+  box-shadow: none;
+}
+.nm-btn-apple-primary:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 .nm-btn-apple-primary:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .nm-btn-apple-secondary {
@@ -1108,15 +1127,18 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 
 /* ============================================================
- * 毛笔化：按钮外勾一道「手绘墨线」（2026-09-15）
+ * 原「毛笔化：按钮外勾一道手绘墨线」（2026-09-15）已删除（2026-10-29）
  *
- * 为什么不改形状：这些按钮的统一语言是 980px 胶囊（两端半圆）。
- *   把圆角改成多值「手绘圆角」会直接把胶囊变成方圆形块 —— 形态破坏太大。
- *   毛笔味的本质是「笔锋」而非「形状」，所以改为**在按钮外再勾一道微倾的墨线**，
- *   像写完一个字又用笔尖轻轻描了一遍。
+ * 它给每个 `.nm-btn-apple-*` 加了一个 `::after`：`inset: -2.5px` +
+ * `rotate(-0.5deg)` 的 1px 墨线，hover 时再往外描一遍。水墨时期这是"笔锋"，
+ * 但当按钮本身已经改回实心方角之后，它只剩下**副作用**：
+ *   · 一屏里每个按钮都多一圈歪掉的轮廓，密集工具栏（工作台）尤其明显；
+ *   · 它用 `--ink`（正文墨色）当描边色，在深色档下是在深底上再描一道深线，
+ *     对比度极低、只剩脏边；
+ *   · `inset` 变化会触发逐帧重排（每次 hover 都要重算外框）。
+ * 删除是纯视觉净变化，无行为影响 —— 按钮的点击/键盘/禁用语义全在元素本身。
  *
- * 成本：纯 CSS 伪元素（1px 边框 + 0.5° 旋转），零滤镜、零重绘，
- *   不像背景那套 feTurbulence 需要逐像素计算。
+ * 保留 `position: relative`：其他伪元素/浮层若以按钮为定位基准，删掉它会错位。
  * ============================================================ */
 .nm-btn-apple,
 .nm-btn-apple-primary,
@@ -1126,59 +1148,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   position: relative;
 }
 
-.nm-btn-apple::after,
-.nm-btn-apple-primary::after,
-.nm-btn-apple-secondary::after,
-.nm-btn-apple-ghost::after,
-.nm-btn-apple-destructive::after {
-  content: '';
-  position: absolute;
-  inset: -2.5px;
-  border-radius: inherit;
-  border: 1px solid hsl(var(--ink) / 0.2);
-  /* 微倾 + 四角半径本就均匀，所以观感是「歪了一点的手描线」而非机械外框 */
-  transform: rotate(-0.5deg);
-  pointer-events: none;
-  opacity: 0.8;
-  transition: opacity 0.3s ease, inset 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
-}
-
-/* hover：笔尖再描一遍 —— 墨线略扩、略深 */
-.nm-btn-apple-primary:hover:not(:disabled)::after,
-.nm-btn-apple-secondary:hover:not(:disabled)::after,
-.nm-btn-apple-ghost:hover:not(:disabled)::after,
-.nm-btn-apple-destructive:hover:not(:disabled)::after {
-  inset: -3.6px;
-  border-color: hsl(var(--ink) / 0.32);
-  opacity: 1;
-}
-
-/* active：落笔收紧，墨线贴近纸面 */
-.nm-btn-apple-primary:active:not(:disabled)::after,
-.nm-btn-apple-secondary:active:not(:disabled)::after,
-.nm-btn-apple-ghost:active:not(:disabled)::after,
-.nm-btn-apple-destructive:active:not(:disabled)::after {
-  inset: -1.4px;
-  opacity: 1;
-}
-
-.nm-btn-apple-primary:disabled::after,
-.nm-btn-apple-secondary:disabled::after,
-.nm-btn-apple-ghost:disabled::after,
-.nm-btn-apple-destructive:disabled::after {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .nm-btn-apple::after,
-  .nm-btn-apple-primary::after,
-  .nm-btn-apple-secondary::after,
-  .nm-btn-apple-ghost::after,
-  .nm-btn-apple-destructive::after {
-    transition: none !important;
-  }
-}
-
 /* —— 兼容旧 .nm-glass-* 命名：已与新 .glass-* 类共用同一声明（见上方逗号分隔选择器）—— */
 
 /* ============================================================
@@ -1186,12 +1155,31 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
    复用 glass token，保持与设计系统一致
    ============================================================ */
 
-/* 写作区宽度收口：整体收窄 30%（70% 宽）并水平居中，
-   让标题 / 伏笔警告 / 正文玻璃卡三处对齐（均使用 .nm-editor-responsive） */
+/* 写作区宽度收口：整体收窄（68% 宽）并水平居中，
+   让标题 / 伏笔警告 / 正文玻璃卡三处对齐（均使用 .nm-editor-responsive）。
+
+   ★ 2026-10-29 补 `max-width`（作者口径「正文偏在左边」）：
+     只有 `width: 68%` 时，版心宽度随窗口线性增长 —— 1480px 宽的编辑区
+     会得到一个 957px 的版心，而正文行宽被 34em（≈578px）卡住，
+     于是文字整体**贴在版心左侧**，右侧空出 380px：截图上就是"左窄右空"。
+     加一条 `max-width` 把版心钉在正文行宽的量级上，超宽窗口下版心不再变宽，
+     左右留白对称。（左对齐后中轴不再显示，但版心位置仍决定整块文字的落点。）
+   ⚠️ 页面视图（A4 稿纸）**必须豁免** —— 纸张有自己的固定宽度与缩放计算，
+      再套一层 max-width 会让纸张被迫二次缩放（页码/翻页按纸张几何算）。
+      判据用 `.is-page-view`（由 EditorPage 在滚动宿主上按偏好加）。 */
 .nm-editor-responsive {
   width: 68%;
+  /* 版心 = 正文行宽，两者必须**逐点相同**（左对齐后左基线才对得齐）。
+     不能写 `34em`：em 取的是**本元素**的字号，而编辑区宿主是 13px
+     （`--vscode-font-size`），正文却是 clamp(15,1.6vw,17)px —— 同一个 `em`
+     在两处算出的长度差 ~25%（实测 520 vs 578）。故显式按正文的 clamp 复算。 */
+  max-width: calc(34 * clamp(15px, 1.6vw, 17px));
   margin-left: auto;
   margin-right: auto;
+}
+
+.nm-editor-responsive:has(.is-page-view) {
+  max-width: none;
 }
 
 /* 编辑器卡片容器 — 无框无底（2026-09-10 作者定稿：正文直接浮在氛围底上）：
@@ -1219,44 +1207,45 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 
 /* ════ 编辑器正文排版（全局常驻，所有视图共享同一套样式） ════ */
+/* ★ 2026-10-29 正文改版（作者拍板，撤销 2026-09-16 的 E2/E3 定稿）：
+   原设计是「正文居中 + 每段一条信纸横线 + 字重 600」。作者本轮口径为
+   「左对齐、去掉横线、字重常规」，理由：
+     · 居中长文在中文字排版里没有先例 —— 每行起止位置逐行浮动，
+       读者找不到左基线，回行时眼睛要重新找位置；
+     · 每行一条横线（repeating-linear-gradient）在满页文字下会与文字
+       争视觉重量，屏幕上的「稿纸」并不像纸；
+     · 600（半粗）是**标题级**字重，整章正文用它会让版面发黑、笔画糊在一起。
+   现在：左对齐 + 行宽 34em + 字重 400（常规）。行宽与字号不动 ——
+   那是 E2 算过的结论（34 字/行），只撤对齐与装饰。
+   ⚠️ 字重的**可调**能力没有取消：设置页 / 「字体排版」面板仍能改，
+      这里只改「默认值」（见 typography/web/index.tsx 的 DEFAULT_SETTINGS）。 */
 .ProseMirror {
   font-family: 'Noto Serif SC', serif !important;
   font-size: clamp(15px, 1.6vw, 17px) !important;
-  font-weight: 600 !important;
+  font-weight: 400 !important;
   line-height: 1.9 !important;
   color: hsl(var(--ink)) !important;
   padding: 0 !important;
   outline: none !important;
-  /* 书信排版：每行文字居中坐在信纸横线上；写满自动折行（overflow-wrap/break-word 兜底） */
-  text-align: center !important;
+  /* 写满自动折行（overflow-wrap/break-word 兜底） */
+  text-align: left !important;
   min-height: 100%;
 }
 .ProseMirror p {
-  margin: 0 0 var(--space-1) 0;
+  /* 段间距：原 6px（--space-1）在 1.9 行高下几乎看不出分段，段落会连成一片。
+     提到 --space-4（14px ≈ 0.8 行）—— 中文长文的常规段落呼吸量。 */
+  margin: 0 0 var(--space-4) 0;
   overflow-wrap: break-word;
   word-break: break-word;
 }
-/* 行宽收窄（E2，2026-09-16）：原实测 1210px ÷ 17px = 71 字/行，远超中文正文舒适区（25–40 字）。
-   收窄到 34em（≈34 字）并居中——居中取向保持不动（E3 是定稿设计，只收窄不改对齐）。
-   ⚠️ 必须同时约束段落本身：信纸横线画在 .ProseMirror p 上，只限制外层容器的话
-      横线仍会铺满 1210px，与文字宽度对不齐。
+/* 行宽收窄（E2，2026-09-16 定稿，本轮保留）：原实测 1210px ÷ 17px = 71 字/行，
+   远超中文正文舒适区（25–40 字），收到 34em（≈34 字）。
+   ⚠️ 约束**段落本身**而不是外层容器 —— 否则段落的左右边界会随容器走，
+      与上面的行宽意图不一致。
    ⚠️ 用 max-width 而非固定 width：窄屏时自动退化为占满可用宽度。 */
 .ProseMirror > p,
 .ProseMirror > .is-empty {
   max-width: 34em;
-  margin-left: auto;
-  margin-right: auto;
-}
-/* 书信纸：横线画在每个段落自身（em 基准随字号响应式缩放，与 1.9 行高逐行对齐），
-   段间 4px 空隙自然断线；空段落同样画线，保持信纸连续感 */
-.ProseMirror p, .ProseMirror .is-empty {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent calc(1.9em - 1px),
-    hsl(var(--ink-pale) / 0.30) calc(1.9em - 1px),
-    hsl(var(--ink-pale) / 0.30) 1.9em
-  );
 }
 .ProseMirror:focus {
   outline: none !important;
@@ -1494,129 +1483,215 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 
 /* ============================================================
-   表单输入通用类 — 替代内联 style 的反模式
+   表单 / 卡片 / 按钮通用类
+   （登录页 · 注册页 · 设置页 · 管理后台 共用）
+
+   ★ 2026-10-29 整批重做（作者口径「UI 太难看」）。这一批是**全站第二套
+     视觉语言**的全部载体 —— 只要不换掉它们，四个页面就永远和产品内壳
+     （工作台）不是一套东西。原实现有四个互相叠加的问题：
+
+     ① **毛玻璃当默认**。输入框、卡片全用 `rgb(var(--glass-tint) / 0.4~0.55)`
+        半透明 + `backdrop-filter`。玻璃只有在"背后有内容可透"时才成立；
+        这些页面的背后是纯色页底，模糊 16px 出来还是同一个颜色 ——
+        付了逐帧合成的成本，换到零视觉收益，还让输入框的边界含混不清
+        （半透明底 + 0.5px 半透明描边，用户看不出"框在哪"）。
+     ② **胶囊 + 位移 hover**。980px 圆角 + `translateY(-1px)` + 彩色投影，
+        是全站其它地方都不存在的形态；一进登录页就"换了个人"。
+     ③ **半个像素的描边**（`0.5px`）。在 1x 屏上渲染成灰色虚边，
+        既不像 1px 的实线，也不像没有边框。
+     ④ **`--mountain-*` 遗留色**。这组 token 已被归零成中性灰（值 ≈ 近黑），
+        名字却还写着"山青"，且与 shadcn 的 `--primary`（VS Code 蓝）
+        并存 —— 同一个页面里"主色"有两个不同来源。
+
+     现在统一为：实心或纯白底 + **1px 实描边** + `--r-sm`/`--r-lg` 圆角 +
+     `--ring` 焦点环 + 只动 border/background 的克制 hover。
    ============================================================ */
 
 .nm-input {
   width: 100%;
-  height: 44px;
-  padding: 0 var(--space-6);
-  font-size: 15px;
-  color: hsl(var(--ink));
-  background: rgb(var(--glass-tint) / 0.4);
-  border: 0.5px solid hsl(var(--border) / 0.6);
-  border-radius: var(--radius-md);
+  height: 40px;
+  padding: 0 var(--space-5);
+  font-family: inherit;
+  font-size: 14px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--r-sm);
   outline: none;
-  caret-color: hsl(var(--mountain-cyan));
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  caret-color: hsl(var(--primary));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.nm-input::placeholder { color: hsl(var(--ink-light) / 0.5); }
+.nm-input::placeholder { color: hsl(var(--muted-foreground)); }
 .nm-input:focus {
-  border-color: hsl(var(--mountain-cyan) / 0.5);
-  background: rgb(var(--glass-tint) / 0.7);
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
 }
 
 .nm-label {
   display: block;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  color: hsl(var(--ink-light));
+  color: hsl(var(--muted-foreground));
   margin-bottom: var(--space-2);
 }
 
-/* 主 CTA 按钮 — 山青实心胶囊 */
+/* 主 CTA（整宽）：与 `.nm-btn-apple-primary` 同一套形态，只是撑满容器 */
 .nm-btn-primary-pill {
-  width: 100%;
-  height: 44px;
-  font-size: 15px;
-  font-weight: 600;
-  color: hsl(var(--primary-foreground));
-  background: hsl(var(--mountain-cyan));
-  border: none;
-  border-radius: 980px;
-  cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.nm-btn-primary-pill:hover:not(:disabled) {
-  background: hsl(var(--mountain-deep));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px hsl(var(--mountain-cyan) / 0.3);
-}
-.nm-btn-primary-pill:active:not(:disabled) {
-  transform: scale(0.98);
-  transition-duration: 0.08s;
-}
-.nm-btn-primary-pill:disabled { opacity: 0.7; }
-
-/* 次 CTA 按钮 — 山青描边胶囊 */
-.nm-btn-outline-pill {
-  width: 100%;
-  height: 44px;
-  font-size: 15px;
-  font-weight: 500;
-  color: hsl(var(--mountain-cyan));
-  background: transparent;
-  border: 0.5px solid hsl(var(--mountain-cyan) / 0.3);
-  border-radius: 980px;
-  cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.nm-btn-primary-pill:hover:not(:disabled) { background: hsl(var(--primary) / 0.9); }
+.nm-btn-primary-pill:active:not(:disabled) { background: hsl(var(--primary)); }
+.nm-btn-primary-pill:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.nm-btn-primary-pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 次 CTA（整宽描边）：与主 CTA 同高同圆角，只差填充 */
+.nm-btn-outline-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--r-sm);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .nm-btn-outline-pill:hover {
-  background: hsl(var(--mountain-cyan) / 0.06);
-  border-color: hsl(var(--mountain-cyan) / 0.5);
-  transform: translateY(-1px);
+  background: hsl(var(--muted));
+  border-color: hsl(var(--foreground) / 0.25);
 }
+.nm-btn-outline-pill:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 
-/* 文字次链接 */
+/* 次级文字链接 */
 .nm-link-quiet {
-  font-size: 12px;
-  color: hsl(var(--ink-light) / 0.7);
+  font-family: inherit;
+  font-size: 12.5px;
+  color: hsl(var(--muted-foreground));
   text-decoration: none;
-  transition: color 0.3s ease;
+  transition: color 0.15s ease;
 }
-.nm-link-quiet:hover { color: hsl(var(--ink-light)); }
+.nm-link-quiet:hover { color: hsl(var(--foreground)); }
 
-/* 设置页通用卡片 — 中等玻璃 + hover 边框响应 */
+/* 通用卡片：实心卡片 + 1px 描边。
+   hover **不再**把描边换成一个强调色 —— 设置页一屏五张卡，
+   鼠标扫过时整列边框轮流变深，是纯粹的噪声；卡片不是交互元素，不该有点击反馈。 */
 .nm-card {
-  background: rgb(var(--glass-tint) / var(--glass-panel-bg));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 0.5px solid hsl(var(--border) / var(--glass-panel-border));
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 8px 32px hsl(var(--glass-shadow) / 0.08),
-    inset 0 1px 0 rgb(var(--glass-highlight) / var(--glass-panel-highlight));
-  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.nm-card:hover {
-  border-color: hsl(var(--mountain-cyan) / 0.4);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 2px hsl(var(--glass-shadow) / 0.05);
 }
 
-/* 设置页小标题 — uppercase 12px 山青色 */
+/* 区块小标题：中文不用 uppercase / 大字距（那套是拉丁文小标题的排版），
+   改为正常字重 + 正常字距 + 前景色。 */
 .nm-section-title {
-  font-size: 0.75rem;
+  font-size: 13px;
   font-weight: 600;
-  color: hsl(var(--mountain-deep));
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: var(--space-7);
+  color: hsl(var(--foreground));
+  letter-spacing: 0;
+  margin-bottom: var(--space-6);
 }
 
 /* 设置页数字/文本输入 — 小尺寸 */
 .nm-input-sm {
-  background: rgb(var(--glass-tint) / 0.4);
-  border: 0.5px solid hsl(var(--border) / 0.6);
-  color: hsl(var(--ink));
-  border-radius: var(--radius-md);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  border-radius: var(--r-sm);
   outline: none;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .nm-input-sm:focus {
-  border-color: hsl(var(--mountain-cyan) / 0.5);
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
+}
+
+/* 设置页左侧栏目导航项（`SettingsPage` 的「当前所在」标记）。
+   ★ 为什么新起 `sx-` 前缀而不沿用 `nm-nav-item`：后者在 `ProjectIndexPage`
+     等处也被当 className 用（且从未有过 CSS 定义，全靠内联样式）——
+     给它补定义会连带改掉那些位置的观感。新前缀只作用于设置页。 */
+.sx-nav-item {
+  position: relative;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 0.15s ease;
+}
+.sx-nav-item:hover { background: hsl(var(--muted)); }
+.sx-nav-item.is-active { background: hsl(var(--muted)); }
+.sx-nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: hsl(var(--primary));
+}
+.sx-nav-item:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+/* 项目首页「还没有章节」空状态卡（`ProjectIndexPage`）。
+   token 化实底卡：深浅两档都成立（原实现硬编码 98% 白底，暗色档下是白卡配深字）。 */
+.pi-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 90%;
+  max-width: 420px;
+  padding: var(--space-8);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--r-lg);
+  background: hsl(var(--card));
+  box-shadow: 0 1px 2px hsl(var(--glass-shadow) / 0.05);
+  text-align: center;
+}
+
+.pi-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--space-5);
+  border-radius: var(--r-pill);
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.pi-empty-title {
+  margin: 0 0 var(--space-2);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.pi-empty-desc {
+  margin: 0 0 var(--space-6);
+  font-size: 12.5px;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 危险描边按钮（清除/删除） */
@@ -1633,61 +1708,48 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 
 /* ============================================================
-   登录/注册页 — 与液态背景呼应的 Hero + 卡片
+   登录 / 注册页 品牌头 + 卡片
+   （2026-10-29 重做：见下方各条注释的"原…"对照）
    ============================================================ */
 
-/* Logo 印章 — 圆形渐变底（--mountain-* 已是灰阶，色相恒 0） */
+/* ★ 品牌印：64px 圆形渐变 + **外圈呼吸光晕**（`::before` 的 `nm-seal-glow`
+   4s 无限动画）→ 收紧成 44px 方印 + 无动画。
+   一进登录页，屏幕正中一个比自己名字还大的圆在**持续脉动**，
+   是全站唯一一处无休止的动画 —— 它抢走的注意力远超过它承载的信息
+   （一个"墨"字）。方印也更贴合"砚"这个意象（印章本就是方的）。 */
 .nm-logo-seal {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: "Noto Serif SC", "Source Han Serif SC", serif;
   font-weight: 700;
-  font-size: 28px;
+  font-size: 21px;
   color: hsl(var(--primary-foreground));
-  background: linear-gradient(135deg, hsl(var(--mountain-cyan)) 0%, hsl(var(--mountain-deep)) 100%);
-  box-shadow:
-    0 8px 24px hsl(var(--mountain-cyan) / 0.35),
-    inset 0 1px 0 rgb(var(--glass-highlight) / 0.5),
-    inset 0 -8px 16px hsl(var(--mountain-deep) / 0.4),
-    0 0 0 1px hsl(var(--mountain-light) / 0.2);
-  position: relative;
-  letter-spacing: -0.02em;
-}
-/* 印章外圈光晕 */
-.nm-logo-seal::before {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  background: radial-gradient(circle, hsl(var(--mountain-cyan) / 0.25) 0%, transparent 70%);
-  z-index: -1;
-  animation: nm-seal-glow 4s ease-in-out infinite;
-}
-@keyframes nm-seal-glow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
+  background: hsl(var(--primary));
+  letter-spacing: 0;
 }
 
-/* Hero 标题 — 衬线 + 字间距收紧 */
+/* 品牌字标：32px/700 → 22px/700。32px 的字标比卡片标题（18.5px）大一倍，
+   头重脚轻；收到 22px 后它仍是页面最大字号，但不再压住表单。 */
 .nm-hero-title {
   font-family: "Noto Serif SC", "Source Han Serif SC", serif;
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  color: hsl(var(--ink));
-  line-height: 1.1;
+  letter-spacing: 0.1em;
+  color: hsl(var(--foreground));
+  line-height: 1.2;
 }
 
-/* Hero 引言 — 衬线 + 山青色 + 斜体感 */
+/* 品牌下的一句：保留两侧短横线（那是个恰当的装饰），
+   只把颜色从 `--mountain-deep`（遗留近黑色）换成中性次级色。 */
 .nm-hero-quote {
   font-family: "Noto Serif SC", "Source Han Serif SC", serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
-  color: hsl(var(--mountain-deep) / 0.85);
+  color: hsl(var(--muted-foreground));
   letter-spacing: 0.08em;
   position: relative;
 }
@@ -1697,55 +1759,29 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   display: inline-block;
   width: 16px;
   height: 1px;
-  background: hsl(var(--mountain-cyan) / 0.4);
+  background: hsl(var(--border));
   vertical-align: middle;
   margin: 0 var(--space-3);
 }
 
-/* 强化卡片 — 渐变边框 + 顶部高光线 + 深阴影 */
+/* ★ 卡片：40px 毛玻璃 + 16px 圆角 + 三层投影 + **顶部高光线（::before）**
+   + **mask 渐变描边（::after）** → 1px 实描边 + 12px 圆角 + 单层浅投影。
+   原来那两条伪元素（一条横跨顶部 60% 的高光线、一条用 mask 拼出来的
+   青→灰→赭渐变边框）是水墨时期的"器物感"，叠在一张表单卡片上，
+   读起来像是把登录框镶了边框。表单卡只需要"是一张卡"。 */
 .nm-auth-card {
-  position: relative;
-  background: rgb(var(--glass-tint) / var(--glass-strong-bg));
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-radius: var(--radius-xl);
-  box-shadow:
-    0 24px 64px hsl(var(--glass-shadow) / 0.16),
-    0 8px 24px hsl(var(--glass-shadow) / 0.08),
-    inset 0 1px 0 rgb(var(--glass-highlight) / 0.6),
-    inset 0 -1px 0 hsl(var(--border) / 0.2);
-}
-/* 顶部高光线 */
-.nm-auth-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 20%;
-  right: 20%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--mountain-cyan) / 0.5), transparent);
-  pointer-events: none;
-}
-/* 渐变边框（用 mask 实现透明边框光晕） */
-.nm-auth-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 0.5px;
-  background: linear-gradient(135deg, hsl(var(--mountain-cyan) / 0.4) 0%, hsl(var(--border) / 0.3) 50%, hsl(var(--ochre) / 0.2) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 2px hsl(var(--glass-shadow) / 0.05);
 }
 
-/* 分隔线装饰 — 居中菱形 */
+/* 分隔线：1px → 统一描边色；中间那个 45° 菱形点保留（体量小，不碍事） */
 .nm-divider {
   display: flex;
   align-items: center;
   gap: var(--space-5);
-  color: hsl(var(--ink-light) / 0.5);
+  color: hsl(var(--muted-foreground));
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1754,13 +1790,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 .nm-divider::after {
   content: '';
   flex: 1;
-  height: 0.5px;
-  background: linear-gradient(90deg, transparent, hsl(var(--border) / 0.6), transparent);
+  height: 1px;
+  background: hsl(var(--border));
 }
 .nm-divider-dot {
   width: 4px;
   height: 4px;
-  background: hsl(var(--mountain-cyan) / 0.5);
+  background: hsl(var(--border));
   transform: rotate(45deg);
 }
 
@@ -2249,12 +2285,29 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
  *
  * 旧实现是「质感层」：细线纹理 + 两处 radial-gradient 墨晕。
  * 该层随旧主题体系整体退役 —— VS Code 是**平面**编辑器，底色不带纹理。
- * 现在 body 只铺编辑器底色；纹理由组件自己按需表达（停靠面板 / 标签组）。
+ * 现在根元素只铺编辑器底色；纹理由组件自己按需表达（停靠面板 / 标签组）。
+ *
+ * ★ 2026-10-29 修「夜间模式刷新后仍白底」（实测踩到，两层原因叠在一起）：
+ *   ① **层级**：本规则原来写在 `@layer base` 里。daisyUI 自带的基础样式
+ *      **不在任何 layer 里**，而无层样式恒胜有层样式（与本仓
+ *      `vscode-dark-modern.css` 头注记的是同一条层叠规则）——
+ *      所以 daisyUI 用它的 `data-theme` 给 `<html>` 刷的 `oklch(1 0 0)`
+ *      一直压着我们这条。⇒ 这里**跳出 layer**（写在高优先级位置，不加 @layer）。
+ *   ② **选择器**：daisyUI 的规则打在 `:root` 且是 :where() 零特异性包装，
+ *      `html` 元素选择器即可胜过；但要确定压过它，用 `html` + `body` 同写。
+ *   ③ 之前只设在 body 上：body 的底色**画不进** `<html>` 的绘制区，
+ *      窗口最下沿与侧边仍会露出 html 的白底（截图里那条白边就是它）。
  * ============================================================ */
-@layer base {
-  body {
-    background-color: var(--vscode-editor-background);
-  }
+/* ⚠ 选择器必须是 `:root, html` 而不是 `html, body`：
+   daisyUI 的 base 规则写作 `:root, [data-theme] { background: var(--page-scroll-bg, …) }`，
+   而 **`:root` 是伪类（0,1,0）、`html` 是元素（0,0,1）** —— 特异性压过我们。
+   第一版写成 `html, body` 时实测完全不生效（`getComputedStyle(html).backgroundColor`
+   仍是 `oklch(1 0 0)`），排查了半天才在 `document.styleSheets` 里翻到这条 :root。
+   同时并列写 `html` 是为了覆盖「只挂 .dark、没有 :root 变量」的边界情况。 */
+:root,
+html,
+body {
+  background-color: var(--vscode-editor-background);
 }
 
 @layer components {

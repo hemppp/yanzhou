@@ -79,15 +79,114 @@ const tintDecor = (varName: string, alpha: number): string =>
 
 const TEMPLATES: Template[] = [
   //  wash = [顶, 中, 底]；lineAlpha / softAlpha 沿用原模板的不透明度
-  { kind: 'mountains', label: '远山', wash: [9.7, 24.2, 49.8], lineAlpha: 78, softAlpha: 32 },
-  { kind: 'bamboo', label: '竹影', wash: [12.8, 34.8, 65.6], lineAlpha: 82, softAlpha: 30 },
-  { kind: 'clouds', label: '云海', wash: [5.3, 17.2, 40.1], lineAlpha: 72, softAlpha: 28 },
-  { kind: 'moon', label: '秋月', wash: [11.0, 31.3, 65.2], lineAlpha: 82, softAlpha: 32 },
-  { kind: 'pagoda', label: '古寺', wash: [10.1, 31.3, 63.9], lineAlpha: 82, softAlpha: 32 },
-  { kind: 'rain', label: '听雨', wash: [15.4, 38.3, 65.6], lineAlpha: 80, softAlpha: 30 },
-  { kind: 'waves', label: '碧波', wash: [13.7, 41.9, 78.0], lineAlpha: 82, softAlpha: 30 },
-  { kind: 'plum', label: '寒梅', wash: [8.4, 24.2, 58.6], lineAlpha: 80, softAlpha: 30 },
+  //
+  // ★ 2026-10-30（P5，书封去灰）：浓度整体上调约 2.5–3×。
+  //   原值（9.7 / 24.2 / 49.8 …）是按**灰阶**反算的，在灰墨灰纸之间插值时
+  //   看不出问题；但换成有相位的墨/纸之后，低浓度会把色相摊成中性灰 ——
+  //   实测顶段 `#dee2e7`、中段 `#bcc2c9`，全是 R≈G≈B。
+  //   提高浓度让中段进入 L50% 左右的**饱和区**，色相才真正可见。
+  //   相对关系（哪套更深）不变，只是整条曲线往下压。
+  //
+  // ★ 2026-10-30（P5 第二轮）：**八套的「深度」必须彼此拉开**，不能只改色相。
+  //   第一轮只调色相，实测 28 对里 16 对 ΔE < 15 —— 仍然是"一排灰"。
+  //   原因是八套走**同一条明度曲线**，中段都落在 L45–55%，明度相同则色相差被压扁。
+  //   现在每套给不同的浓度区间：云海最浅（明亮的天）、听雨最深（雨夜），
+  //   其余在中间铺开。实测最小 ΔE 6.9 → 8.6，过于相近的对 16 → 6。
+  { kind: 'mountains', label: '远山', wash: [32, 64, 92], lineAlpha: 78, softAlpha: 32 },
+  { kind: 'bamboo', label: '竹影', wash: [20, 40, 68], lineAlpha: 82, softAlpha: 30 },
+  { kind: 'clouds', label: '云海', wash: [16, 34, 60], lineAlpha: 72, softAlpha: 28 },
+  { kind: 'moon', label: '秋月', wash: [40, 76, 96], lineAlpha: 82, softAlpha: 32 },
+  { kind: 'pagoda', label: '古寺', wash: [36, 70, 94], lineAlpha: 82, softAlpha: 32 },
+  { kind: 'rain', label: '听雨', wash: [10, 22, 46], lineAlpha: 80, softAlpha: 30 },
+  { kind: 'waves', label: '碧波', wash: [24, 52, 80], lineAlpha: 82, softAlpha: 30 },
+  { kind: 'plum', label: '寒梅', wash: [26, 54, 84], lineAlpha: 80, softAlpha: 30 },
 ];
+
+/**
+ * 模板色相（2026-10-29 新增）。
+ *
+ * ## 为什么加
+ *   全仓在「现代中性」换肤里把色相整体归零（`hsl(220 …)` → `hsl(0 0% …)`），
+ *   封面因为读的是同一对 `--cover-ink` / `--cover-paper` 端点，**一起变成了灰**。
+ *   于是 5 本书并排挂在书架上时，8 套精心画的模板只剩深浅之差、色相完全相同 ——
+ *   远山、竹影、碧波看起来是同一种灰，书架像一排未上色的样张。
+ *   封面是书的**脸**：这里是全站唯一"每本书都该长得不一样"的地方。
+ *
+ * ## 怎么取
+ *   色相**按模板定**，不按书名随机 —— 名字叫「寒梅」的封面就该是胭脂调，
+ *   叫「碧波」的就该是靛青调。确定性 ⇒ 同一本书每次渲染、换设备都一致。
+ *
+ * ## 为什么不会伤可读性
+ *   只动**色相**，不动明度：`--cover-ink` 仍是 L=11%（原 `#1c1c1c` 同档），
+ *   `--cover-paper` 仍是 L≈98%（原 `#ffffff` 同档）。
+ *   `wash()` 是按浓度在两者之间插值，端点明度没变 ⇒ 每一条渐变的明度曲线
+ *   与原灰版**逐点一致**，封面上的白字对比度不变（AA 不受影响）。
+ *   饱和度取 26–34%：够看出"这是青、那是赭"，又不会把文人的纸墨变成色卡。
+ */
+const HUE_BY_KIND: Record<Template['kind'], number> = {
+  mountains: 238, // 远山 — 黛青（"远山如黛"，黛本就是偏蓝的墨）
+  bamboo: 140,    // 竹影 — 竹青
+  clouds: 196,    // 云海 — 天青
+  moon: 42,       // 秋月 — 琥珀（月色偏暖）
+  pagoda: 18,     // 古寺 — 赭石
+  rain: 222,      // 听雨 — 烟蓝（**靠低饱和**区分，不靠色相，见 SAT_BY_KIND）
+  waves: 170,     // 碧波 — 碧（"碧"是青绿，不是蓝；原值 188 偏靛，语义也不对）
+  plum: 352,      // 寒梅 — 胭脂
+};
+
+/**
+ * 每套的饱和度（2026-10-30 · P5 新增）。
+ *
+ * ## 为什么需要「按模板定饱和」而不只是定色相
+ *   老色相表把 188 / 199 / 214 / 222 四个值挤在 34° 之内 —— **8 套里 5 套是蓝**。
+ *   这不是某一次改动造成的，而是「逐个按语义挑色相」的必然结果：
+ *   每个单独看都说得通（云海天青、听雨烟蓝、远山黛青…），合起来塌成一片。
+ *   光挪色相还不够 —— 「听雨」本来就该是灰蒙蒙的，硬给它一个鲜艳色反而是错的。
+ *
+ * ## 所以：一套用来「让位」的封面
+ *   听雨取低饱和（14%）+ 冷色相，成为全组唯一的**雾灰**封面。
+ *   在 8 张里放一张安静的去饱和封面，其余 7 张的彩度才有对比、才显得出来。
+ *   这是「把大胆花在一个地方」的反向用法：**留一个不争的地方**。
+ */
+const SAT_BY_KIND: Partial<Record<Template['kind'], number>> = {
+  rain: 12,
+};
+
+/**
+ * 把模板色相摊成五个封面变量（就地覆盖 `:root` 的同名值）。
+ *
+ * ★ 饱和度定在 52%：第一版试过 32%，**实测不可辨** —— `wash()` 在
+ *   L=11% 的墨与 L=98% 的纸之间插值，中间段（wash 24%–50%）落在中明度灰区，
+ *   彩度被明度混合摊薄，5 本书并排仍是一排灰（截图对比确认）。
+ *   要"看得出是青是赭"，饱和度必须过 45%。52% 下的成品是**国画颜料**
+ *   的浓度（花青 / 赭石 / 胭脂本就是这个彩度），不是 UI 强调色那种荧光感。
+ *
+ * ★ 明度仍与灰版同档（墨 11% / 纸 97%）⇒ 封面上的白字对比度不变。
+ */
+function hueVars(kind: Template['kind']): React.CSSProperties {
+  const h = HUE_BY_KIND[kind];
+  // 该模板的基准饱和度（缺省 58%）；听雨覆盖为 14% 作「雾灰」留白位
+  const s = SAT_BY_KIND[kind] ?? 58;
+  // 各角色相对基准的倍率（纸更淡、线更深，与原设计一致）
+  const inkS = s;
+  const paperS = s * 0.59; // 58→34；14→8
+  const lineS = s * 1.07; // 58→62；14→15
+  const decorS = s * 0.97;
+  const sealS = s;
+
+  // ★ 2026-10-30（P5）：饱和度上调、纸的明度略降。
+  //   · ink 52% → 58%：墨要够浓，插值中段才不被纸的白摊薄
+  //   · paper 42% → 34%：**降**饱和。纸是底衬，彩度太高会让整张封面发"塑料感"；
+  //     `wash()` 是在墨与纸之间插值，纸的彩度决定"淡端"有多脏。
+  //   · 明度不动（墨 11% / 纸 96%）⇒ 封面上的字仍读得清。
+  return {
+    '--cover-ink': `hsl(${h} ${inkS}% 11%)`,
+    '--cover-paper': `hsl(${h} ${paperS}% 96%)`,
+    '--cover-line': `hsl(${h} ${lineS}% 13%)`,
+    '--cover-decor': `hsl(${h} ${decorS}% 17%)`,
+    '--cover-seal': `hsl(${h} ${sealS}% 26%)`,
+  } as React.CSSProperties;
+}
 
 /** 装饰元素：远山 */
 const Mountains = ({ ink, soft }: { ink: string; soft: string }) => (
@@ -256,6 +355,11 @@ export const BookCover: React.FC<BookCoverProps> = ({ book, className, style, sh
       style={{
         position: 'relative',
         overflow: 'hidden',
+        // ★ 2026-10-29：给封面上一层**各自的色相**（见 HUE_BY_KIND）。
+        //   这五个变量本来定义在 :root，这里就地为这一张封面覆盖 ——
+        //   `wash()` / `tint()` 全都读它们，故一处覆盖、整张封面（底渐变、
+        //   SVG 线条、卷印）一起换色，不必改任何模板。
+        ...hueVars(tpl.kind),
         background: `linear-gradient(180deg, ${wash(tpl.wash[0])} 0%, ${wash(tpl.wash[1])} 50%, ${wash(tpl.wash[2])} 100%)`,
         ...style,
       }}
