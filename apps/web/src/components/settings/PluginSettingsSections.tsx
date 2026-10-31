@@ -20,7 +20,7 @@ function SectionGuard({ title, children }: { title: string; children: React.Reac
       fallback={
         <div className="flex flex-col items-start gap-2 py-3">
           <div className="flex items-center gap-2 text-[11px]" style={{ color: 'hsl(var(--ink-light) / 0.75)' }}>
-            <AlertTriangle size={14} style={{ color: 'var(--state-running, #f59e0b)' }} />
+            <AlertTriangle size={14} style={{ color: 'hsl(var(--state-running, 38 92% 50%))' }} />
             「{title}」设置区运行出错，已隔离
           </div>
           <button

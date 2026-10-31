@@ -294,7 +294,7 @@ function TypographyPanel() {
         </div>
       </div>
 
-      {saved && <div className="text-xs" style={{ color: 'var(--state-done, #22c55e)' }}>✓ 已保存</div>}
+      {saved && <div className="text-xs" style={{ color: 'hsl(var(--state-done, 142 71% 45%))' }}>✓ 已保存</div>}
       {!loaded && <div className="text-xs opacity-60">加载中...</div>}
     </div>
   );

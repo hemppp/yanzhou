@@ -184,7 +184,7 @@ export function CharacterGraph() {
             fontWeight: 500,
             opacity: 0,
           },
-          labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.9 },
+          labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
           markerEnd: directed
@@ -241,7 +241,7 @@ export function CharacterGraph() {
             fontWeight: 500,
             opacity: 0,
           },
-          labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.9 },
+          labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
           markerEnd: undefined,

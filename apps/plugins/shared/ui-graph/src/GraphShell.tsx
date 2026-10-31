@@ -296,7 +296,7 @@ export function GraphShell({
               connectionLineStyle={connectionLineStyle}
               defaultEdgeOptions={{ type: 'bubble', ...defaultEdgeOptions }}
             >
-              <Background color="var(--border)" gap={20} />
+              <Background color="hsl(var(--border))" gap={20} />
               <Controls className="!bg-card !border-border !shadow-lg" />
               {getNodeColor && (
                 <MiniMap

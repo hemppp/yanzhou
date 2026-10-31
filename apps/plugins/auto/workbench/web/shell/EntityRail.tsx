@@ -113,10 +113,10 @@ export function EntityRail({ projectId }: EntityRailProps) {
       <RailCard icon={BookMarked} title="知识库" count={libTotal} color="hsl(var(--primary))">
         <ul className="space-y-1">
           {[
-            { label: '角色', n: pChars.length, c: 'var(--entity-character)' },
-            { label: '地点', n: pLocs.length, c: 'var(--entity-location)' },
-            { label: '物品', n: pItems.length, c: 'var(--entity-item)' },
-            { label: '伏笔', n: pFsh.length, c: 'var(--entity-foreshadow)' },
+            { label: '角色', n: pChars.length, c: 'hsl(var(--entity-character))' },
+            { label: '地点', n: pLocs.length, c: 'hsl(var(--entity-location))' },
+            { label: '物品', n: pItems.length, c: 'hsl(var(--entity-item))' },
+            { label: '伏笔', n: pFsh.length, c: 'hsl(var(--entity-foreshadow))' },
           ].map((row) => (
             <li key={row.label} className="flex items-center gap-1.5 text-[11px]">
               <span

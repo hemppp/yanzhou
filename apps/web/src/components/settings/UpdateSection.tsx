@@ -154,7 +154,7 @@ export function UpdateSection() {
 
       {/* 检查结果 */}
       {checkResult && !checkResult.ok && (
-        <div className="text-sm p-3 rounded-md" style={{ background: 'color-mix(in srgb, var(--state-blocked, #ef4444) 10%, transparent)', color: 'var(--state-blocked, #ef4444)' }}>
+        <div className="text-sm p-3 rounded-md" style={{ background: 'color-mix(in srgb, hsl(var(--state-blocked, 0 84% 60%)) 10%, transparent)', color: 'hsl(var(--state-blocked, 0 84% 60%))' }}>
           {checkResult.error}
         </div>
       )}
@@ -178,7 +178,7 @@ export function UpdateSection() {
                 </span>
               </div>
               {checkResult.appOutdated ? (
-                <div className="text-sm mt-1.5" style={{ color: 'var(--state-done, #22c55e)' }}>
+                <div className="text-sm mt-1.5" style={{ color: 'hsl(var(--state-done, 142 71% 45%))' }}>
                   🎉 发现新版本（更新后重启生效）
                 </div>
               ) : (
@@ -190,7 +190,7 @@ export function UpdateSection() {
             {checkResult.appOutdated && (
               <button onClick={() => void applyApp()} disabled={busy === 'app'}
                 className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium"
-                style={{ background: 'color-mix(in srgb, var(--state-done, #22c55e) 12%, transparent)', color: 'var(--state-done, #22c55e)', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'color-mix(in srgb, var(--state-done, #22c55e) 35%, transparent)' }}>
+                style={{ background: 'color-mix(in srgb, hsl(var(--state-done, 142 71% 45%)) 12%, transparent)', color: 'hsl(var(--state-done, 142 71% 45%))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'color-mix(in srgb, hsl(var(--state-done, 142 71% 45%)) 35%, transparent)' }}>
                 <Download size={13} />
                 {busy === 'app' ? '下载并应用...' : '一键更新'}
               </button>
@@ -221,7 +221,7 @@ export function UpdateSection() {
                   </div>
                   <button onClick={() => void installPlugin(p.id)} disabled={busy === `plugin:${p.id}`}
                     className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium"
-                    style={{ background: 'color-mix(in srgb, var(--state-done, #22c55e) 12%, transparent)', color: 'var(--state-done, #22c55e)', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'color-mix(in srgb, var(--state-done, #22c55e) 35%, transparent)' }}>
+                    style={{ background: 'color-mix(in srgb, hsl(var(--state-done, 142 71% 45%)) 12%, transparent)', color: 'hsl(var(--state-done, 142 71% 45%))', borderWidth: '0.5px', borderStyle: 'solid', borderColor: 'color-mix(in srgb, hsl(var(--state-done, 142 71% 45%)) 35%, transparent)' }}>
                     <Download size={13} />
                     {busy === `plugin:${p.id}` ? '安装中...' : '更新'}
                   </button>

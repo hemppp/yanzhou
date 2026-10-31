@@ -124,7 +124,7 @@ export function LocationGraph() {
           type: 'bubble',
           style: { stroke: locationColor, strokeWidth: 1.5, strokeOpacity: 0.4 },
           labelStyle: { fill: locationColor, fontSize: 9.5, fontWeight: 600, opacity: 0 },
-          labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.9 },
+          labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
           labelBgBorderRadius: 4,
           markerEnd: { type: MarkerType.ArrowClosed, color: locationColor, width: 10, height: 10 },

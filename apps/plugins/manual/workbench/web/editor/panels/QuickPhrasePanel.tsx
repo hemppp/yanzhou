@@ -37,11 +37,11 @@ const categoryConfig: Record<
   QuickPhrase['category'],
   { icon: typeof User; color: string; label: string }
 > = {
-  character: { icon: User, color: 'var(--entity-character, #3b82f6)', label: '角色' },
-  location: { icon: MapPin, color: 'var(--entity-location, #a855f7)', label: '地点' },
-  item: { icon: Package, color: 'var(--entity-item, #22c55e)', label: '物品' },
-  ai: { icon: Wand2, color: 'var(--state-running, #f59e0b)', label: 'AI推荐' },
-  custom: { icon: Sparkles, color: 'var(--state-idle, #6b7280)', label: '自定义' },
+  character: { icon: User, color: 'hsl(var(--entity-character, 217 91% 60%))', label: '角色' },
+  location: { icon: MapPin, color: 'hsl(var(--entity-location, 271 91% 65%))', label: '地点' },
+  item: { icon: Package, color: 'hsl(var(--entity-item, 142 71% 45%))', label: '物品' },
+  ai: { icon: Wand2, color: 'hsl(var(--state-running, 38 92% 50%))', label: 'AI推荐' },
+  custom: { icon: Sparkles, color: 'hsl(var(--state-idle, 220 9% 46%))', label: '自定义' },
 };
 
 /**

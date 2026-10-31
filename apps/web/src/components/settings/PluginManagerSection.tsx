@@ -81,16 +81,16 @@ interface PluginListResponse {
  *   `skipped` / `quarantined`（警告）没有专门的 token，映射到 `--state-running`
  *   （语义色读作"需要注意"），比硬留一个 Tailwind 琥珀更一致。 */
 const STATUS_META: Record<PluginItem['status'], { label: string; color: string }> = {
-  ok: { label: '运行中', color: 'var(--state-done, #22c55e)' },
-  disabled: { label: '已禁用', color: 'var(--state-idle, #94a3b8)' },
-  error: { label: '错误', color: 'var(--state-blocked, #ef4444)' },
-  skipped: { label: '跳过', color: 'var(--state-running, #f59e0b)' },
+  ok: { label: '运行中', color: 'hsl(var(--state-done, 142 71% 45%))' },
+  disabled: { label: '已禁用', color: 'hsl(var(--state-idle, 215 20% 65%))' },
+  error: { label: '错误', color: 'hsl(var(--state-blocked, 0 84% 60%))' },
+  skipped: { label: '跳过', color: 'hsl(var(--state-running, 38 92% 50%))' },
 };
 
 const GUARDIAN_META: Record<GuardianInfo['state'], { label: string; color: string }> = {
-  quarantined: { label: '隔离中', color: 'var(--state-running, #f59e0b)' },
-  trusted: { label: '已放行', color: 'var(--state-done, #22c55e)' },
-  failed: { label: '已熔断', color: 'var(--state-blocked, #ef4444)' },
+  quarantined: { label: '隔离中', color: 'hsl(var(--state-running, 38 92% 50%))' },
+  trusted: { label: '已放行', color: 'hsl(var(--state-done, 142 71% 45%))' },
+  failed: { label: '已熔断', color: 'hsl(var(--state-blocked, 0 84% 60%))' },
 };
 
 /** 守护操作按钮文案（quarantined → 放行；trusted/failed → 重置回隔离箱） */
@@ -200,9 +200,9 @@ export function PluginManagerSection() {
             /* 改用 token；底色从 `rgba(...)` 换成 `color-mix` 以便跟随 token */
             style={{
               background: hasIssue
-                ? 'color-mix(in srgb, var(--state-blocked, #ef4444) 12%, transparent)'
-                : 'color-mix(in srgb, var(--state-done, #22c55e) 12%, transparent)',
-              color: hasIssue ? 'var(--state-blocked, #ef4444)' : 'var(--state-done, #22c55e)',
+                ? 'color-mix(in srgb, hsl(var(--state-blocked, 0 84% 60%)) 12%, transparent)'
+                : 'color-mix(in srgb, hsl(var(--state-done, 142 71% 45%)) 12%, transparent)',
+              color: hasIssue ? 'hsl(var(--state-blocked, 0 84% 60%))' : 'hsl(var(--state-done, 142 71% 45%))',
             }}
           >
             <ShieldCheck size={12} />
@@ -227,7 +227,7 @@ export function PluginManagerSection() {
       </div>
 
       {error && (
-        <div className="text-sm p-3 rounded-md" style={{ background: 'color-mix(in srgb, var(--state-blocked, #ef4444) 10%, transparent)', color: 'var(--state-blocked, #ef4444)' }}>
+        <div className="text-sm p-3 rounded-md" style={{ background: 'color-mix(in srgb, hsl(var(--state-blocked, 0 84% 60%)) 10%, transparent)', color: 'hsl(var(--state-blocked, 0 84% 60%))' }}>
           {error}（需要管理员权限）
         </div>
       )}
@@ -237,7 +237,7 @@ export function PluginManagerSection() {
         <div className="space-y-2">
           {data.deps.missing.map((m) => (
             <div key={m.id} className="text-sm p-3 rounded-md flex items-start gap-2"
-              style={{ background: 'color-mix(in srgb, var(--state-blocked, #ef4444) 10%, transparent)', color: 'var(--state-blocked, #ef4444)' }}>
+              style={{ background: 'color-mix(in srgb, hsl(var(--state-blocked, 0 84% 60%)) 10%, transparent)', color: 'hsl(var(--state-blocked, 0 84% 60%))' }}>
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>
                 插件 <b>{m.id}</b> 声明依赖 <b>{m.missing.join(', ')}</b>，但该插件不存在 → 已跳过
@@ -246,7 +246,7 @@ export function PluginManagerSection() {
           ))}
           {data.deps.cycles.map((cycle, i) => (
             <div key={i} className="text-sm p-3 rounded-md flex items-start gap-2"
-              style={{ background: 'color-mix(in srgb, var(--state-running, #f59e0b) 12%, transparent)', color: 'var(--state-running, #f59e0b)' }}>
+              style={{ background: 'color-mix(in srgb, hsl(var(--state-running, 38 92% 50%)) 12%, transparent)', color: 'hsl(var(--state-running, 38 92% 50%))' }}>
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>
                 循环依赖: <code className="font-mono">{cycle.join(' → ')}</code>
@@ -290,7 +290,7 @@ export function PluginManagerSection() {
                         </span>
                       )}
                     </div>
-                    {p.error && <div className="text-xs mt-1" style={{ color: 'var(--state-blocked, #ef4444)' }}>{p.error}</div>}
+                    {p.error && <div className="text-xs mt-1" style={{ color: 'hsl(var(--state-blocked, 0 84% 60%))' }}>{p.error}</div>}
                     {p.guardian && (
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: 'hsl(var(--ink-light) / 0.6)' }}>
                         <span>会话 {p.guardian.sessions}</span>
@@ -299,7 +299,7 @@ export function PluginManagerSection() {
                       </div>
                     )}
                     {p.guardian?.lastError && (
-                      <div className="text-xs mt-1" style={{ color: 'var(--state-blocked, #ef4444)' }}>
+                      <div className="text-xs mt-1" style={{ color: 'hsl(var(--state-blocked, 0 84% 60%))' }}>
                         最近错误 @ {p.guardian.lastError.where}: {p.guardian.lastError.message}
                       </div>
                     )}
@@ -328,8 +328,8 @@ export function PluginManagerSection() {
                         disabled={busyId === p.id}
                         className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium"
                         style={{
-                          background: guardianActionDef.tone === 'green' ? 'rgba(34,197,94,0.12)' : 'color-mix(in srgb, var(--state-running, #f59e0b) 12%, transparent)',
-                          color: guardianActionDef.tone === 'green' ? 'var(--state-done, #22c55e)' : 'var(--state-running, #f59e0b)',
+                          background: guardianActionDef.tone === 'green' ? 'rgba(34,197,94,0.12)' : 'color-mix(in srgb, hsl(var(--state-running, 38 92% 50%)) 12%, transparent)',
+                          color: guardianActionDef.tone === 'green' ? 'hsl(var(--state-done, 142 71% 45%))' : 'hsl(var(--state-running, 38 92% 50%))',
                           borderWidth: '0.5px',
                           borderStyle: 'solid',
                           borderColor: guardianActionDef.tone === 'green' ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.35)',
@@ -345,7 +345,7 @@ export function PluginManagerSection() {
                       className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium"
                       style={{
                         background: p.enabled ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.12)',
-                        color: p.enabled ? 'var(--state-blocked, #ef4444)' : 'var(--state-done, #22c55e)',
+                        color: p.enabled ? 'hsl(var(--state-blocked, 0 84% 60%))' : 'hsl(var(--state-done, 142 71% 45%))',
                         borderWidth: '0.5px',
                         borderStyle: 'solid',
                         borderColor: p.enabled ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)',
