@@ -127,11 +127,11 @@ export function LoginPage() {
             <div className="text-center mb-6">
               <h2
                 className="font-serif text-[18.5px] font-semibold mb-1"
-                style={{ color: 'hsl(var(--ink))', letterSpacing: '0.02em' }}
+                style={{ color: 'hsl(var(--foreground))', letterSpacing: '0.02em' }}
               >
                 欢迎归来
               </h2>
-              <p className="text-[11px]" style={{ color: 'hsl(var(--ink-light) / 0.7)' }}>
+              <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 登录以继续你的写作旅程
               </p>
             </div>
@@ -141,9 +141,9 @@ export function LoginPage() {
               <div
                 className="text-[12px] font-medium mb-5 px-3 py-2.5 rounded-xl"
                 style={{
-                  color: 'hsl(var(--vermilion))',
-                  background: 'hsl(var(--vermilion) / 0.08)',
-                  border: '0.5px solid hsl(var(--vermilion) / 0.2)',
+                  color: 'var(--vscode-semantic-error)',
+                  background: 'var(--vscode-semantic-error-background)',
+                  border: '1px solid var(--vscode-semantic-error-border)',
                 }}
               >
                 {error}
@@ -179,7 +179,7 @@ export function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all hover:bg-[rgb(var(--glass-tint)/0.5)]"
-                  style={{ color: 'hsl(var(--ink-light) / 0.6)' }}
+                  style={{ color: 'hsl(var(--muted-foreground))' }}
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -191,13 +191,13 @@ export function LoginPage() {
             <div className="flex items-center justify-between mb-6">
               <label
                 className="flex items-center gap-2 cursor-pointer select-none text-[12px]"
-                style={{ color: 'hsl(var(--ink-light))' }}
+                style={{ color: 'hsl(var(--muted-foreground))' }}
               >
                 <span
                   className="relative inline-flex items-center justify-center w-4 h-4 rounded"
                   style={{
                     border: '0.5px solid hsl(var(--border))',
-                    background: rememberMe ? 'hsl(var(--mountain-cyan))' : 'transparent',
+                    background: rememberMe ? 'hsl(var(--primary))' : 'transparent',
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -249,11 +249,11 @@ export function LoginPage() {
         </div>
 
         {/* 底部 */}
-        <div className="flex items-center justify-center gap-4 mt-6 text-[10px]" style={{ color: 'hsl(var(--ink-light) / 0.5)' }}>
+        <div className="flex items-center justify-center gap-4 mt-6 text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           <Link to="/register" className="nm-link-quiet">
             忘记密码？
           </Link>
-          <span style={{ color: 'hsl(var(--ink-light) / 0.3)' }}>·</span>
+          <span style={{ color: 'hsl(var(--border))' }}>·</span>
           <button
             type="button"
             onClick={() => navigate('/')}

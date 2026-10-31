@@ -106,6 +106,10 @@ export function apply(ctx: WebPluginContext): void {
     key: 'factions',
     label: '势力',
     icon: Landmark,
+    // ★ 2026-10-29：活动栏分区 —— 势力是世界观资料，与角色 / 地点同组。
+    //   第三方插件照样可以（也应该）声明它；不声明只会归进兜底的「其它」组，
+    //   不会被丢弃，也不会报错（见 kernel components/shell/panelSections.ts）。
+    section: '资料',
     Component: FactionsPanel,
     width: 640,
     height: 720,

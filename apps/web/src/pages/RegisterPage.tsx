@@ -118,25 +118,25 @@ export function RegisterPage() {
       case 'checking':
         return {
           text: '检测中...',
-          color: 'hsl(var(--ink-light))',
+          color: 'hsl(var(--muted-foreground))',
           icon: <Loader2 size={12} className="animate-spin" />,
         };
       case 'available':
         return {
           text: '用户名可用',
-          color: 'hsl(var(--mountain-cyan))',
+          color: 'hsl(var(--primary))',
           icon: <Check size={12} />,
         };
       case 'taken':
         return {
           text: '用户名已被占用',
-          color: 'hsl(var(--vermilion))',
+          color: 'var(--vscode-semantic-error)',
           icon: <X size={12} />,
         };
       case 'invalid':
         return {
           text: '用户名至少 3 个字符，只能包含字母、数字和下划线',
-          color: 'hsl(var(--vermilion))',
+          color: 'var(--vscode-semantic-error)',
           icon: <X size={12} />,
         };
       default:
@@ -199,9 +199,9 @@ export function RegisterPage() {
   // 强度色映射到 token
   const strengthTokenColors: Record<PasswordStrength, string> = {
     empty: 'hsl(var(--border) / 0.4)',
-    weak: 'hsl(var(--vermilion))',
-    medium: 'hsl(var(--ochre))',
-    strong: 'hsl(var(--mountain-cyan))',
+    weak: 'var(--vscode-semantic-error)',
+    medium: 'var(--vscode-semantic-warning)',
+    strong: 'hsl(var(--primary))',
   };
 
   return (
@@ -237,11 +237,11 @@ export function RegisterPage() {
             <div className="text-center mb-6">
               <h2
                 className="font-serif text-[18.5px] font-semibold mb-1"
-                style={{ color: 'hsl(var(--ink))', letterSpacing: '0.02em' }}
+                style={{ color: 'hsl(var(--foreground))', letterSpacing: '0.02em' }}
               >
                 创建账户
               </h2>
-              <p className="text-[11px]" style={{ color: 'hsl(var(--ink-light) / 0.7)' }}>
+              <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 开启你的写作旅程
               </p>
             </div>
@@ -251,9 +251,9 @@ export function RegisterPage() {
               <div
                 className="text-[12px] font-medium mb-5 px-3 py-2.5 rounded-xl"
                 style={{
-                  color: 'hsl(var(--vermilion))',
-                  background: 'hsl(var(--vermilion) / 0.08)',
-                  border: '0.5px solid hsl(var(--vermilion) / 0.2)',
+                  color: 'var(--vscode-semantic-error)',
+                  background: 'var(--vscode-semantic-error-background)',
+                  border: '1px solid var(--vscode-semantic-error-border)',
                 }}
               >
                 {error}
@@ -272,9 +272,9 @@ export function RegisterPage() {
                 autoComplete="username"
                 style={
                   usernameStatus === 'available'
-                    ? { borderColor: 'hsl(var(--mountain-cyan) / 0.5)' }
+                    ? { borderColor: 'var(--vscode-semantic-success-border)' }
                     : usernameStatus === 'taken' || usernameStatus === 'invalid'
-                      ? { borderColor: 'hsl(var(--vermilion) / 0.5)' }
+                      ? { borderColor: 'var(--vscode-semantic-error-border)' }
                       : undefined
                 }
               />
@@ -318,7 +318,7 @@ export function RegisterPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all hover:bg-[rgb(var(--glass-tint)/0.5)]"
-                  style={{ color: 'hsl(var(--ink-light) / 0.6)' }}
+                  style={{ color: 'hsl(var(--muted-foreground))' }}
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -388,7 +388,7 @@ export function RegisterPage() {
         </div>
 
         {/* 底部 */}
-        <div className="flex items-center justify-center gap-4 mt-6 text-[10px]" style={{ color: 'hsl(var(--ink-light) / 0.5)' }}>
+        <div className="flex items-center justify-center gap-4 mt-6 text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           <button
             type="button"
             onClick={() => navigate('/')}
@@ -396,7 +396,7 @@ export function RegisterPage() {
           >
             返回首页
           </button>
-          <span style={{ color: 'hsl(var(--ink-light) / 0.3)' }}>·</span>
+          <span style={{ color: 'hsl(var(--border))' }}>·</span>
           <span>注册即代表你同意我们的服务条款</span>
         </div>
       </div>

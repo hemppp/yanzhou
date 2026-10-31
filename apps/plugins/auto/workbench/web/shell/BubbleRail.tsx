@@ -114,34 +114,20 @@ function Bubble({
       // 自绘浮层（下方 portal）只是把这两条语义提前到 0.15s，不替代它。
       title={title}
       data-bubble-key={panel.key}
+      // ★ 2026-10-29 二轮（作者口径「要简洁一点，像 VS Code 这种」）：
+      //   上一版把圆玻璃球改成了方钮，但**保留了这个「气泡列」结构本身** ——
+      //   分组小标题、组分隔线、每颗的 1px 描边、运转时的呼吸环全都还在。
+      //   作者要的不是"换成方的气泡"，是**别再有气泡这套**：
+      //   VS Code 的活动栏就是一列图标，没有标题、没有分隔线、没有边框、没有动效。
+      //   现在把三态收敛成：常规（无底）／悬停（浅底）／选中（浅底 + 左侧 2px 竖条），
+      //   其余一律交给 CSS（见文件尾的 <style>）—— 因为 `:hover` 没法内联，
+      //   只要底色还写在 style 里，hover 规则就永远压不过它。
+      data-active={active ? 'true' : undefined}
+      data-running={signal?.running ? 'true' : undefined}
       data-preview={preview ? 'true' : undefined}
-      className="group relative shrink-0 flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 nm-panel-bubble"
-      style={{
-        width: 30,
-        height: 30,
-        // 与既有气泡一致：玻璃底 + 细高光边（不写死色值，换肤跟着变）
-        background: open
-          ? 'linear-gradient(160deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))'
-          : 'radial-gradient(circle at 30% 26%, rgb(255 255 255 / 0.92), rgb(var(--glass-tint) / 0.35) 60%)',
-        // ★ 用长写属性（borderWidth/Style/Color），不要和 `border` 简写混用 ——
-        //   React 会警告 "mixing shorthand and non-shorthand properties"，且样式可能被覆盖
-        borderWidth: 1,
-        // 预览态：虚线描边（IDE 里预览标签是斜体，这里再加一层"临时"的视觉）
-        borderStyle: open && preview ? 'dashed' : 'solid',
-        borderColor: open ? 'hsl(var(--primary))' : 'rgb(255 255 255 / 0.6)',
-        boxShadow: '0 2px 10px hsl(var(--foreground) / 0.12), inset 0 1px 3px rgb(255 255 255 / 0.6)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        color: open ? 'hsl(var(--primary-foreground))' : 'hsl(var(--ink) / 0.7)',
-        cursor: 'pointer',
-      }}
+      className="shrink-0 nm-panel-bubble"
     >
-      <Icon size={13} aria-hidden="true" />
-
-      {/* 运转中：呼吸环（prefers-reduced-motion 时动画在 CSS 里被关掉） */}
-      {signal?.running && (
-        <span className="nm-panel-bubble-running" aria-hidden="true" />
-      )}
+      <Icon size={14} aria-hidden="true" />
 
       {/* 实时徽标 */}
       {signal?.badge !== undefined && (
@@ -157,13 +143,17 @@ function Bubble({
             /**
              * ★ 2026-10-23（对比度修复）：原来「已打开」态用
              *   `hsl(var(--primary-foreground) / 0.28)` —— 那是**近白的 28% 半透明**，
-             *   叠在同样偏亮的主色渐变气泡上，白字压浅青底，实测对比度 **1.04:1**
+             *   叠在同样偏亮的主色气泡上，白字压浅青底，实测对比度 **1.04:1**
              *   （数字基本看不见）。徽标本来就是要「一眼看到」的东西，底色必须压深。
-             *   统一用墨色药丸：关闭态（白玻璃气泡）与打开态（主色气泡）都是深底白字，
-             *   实测两态都在 9:1 以上。
+             *   统一用深色药丸：两态都是深底浅字。
+             * ★ 2026-10-29：底色从遗留别名 `--ink` 换成 `--foreground`；
+             *   文字色不再写死 `#fff`（夜间档 `--foreground` 是**亮**色，
+             *   配 `--card` 底才对；写死白在亮档下就是白字压深底、在夜间档
+             *   仍是白字压浅底之外的另一种组合）——统一取 `--background`，
+             *   它与 `--foreground` 恒为反色，两档都成立。
              */
-            background: 'hsl(var(--ink) / 0.82)',
-            color: '#fff',
+            background: 'hsl(var(--foreground) / 0.86)',
+            color: 'hsl(var(--background))',
             fontWeight: 500,
           }}
           aria-hidden="true"
@@ -262,60 +252,108 @@ export function BubbleRail({
   }, []);
 
   if (panels.length === 0) return null;
-  const groups: Array<WorkbenchPanel['group']> = ['live', 'data'];
 
   return (
     <nav
       ref={navRef}
       aria-label="功能看板气泡列"
       className="shrink-0 flex flex-col items-center overflow-y-auto relative z-20 nm-panel-rail"
-      style={{ width: 44, padding: 'var(--space-4) 0', gap: 'var(--space-4)' }}
+      style={{
+        // 48px：与手写台竖栏（52px）同一量级，装得下 34px 的图标钮 + 两侧 7px 呼吸。
+        // 条目之间**不留 gap**（原来是 14px）—— VS Code 的图标是连续排下来的，
+        // 留大空隙会把一列读成"散落的几颗"，这正是"气泡感"的来源之一。
+        width: 48,
+        // 底色与右缘发丝线保留：竖栏两侧分别是对话栏（`--card`）与正文
+        //（`--background`），没有这条线就分不出"这是一条栏"。
+        // ★ 2026-10-29 二轮：底色由 `--muted / 0.4` 改成**实底 `--muted`**。
+        //   那个 0.4 透明度叠在近白正文上约等于 #fbfbfb，与两侧几乎同色 ——
+        //   原来靠分组标题和描边还能看出"这是一条栏"，二轮把标题去掉之后，
+        //   半透明底就彻底消失了，图标像浮在空气里。实底才立得住。
+        background: 'hsl(var(--muted))',
+        borderRight: '1px solid hsl(var(--border))',
+        padding: 'var(--space-2) 0',
+        gap: 2,
+      }}
     >
-      {groups.map((g, gi) => {
-        const list = panels.filter((p) => p.group === g);
-        if (list.length === 0) return null;
-        return (
-          <div key={g} className="contents">
-            {gi > 0 && (
-              <span
-                aria-hidden="true"
-                className="shrink-0"
-                style={{ width: 16, height: 1, background: 'hsl(var(--border))', margin: 'var(--space-0) 0' }}
-              />
-            )}
-            {list.map((p) => (
-              <Bubble
-                key={p.key}
-                panel={p}
-                open={openKeys.includes(p.key)}
-                active={activeKey === p.key}
-                preview={previewKey === p.key}
-                signal={signals?.[p.key]}
-                onClick={() => handleSingle(p.key)}
-                onDoubleClick={() => handleDouble(p.key)}
-                onHover={(el) => showTip(p, openKeys.includes(p.key), el)}
-              />
-            ))}
-          </div>
-        );
-      })}
+      {/* ★ 2026-10-29 二轮：**去掉全部装饰**，只留图标。
+          删掉的是：两个分组小标题（「写作中 / 资料」）、它们之间那条 1px 分隔线、
+          以及按 group 分段的双层 map —— 现在就是一列平铺的图标，
+          顺序 = 面板注册顺序。VS Code 的活动栏没有这些小标题，
+          分组信息仍然保留在悬停浮层里（「流水线 · 写作中」），需要时看得到。 */}
+      {panels.map((p) => (
+        <Bubble
+          key={p.key}
+          panel={p}
+          open={openKeys.includes(p.key)}
+          active={activeKey === p.key}
+          preview={previewKey === p.key}
+          signal={signals?.[p.key]}
+          onClick={() => handleSingle(p.key)}
+          onDoubleClick={() => handleDouble(p.key)}
+          onHover={(el) => showTip(p, openKeys.includes(p.key), el)}
+        />
+      ))}
 
       <style>{`
         /* ★ 类名一律用 nm-panel-* 前缀：项目 globals.css 里已经有 .nm-bubble / .nm-bubble-core
            那套**环境气泡效果**的全局样式（带 position:absolute），撞名会让气泡全部叠在一处
            （实测：三个气泡坐标完全一致、点不中）。 */
-        .nm-panel-bubble-running {
-          position: absolute; inset: -2.5px; border-radius: 50%;
-          border: 1.5px solid hsl(var(--state-running, 40 70% 40%));
-          animation: nm-panel-bubble-breathe 1.8s ease-in-out infinite;
-          pointer-events: none;
+
+        /* ── 图标钮（2026-10-29 二轮：VS Code 活动栏式，只有三态） ──
+           底色/颜色必须写在这里、而不是 JSX 的 inline style：
+           inline style 优先级高于任何选择器（与特异性无关），
+           只要默认色写在 style 里，hover 规则就永远盖不过它。
+           ⚠ 本段在 JS 模板字符串里 —— 注释中**不能出现反引号**，
+             否则会提前终止模板串（实测：写完这行就整段 TS 报 "}' expected"）。 */
+        .nm-panel-bubble {
+          position: relative;
+          display: flex; align-items: center; justify-content: center;
+          width: 34px; height: 30px;
+          border: 0; border-radius: 6px;
+          background-color: transparent;
+          color: hsl(var(--muted-foreground));
+          cursor: pointer;
+          transition: background-color 0.12s ease, color 0.12s ease;
         }
-        @keyframes nm-panel-bubble-breathe {
-          0%, 100% { transform: scale(1); opacity: 0.5; }
-          50% { transform: scale(1.16); opacity: 0.12; }
+        /* 悬停/选中的底色用**前景色的低透明度叠加**，而不是 muted：
+           竖栏自己的底色就是 muted（见 nav 的 inline style），
+           再拿 muted 当悬停底等于没有反馈（实测两者同色）。
+           前景色叠加在任何底色上都成立，且深浅两档自动反向。
+           ⚠ 同上：模板串内的注释不能出现反引号。 */
+        .nm-panel-bubble:hover {
+          background-color: hsl(var(--foreground) / 0.07);
+          color: hsl(var(--foreground));
         }
-        @media (prefers-reduced-motion: reduce) {
-          .nm-panel-bubble-running { animation: none; opacity: 0.45; }
+        /* 运转中：**静**的主色图标（原来是外圈呼吸环 + 1.8s 无限动画）。
+           作者要的是简洁 —— 一屏里一个永动的环是最扎眼的东西；
+           状态仍然看得见（图标转主色），只是不再动。 */
+        .nm-panel-bubble[data-running] {
+          color: hsl(var(--primary));
+        }
+        /* 选中：底 + 左侧 2px 竖条（VS Code 活动栏的选中语言） */
+        .nm-panel-bubble[data-active] {
+          background-color: hsl(var(--foreground) / 0.09);
+          color: hsl(var(--primary));
+        }
+        .nm-panel-bubble[data-active]::before {
+          content: '';
+          position: absolute;
+          left: -7px; top: 5px; bottom: 5px; width: 2px;
+          border-radius: 0 2px 2px 0;
+          background-color: hsl(var(--primary));
+        }
+        /* 预览（单击打开、会被下一个顶掉）：图标压暗一档。
+           原来靠"虚描边"表达，而 VS Code 式的图标钮已经不画边框了 ——
+           压暗是唯一不引入新装饰的做法（悬停浮层里也写着"单击预览"）。 */
+        .nm-panel-bubble[data-preview] {
+          opacity: 0.72;
+        }
+        .nm-panel-bubble[data-preview]:hover {
+          opacity: 1;
+        }
+        .nm-panel-bubble:focus-visible {
+          outline: 2px solid hsl(var(--ring));
+          outline-offset: 1px;
         }
         /* 悬停浮层：挂 body（portal），fixed 定位，故不受本列 overflow 裁剪。 */
         .nm-panel-tip {

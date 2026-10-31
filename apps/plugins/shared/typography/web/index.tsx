@@ -36,7 +36,15 @@ const PALETTE: Array<{ value: string | null; label: string }> = [
   { value: '#f2ead8', label: '纸白' },
 ];
 
-const DEFAULT_SETTINGS: TypographySettings = { weight: 600, color: null };
+/**
+ * 默认值：**常规（400）**，跟随主题色。
+ *
+ * ★ 2026-10-29：原默认 600（半粗）。作者本轮口径「正文默认用常规」——
+ *   600 是标题级字重，整章正文用它会让版面发黑、笔画糊在一起（中文衬线尤甚）。
+ *   这是**默认值**改动：用户显式选过粗细的（服务端已存偏好）不受影响，
+ *   只有从未改过的人会看到新默认。想调粗仍可在「字体排版」面板 / 设置页改。
+ */
+const DEFAULT_SETTINGS: TypographySettings = { weight: 400, color: null };
 
 /** 当前生效设置（命令与面板共享） */
 let current: TypographySettings = { ...DEFAULT_SETTINGS };
@@ -48,12 +56,14 @@ function ensureStyle(): void {
   el.id = STYLE_ID;
   el.textContent = `
     :root {
-      --nm-typography-weight: 600;
+      --nm-typography-weight: 400;
       --nm-typography-color: hsl(var(--ink));
     }
     .nm-editor-content .ProseMirror,
     .nm-editor-card .ProseMirror {
-      font-weight: var(--nm-typography-weight, 600) !important;
+      /* 兜底值与 DEFAULT_SETTINGS.weight 一致（400 常规）——
+         两处不同步会让「首屏未读到偏好」的那一帧字重跳一下。 */
+      font-weight: var(--nm-typography-weight, 400) !important;
       color: var(--nm-typography-color, hsl(var(--ink))) !important;
     }
   `;
@@ -376,7 +386,9 @@ export function apply(ctx: WebPluginContext): void {
   apiFetch = ctx.api; // 注入带鉴权 fetch（C7）
   applySettings(current); // 初始化注入样式
 
-  ctx.registerProjectPanel({ key: 'typography', label: '字体排版', icon: Type, Component: TypographyPanel, width: 420, height: 640 });
+  // ★ 2026-10-29：`section: '写作'` —— 字体排版调的是正文本身的呈现，
+  //   属写作主线；不声明它会落到兜底组「其它」，与它的重要性不符。
+  ctx.registerProjectPanel({ key: 'typography', label: '字体排版', icon: Type, section: '写作', Component: TypographyPanel, width: 420, height: 640 });
   ctx.registerSettingsSection({
     key: 'novel.typography.settings',
     title: '字体排版',

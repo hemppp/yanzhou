@@ -831,15 +831,27 @@ export function PipelineGraphPanel({
 
   return (
     <div className="h-full flex flex-col gap-3">
-      {/* 顶部条：没有开书设定 / 未启动 时才出现（有状态时让位给图谱） */}
+      {/* ★ 2026-10-29：没有开书设定时，**整块面板**给一个完整空态。
+          原来只在上沿挂一条红字提示带，下面 700 多像素全是空白 ——
+          面板打开后第一眼看到的是"一大片什么都没有 + 一行警告"，
+          用户既不知道这里本该有什么，也不知道除了那条警告还能做什么。
+          现在：空态居中说明「缺什么 / 在哪补 / 补完会得到什么」，
+          警告条只在**有设定但流水线未启动**时才出现（那种情况下下面有起始卡）。 */}
       {!hasBrief && (
-        <div
-          className="rounded-lg px-3 py-2 text-[10px] leading-[1.7] shrink-0"
-          style={{ background: 'hsl(var(--destructive) / 0.08)', border: '0.5px solid hsl(var(--destructive) / 0.3)', color: 'hsl(var(--destructive))' }}
-        >
-          <AlertTriangle size={11} className="inline mr-1" aria-hidden="true" />
-          这本书还没有开书设定（书名 / 开局 / 世界观 / 笔风 / 主角 / 女主 / 流派）。
-          去书架的「编辑书籍」里补全后，这里才立得起来 —— 流水线的起点就是它。
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="aw-empty">
+            <div className="aw-empty-icon" aria-hidden="true">
+              <AlertTriangle size={22} />
+            </div>
+            <div className="aw-empty-title">还缺少开书设定</div>
+            <p className="aw-empty-desc">
+              流水线从开书设定长出来，需要书名 / 开局 / 世界观 / 笔风 / 主角 / 女主 / 流派。
+              这些在创建这本书时填写；已经建好的书可以到书架点「编辑」补全。
+            </p>
+            <p className="aw-empty-desc" style={{ marginBottom: 0 }}>
+              补全后回到这里，点「开始立设定」即可依次立起角色与节奏 → 世界观与势力 → 剧情总纲。
+            </p>
+          </div>
         </div>
       )}
 

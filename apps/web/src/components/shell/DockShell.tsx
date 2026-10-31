@@ -81,6 +81,9 @@ import {
 } from './dock/types';
 // ★ 底部面板分区（插件扩展点）：细条右侧入口 + 展开区栏目，见 bottomSections.tsx
 import { useBottomPanelSections } from './bottomSections';
+// ★ 2026-10-29：活动栏分区词汇表（写作 / 资料 / 工具 + 兜底「其它」）。
+//   本文件只用它做**分组渲染**，不含任何业务 key 映射（见该文件头注的职责边界）。
+import { groupByRailSection } from './panelSections';
 
 // ---- 内部渲染器：中心区默认占用者（章节编辑器出口） ----------------------
 
@@ -230,6 +233,8 @@ function ActivityBar({
     icon: React.ComponentType<{ size?: number }>;
     /** ★ 面板 chunk 预取入口（见 `FloatingPanelDef.preload`）：悬停即预热 */
     preload?: () => Promise<unknown>;
+    /** ★ 2026-10-29：分区标题（见 `FloatingPanelDef.section` / panelSections.ts） */
+    section?: string;
   }[];
   activeKey: string | null;
   /** 当前已打开的面板 key（受控集合；用于开关态的 aria-pressed 与提示文案） */
@@ -253,29 +258,86 @@ function ActivityBar({
     [],
   );
 
+  /**
+   * ★ 2026-10-29：悬停飞出标签。
+   *
+   *   为什么不用 `title`（原生 tooltip）：原生提示要等 ~1s、样式不可控、
+   *   且与「刚才点的哪个」之间没有任何视觉联系 —— 16 个无字图标的竖栏
+   *   全靠它认门，体验代价太大。
+   *
+   *   为什么用 `position: fixed` + 现算坐标：竖栏自身（及其祖先
+   *   `.dock-shell` / `.shell-root`）是 `overflow: hidden`，`absolute` 浮层
+   *   会被整块裁掉 —— DOM 在、rect 正常，但屏幕上什么都没有（本仓标签栏
+   *   右键菜单踩过同一个坑，见 TabBar 的 fixed 方案）。fixed 相对视口定位，
+   *   不受任何祖先裁剪影响。
+   *
+   *   飞出物是 `aria-hidden` 的纯装饰：可访问名仍由按钮自己的 `aria-label`
+   *   承担（读屏用户不需要"悬停"才有名字）。
+   */
+  const [flyout, setFlyout] = useState<{ label: string; open: boolean; top: number } | null>(null);
+  const showFlyout = useCallback((el: HTMLElement, label: string, open: boolean) => {
+    const r = el.getBoundingClientRect();
+    setFlyout({ label, open, top: r.top + r.height / 2 });
+  }, []);
+  const hideFlyout = useCallback(() => setFlyout(null), []);
+
+  const grouped = useMemo(() => groupByRailSection(items), [items]);
+
   return (
     <nav className="dock-activity-bar" aria-label="活动栏">
-      {items.map((it) => {
-        const Icon = it.icon;
-        const active = it.key === activeKey;
-        const open = openKeys.includes(it.key);
-        return (
-          <button
-            key={it.key}
-            type="button"
-            className={active ? 'dock-activity-item is-active' : 'dock-activity-item'}
-            title={open ? `${it.label}（点击收起）` : `${it.label}（点击打开）`}
-            aria-label={it.label}
-            aria-pressed={open}
-            onMouseEnter={() => warm(it)}
-            onFocus={() => warm(it)}
-            onClick={() => onSelect(it.key)}
-          >
-            {/* ★ t6 尺寸对齐参考图：参考图条目内图标墨迹实测 ~15×10（≈18px lucide），原 22px 偏大。 */}
-            <Icon size={18} />
-          </button>
-        );
-      })}
+      {/* 竖栏自身可滚动（视口矮 / 面板多时）：滚动条隐藏，保持竖栏的干净边缘。 */}
+      <div className="dock-activity-scroll">
+        {grouped.map(({ section, items: groupItems }) => (
+          <div className="dock-activity-group" key={section}>
+            {/* 分区小标题：竖栏里唯一的文字，给整组一个"这是什么"的锚点 */}
+            <div className="dock-activity-group-label" aria-hidden="true">
+              {section}
+            </div>
+            {groupItems.map((it) => {
+              const Icon = it.icon;
+              const active = it.key === activeKey;
+              const open = openKeys.includes(it.key);
+              return (
+                <button
+                  key={it.key}
+                  type="button"
+                  className={active ? 'dock-activity-item is-active' : 'dock-activity-item'}
+                  /* `title` 保留为**兜底**：飞出层被禁用/未渲染时（如键盘聚焦走
+                     另一条分支）仍能拿到文字说明，且它是屏幕阅读器之外的标准手段。 */
+                  title={open ? `${it.label}（点击收起）` : `${it.label}（点击打开）`}
+                  aria-label={it.label}
+                  aria-pressed={open}
+                  onMouseEnter={(e) => {
+                    warm(it);
+                    showFlyout(e.currentTarget, it.label, open);
+                  }}
+                  onMouseLeave={hideFlyout}
+                  onFocus={(e) => {
+                    warm(it);
+                    showFlyout(e.currentTarget, it.label, open);
+                  }}
+                  onBlur={hideFlyout}
+                  onClick={() => onSelect(it.key)}
+                >
+                  {/* ★ t6 尺寸对齐参考图：参考图条目内图标墨迹实测 ~15×10（≈18px lucide），原 22px 偏大。 */}
+                  <Icon size={18} />
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {flyout && (
+        <div
+          className="dock-activity-flyout"
+          aria-hidden="true"
+          style={{ top: flyout.top }}
+        >
+          {flyout.label}
+          <span className="dock-activity-flyout-hint">{flyout.open ? '收起' : '打开'}</span>
+        </div>
+      )}
     </nav>
   );
 }
@@ -811,6 +873,8 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
   useImperativeHandle(props.apiRef ?? null, () => api, [api]);
 
   // ---- 外壳骨架：活动栏条目由**候选池**派生（不硬编码业务面板） ----
+  // ★ 2026-10-29：条目连同 `section` 一起带下去 —— 分区标题由**面板定义**声明
+  //   （`FloatingPanelDef.section`），本内核只按字段分组渲染，不认识任何业务 key。
   const activityItems = useMemo(
     () =>
       panels.map((d) => ({
@@ -819,6 +883,7 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
         icon: d.icon as unknown as React.ComponentType<{ size?: number }>,
         // ★ 意图预取入口随定义一并带下来（见 ActivityBar 的悬停预热）
         preload: d.preload,
+        section: d.section,
       })),
     [panels],
   );

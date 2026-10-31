@@ -72,6 +72,9 @@ export function apply(ctx: WebPluginContext): void {
     key: 'chapters',
     label: '章节',
     icon: BookOpen,
+    // ★ 2026-10-29：活动栏分区（见 kernel components/shell/panelSections.ts）。
+    //   「章节」是写作主线本身，与 AI 对话同属「写作」组，排在竖栏最上。
+    section: '写作',
     Component: LeftSidebar,
     // ★ 240：截图口径（左栏固定 240px 量级）。这不是纯外观参数 —— DockShell 用它设
     //   addPanel 的初始宽度与 minimumWidth（DockShell.tsx:389-390 / dock/types.ts:76），
@@ -97,6 +100,8 @@ export function apply(ctx: WebPluginContext): void {
     key: 'ai-chat',
     label: 'AI 对话',
     icon: MessageSquare,
+    // ★ 2026-10-29：与「章节」同属「写作」组（AI 协同是写作主线的一部分）。
+    section: '写作',
     width: 340,
     height: 640,
     modes: ['manual'],

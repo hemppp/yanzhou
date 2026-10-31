@@ -115,10 +115,15 @@ export function SettingsPage() {
           <h1
             className="font-serif"
             style={{
-              fontSize: '2rem',
+              // ★ 2026-10-29：2rem(32px) → 1.375rem(22px)。32px 的"设置"两字
+              //   比页面里所有内容都大出一倍，而且它承载的信息量为零
+              //   （用户点进来的那一刻就知道自己在设置页）。
+              //   收到 22px 后它与 `.nm-hero-title`（登录页字标）同档，
+              //   页面最大字号重新交给"内容标题"。
+              fontSize: '1.375rem',
               fontWeight: 600,
-              color: 'hsl(var(--ink))',
-              letterSpacing: '-0.02em',
+              color: 'hsl(var(--foreground))',
+              letterSpacing: '0.06em',
             }}
           >
             设置
@@ -134,23 +139,24 @@ export function SettingsPage() {
                 onClick={() => setCategory(c.key)}
                 /* ★ `nm-nav-item` / `--active` 是给主题的**显式钩子**：
                    导航项整体不加装饰外框（6 个都加太吵，且导航不是动作按钮），
-                   只让**选中项**有 —— 作为"当前所在"的标记。 */
-                className={`nm-nav-item w-full text-left px-3 py-2.5 rounded-lg transition-colors${
-                  category === c.key ? ' nm-nav-item--active' : ''
+                   只让**选中项**有 —— 作为"当前所在"的标记。
+                   ★ 2026-10-29：选中态从「玻璃底 + 0.5px 墨框」改成
+                     **实底 + 左侧 2px 主色竖条**。理由：原来那个 0.5px 半透明描边
+                     在 1x 屏上渲染成一条灰虚边，看起来像"这张卡没加载完"；
+                     而左侧竖条是导航选中态的通用语言（与工作台活动栏同一套），
+                     且不依赖描边的不透明度。 */
+                className={`w-full text-left px-3 py-2.5 transition-colors${
+                  category === c.key ? 'sx-nav-item is-active' : 'sx-nav-item'
                 }`}
-                style={{
-                  background: category === c.key ? 'rgb(var(--glass-tint) / 0.55)' : 'transparent',
-                  // ★ 拆长写：`border` 简写会重置 border-image，选中项的墨框就画不出来
-                  borderWidth: '0.5px',
-                  borderStyle: 'solid',
-                  borderColor: category === c.key ? 'hsl(var(--border) / 0.6)' : 'transparent',
-                }}
               >
-                <div className="flex items-center gap-2 text-sm font-medium" style={{ color: category === c.key ? 'hsl(var(--ink))' : 'hsl(var(--ink-light) / 0.75)' }}>
+                <div
+                  className="flex items-center gap-2 text-sm font-medium"
+                  style={{ color: category === c.key ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}
+                >
                   {c.icon}
                   {c.label}
                 </div>
-                <div className="text-[10px] mt-0.5 pl-[23px]" style={{ color: 'hsl(var(--ink-light) / 0.45)' }}>
+                <div className="text-[10px] mt-0.5 pl-[23px]" style={{ color: 'hsl(var(--muted-foreground) / 0.8)' }}>
                   {c.desc}
                 </div>
               </button>

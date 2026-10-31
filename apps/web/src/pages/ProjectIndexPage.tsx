@@ -248,47 +248,23 @@ export const ProjectIndexPage: React.FC = () => {
   }
 
   // 4️⃣ 有项目 + 无章节 → 空状态 + 创建第一章
+  // ★ 2026-10-29 重做：原实现是一张**硬编码浅色**的半透明玻璃卡
+  //   （`hsla(0,0%,98%,.62)` + `backdrop-filter`），用的是遗留 token
+  //   `--ink` / `--mountain-deep`（后者已是近黑），文字全是衬线体。
+  //   问题有两处是**功能性**的，不只是观感：
+  //     ① 硬编码 98% 白 ⇒ 暗色档下这张卡仍是白底，而它上面要放深色文字，
+  //        实测暗色下可读性极差（同一批改动已在落地页修过同一个毛病）；
+  //     ② 卡片是"居中孤岛"，正文区一大片空白只有中间一个框。
+  //   现在：token 化的实底卡（深浅两档都成立）、控件沿用统一形态
+  //   （`.nm-input` / 主按钮），文案与层级收拢。网关公共类而非内联色值。
   return (
-    <div
-      className="h-full flex items-center justify-center"
-      style={{ background: 'transparent' }}
-    >
-      <div
-        className="rounded-xl flex flex-col items-center"
-        style={{
-          maxWidth: 440,
-          width: '90%',
-          padding: 'var(--space-9)',
-          background: 'hsla(0, 0%, 98%, 0.62)',
-          backdropFilter: 'blur(12px) saturate(140%)',
-          WebkitBackdropFilter: 'blur(12px) saturate(140%)',
-          border: '1px solid hsl(var(--border) / 0.5)',
-          boxShadow: '0 4px 16px hsl(var(--ink) / 0.05)',
-          textAlign: 'center',
-        }}
-      >
-        <Sparkles size={28} style={{ color: 'hsl(var(--mountain-deep))' }} className="mb-3" />
-        <h2
-          style={{
-            fontFamily: "'Noto Serif SC', serif",
-            fontSize: 16.5,
-            fontWeight: 600,
-            color: 'hsl(var(--ink))',
-            margin: '0 0 var(--space-2)',
-          }}
-        >
-          《{currentProject.name}》还没有章节
-        </h2>
-        <p
-          style={{
-            fontFamily: "'Noto Serif SC', serif",
-            fontSize: 12,
-            color: 'hsl(var(--ink-light))',
-            margin: '0 0 var(--space-7)',
-          }}
-        >
-          创建第一章，开始你的写作之旅
-        </p>
+    <div className="h-full flex items-center justify-center px-6">
+      <div className="pi-empty-card">
+        <div className="pi-empty-icon" aria-hidden="true">
+          <Sparkles size={22} />
+        </div>
+        <h2 className="pi-empty-title">《{currentProject.name}》还没有章节</h2>
+        <p className="pi-empty-desc">给第一章起个名字，或直接留空用默认标题。</p>
         <div className="flex items-center gap-2 w-full">
           <input
             ref={inputRef}
@@ -299,26 +275,15 @@ export const ProjectIndexPage: React.FC = () => {
             }}
             placeholder="章节标题（留空则默认「第一章」）"
             disabled={creatingBusy}
-            className="flex-1 px-3 py-2 rounded-md outline-none transition-all"
-            style={{
-              fontFamily: "'Noto Serif SC', serif",
-              fontSize: 12,
-              color: 'hsl(var(--ink))',
-              background: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--mountain-deep) / 0.3)',
-            }}
+            className="nm-input flex-1"
+            style={{ height: 36, fontSize: 13 }}
+            aria-label="新章节标题"
           />
           <button
             onClick={() => void handleCreate()}
             disabled={creatingBusy}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md transition-all disabled:opacity-50"
-            style={{
-              fontFamily: "'Noto Serif SC', serif",
-              fontSize: 12,
-              color: 'hsl(var(--card))',
-              background: 'hsl(var(--mountain-deep))',
-              // 同「去书架」按钮：删掉内联 `border: 'none'`，否则主题层外框穿不上
-            }}
+            className="nm-btn-apple-primary"
+            style={{ height: 36, flexShrink: 0 }}
           >
             <Plus size={14} />
             {creatingBusy ? '创建中…' : '开始写作'}

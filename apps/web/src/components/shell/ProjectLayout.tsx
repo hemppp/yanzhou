@@ -198,6 +198,10 @@ export function ProjectLayout() {
         //   `BuiltinPanelDef.dock` 被丢掉，导致 chapters 槽只能落 `slot` 缺省
         //   ('right')，左栏章节树无法出现在左停靠区（目标截图要求）。
         dock: b.dock,
+        // ★ 2026-10-29：`section` 同理必须带过去 —— 这里是**显式挑字段**的白名单，
+        //   漏一个字段 = 该面板被静默归进活动栏兜底分区「其它」。
+        //   （`'chapters'` / `'ai-chat'` 都走这条路径，正是最常用的两个面板。）
+        section: b.section,
       } as FloatingPanelDef);
     }
     for (var j = 0; j < allFloatingPanels.length; j++) {
@@ -524,12 +528,17 @@ export function ProjectLayout() {
                 <Shield size={15} />
               </button>
             )}
+            {/* ★ 2026-10-29：用户名文字从顶栏撤掉，只留头像。
+               这是 29px 高的一行，右侧原本挤着 7 个元素；文字名与它左边的
+               首字头像表达的是同一件事，等于白占一份宽度 —— 而且名字一长
+               （中文 2 字以上）就会把「设置 / 登出」往左挤。名字改为 title
+              提示（悬停可见），信息没丢。 */}
             {user && (
-              <div className="shell-user-chip">
-                <div className="shell-user-avatar">
+              <div className="shell-user-chip" title={user.displayName || user.username}>
+                <div className="shell-user-avatar" aria-hidden="true">
                   {user.displayName ? user.displayName.charAt(0).toUpperCase() : <User size={10} />}
                 </div>
-                <span className="shell-user-name">{user.displayName}</span>
+                <span className="sr-only">{user.displayName || user.username}</span>
               </div>
             )}
             <button

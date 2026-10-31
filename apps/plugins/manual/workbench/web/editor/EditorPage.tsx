@@ -32,6 +32,11 @@ import { nanoid } from 'nanoid';
 import type { Snapshot } from '@novel/shared';
 
 // ★ 样式常量：避免每次渲染创建新对象
+// ★ 2026-10-29 左对齐改版：标题原为 `textAlign:'center'` + 正文居中，
+//   整页以中线对称。作者本轮选定「左对齐」（见 globals.css `.ProseMirror` 的
+//   同一批改动）—— 正文左对齐后，标题若仍居中，两者各有一条中轴，
+//   视觉上会「对不齐」：标题看起来像被随手摆在中间。故标题与元信息行
+//   一并改为左对齐，与正文共享同一条左基线。
 const TITLE_INPUT_STYLE: React.CSSProperties = {
   fontSize: '26px',
   fontWeight: 700,
@@ -40,7 +45,7 @@ const TITLE_INPUT_STYLE: React.CSSProperties = {
   border: 'none',
   outline: 'none',
   lineHeight: '1.3',
-  textAlign: 'center',
+  textAlign: 'left',
 };
 
 const SUBTITLE_STYLE: React.CSSProperties = {
@@ -599,20 +604,20 @@ export function EditorPage() {
           onChange={(e) =>
             updateChapter(currentChapterId!, { title: e.target.value })
           }
-          className="w-full nm-editor-title text-center"
+          className="w-full nm-editor-title text-left"
           style={TITLE_INPUT_STYLE}
           placeholder="输入章节标题..."
           aria-label="输入章节标题"
         />
         {/* 副标题：所属卷 */}
         {currentChapter.label && (
-          <div className="text-center mt-2 text-[11px] font-[Noto_Serif_SC,serif] tracking-wider" style={SUBTITLE_STYLE}>
+          <div className="text-left mt-2 text-[11px] font-[Noto_Serif_SC,serif] tracking-wider" style={SUBTITLE_STYLE}>
             {currentChapter.label}
           </div>
         )}
         {/* 元信息行：字数 · 最后修改 · 本章标识 · 在场人物（四段均为真实数据，缺失段不渲染） */}
         <div
-          className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2 text-[11px]"
+          className="flex flex-wrap items-center justify-start gap-x-2 gap-y-1 mt-2 text-[11px]"
           style={{ color: 'hsl(var(--ink-pale))' }}
         >
           {metaSegments.map((segment, index) => (
@@ -704,8 +709,12 @@ export function EditorPage() {
               pageView
                 ? undefined
                 : {
-                    paddingLeft: 'clamp(16px, 4vw, 48px)',
-                    paddingRight: 'clamp(16px, 4vw, 48px)',
+                    // ★ 2026-10-29：**去掉左右内边距**（原 clamp(16px,4vw,48px)）。
+                    //   版心现在由 `.nm-editor-responsive` 的 max-width 钉住
+                    //   （34 字/行，且它自己居中，两侧已有留白），再叠一层左右 padding
+                    //   等于从版心里再切掉最多 96px —— 实测正文只剩 482px（28 字/行），
+                    //   而且它与标题的左基线错开 48px（标题贴版心左缘、正文被 padding 推右）。
+                    //   上下留白保持不变。
                     paddingTop: 'clamp(20px, 4vh, 32px)',
                     // ★ 底部只留基础呼吸留白：原先这里还要为「快捷短语」position:fixed 浮层
                     //   预留一段动态测量的 padding（见该文件历史版本）。该功能已于 2026-10-08

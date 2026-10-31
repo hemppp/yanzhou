@@ -15,6 +15,61 @@
 /** 记忆权限类型（type-only 导入，运行时不引入、不会与 memory 模块成环） */
 import type { RoleMemoryPolicy } from '../framework/memory/types.js';
 
+/**
+ * 思维链语言约束 —— 已按作者要求启用，但**实测对 glm-5.3-flash 无效**（见下）。
+ *
+ * ## 背景
+ *   推理模型会先产出 `reasoning_content`（思维链）再给正文。这段推理**不受
+ *   system prompt 人设影响**：实测 glm-5.3-flash 的角色人设全中文、正文全中文，
+ *   但思维链是整段英文，单条可达 1.3 万字 —— 前端渲染出来就是中文发言之间
+ *   夹着一屏英文。
+ *
+ * ## 实测（2026-10-29，同一提示词四种措辞各打一发）
+ *
+ *   | 措辞 | 思维链字数 | 中文占比 |
+ *   |---|---:|---:|
+ *   | 不加任何规则 | 4069 | 0.27 |
+ *   | 「请同样使用中文」 | 4983 | 0.29 |
+ *   | 强硬（禁止英文 / 立刻切换） | 3272 | 0.22 |
+ *   | 前置到最开头强调 | 4948 | 0.17 |
+ *
+ *   结论：**四种写法都没有实质效果**，中文占比在 0.17–0.29 之间随机波动，
+ *   且与"措辞强度"没有正相关（最强硬的一版反而最低）。模型确实读到了要求
+ *   （思维链里出现 "We need answer in Chinese likely"），但它**仍然用英文思考**。
+ *   这是这类模型解码阶段的固有行为，不是提示词能改的。
+ *
+ * ## 为什么仍然保留并启用
+ *   ① 作者明确要求「同时要求模型用中文推理」—— 这是产品意图，写进 prompt 是诚实的表达；
+ *   ② 换个模型（中文语料更重的）可能就有效，到那时不用重写；
+ *   ③ 删掉它会让下一个人重新踩一遍同样的坑、再花一轮实验。
+ *
+ * ## 真正的解在前端
+ *   `ThinkingTrace`（已结算发言）与 `LiveThinking`（正在思考）都**默认收起**，
+ *   英文思维链在用户点开之前不占任何版面。这条是确定有效的，已在 2026-10-29 落地。
+ */
+const REASONING_LANGUAGE_RULE = `
+
+【推理语言】你的推理过程（thinking / reasoning）请**同样使用中文**。
+推理是给这本书的作者看的，不是内部草稿 —— 中英文混排会打断阅读。`;
+
+/**
+ * 是否把上面的规则拼进 system prompt。
+ *
+ * ★ 当前 `true` —— 按作者口径「同时要求模型用中文推理」开启。
+ *   但请**不要**以为打开它就解决了问题：上方那组对照实验说明它在
+ *   glm-5.3-flash 上测不出效果（中文占比 0.17–0.29，与措辞强度无关）。
+ *   它的价值是"明确表达了产品意图" + 换模型后可能生效（那时只需保持 true）。
+ *   真正的兜底是前端折叠块默认收起 —— 那条是确定有效的。
+ *   若将来确认某模型完全无视它、且在意 prompt 长度，翻成 false 即可。
+ */
+const ENABLE_REASONING_LANGUAGE_RULE = true;
+
+/** 把思维链语言约束追加到角色 system prompt 末尾（受开关控制） */
+function withReasoningLanguage(system: string): string {
+  if (!ENABLE_REASONING_LANGUAGE_RULE) return system;
+  return system.includes('【推理语言】') ? system : system + REASONING_LANGUAGE_RULE;
+}
+
 export interface DesignRole {
   key: string;
   name: string;
@@ -306,4 +361,32 @@ export const ALL_ROLES: DesignRole[] = [...DESIGN_ROLES, CONVENER_ROLE];
 
 export function roleByKey(key: string): DesignRole | undefined {
   return ALL_ROLES.find((r) => r.key === key);
+}
+
+/**
+ * 运行时实际下发给模型的角色（= 全部角色，且 system prompt 已追加思维链语言约束）。
+ *
+ * ## 为什么用「覆盖导出」而不是把规则写进六个 system 字面量
+ *   ① 一处改、六处生效 —— 措辞调整不会漏掉某个角色；
+ *   ② 打字面量要改 6 个模板串，任何一个漏了都**不会报错**，只表现为"某个角色的
+ *      思维链还是英文"，极难发现；
+ *   ③ `roles.test.ts` 断言的是原始 `ROLE_WRITER.system`（篇幅契约），
+ *      覆盖层不碰原始对象 ⇒ 既有测试语义不变。
+ *
+ * ## 为什么在 roles.ts 里覆盖、而不是在 orchestrator 调用点拼
+ *   调用点有 7 处（讨论 / 定稿 / 写作 / 重写 / 复核 …），漏一处就是漏一处。
+ *   这里做一次，调用点照旧用 `ROLE_*` 常量即可，无需改动。
+ *
+ * ★ 用 `Object.defineProperty` 就地改写导出的常量：
+ *   ESM 的具名导出是**只读绑定**，`ROLE_WRITER.system = …` 会静默失效（严格模式下抛错）。
+ *   改写对象的属性则是合法的，且因为所有调用点共享同一个对象引用，
+ *   覆盖后它们读到的就是新值。
+ */
+for (const role of [ROLE_PLOT, ROLE_CHARACTER, ROLE_CONTINUITY, ROLE_CONVENER, ROLE_WRITER, ROLE_REVIEWER]) {
+  Object.defineProperty(role, 'system', {
+    value: withReasoningLanguage(role.system),
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
 }

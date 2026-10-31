@@ -4,7 +4,6 @@ import { Search, Plus, X, BookOpen, Settings, ArrowDown, ArrowUp } from 'lucide-
 import { safeConfirm } from '@/utils/safeConfirm';
 import { AddBookModal } from '@/components/ui/AddBookModal';
 import { BookCard } from '@/components/ui/BookCard';
-import { useGlassRipple } from '@/hooks/useGlassRipple';
 import { useCachedQuery } from '@/hooks/useCachedQuery';
 import type { Project } from '@novel/shared';
 import { apiClient, ApiError } from '@/services/api/apiClient';
@@ -47,28 +46,35 @@ const sortOptions = [
 ];
 
 
+/**
+ * 书架字标。
+ *
+ * ★ 2026-10-29 修正（品牌改名漏网 + 尺寸重定）：
+ *   ① **品牌名**：这里一直渲染「听风细雨」—— 全仓 2026-10-19 那次
+ *      「品牌改名 NovelMuse/听风细雨 → 砚舟」（commit fc57416）漏掉了这一处，
+ *      于是书架顶上是旧名、页脚与 `<title>` 是新名（作者本轮走查一眼看出）。
+ *      现在统一为「砚舟」。
+ *   ② **尺寸**：原 `clamp(22px, 3.6vw, 38px)` 在 1485px 视口下顶到 38px，
+ *      比它下面的书名（书封标题 15px 量级）大出一个数量级，整条顶栏被这一个
+ *      词压住。收到 clamp(20px, 2.4vw, 26px) —— 仍是页面最大字号（它是字标），
+ *      但不再与内容争重量。
+ *   ③ 双色处理保留（前半墨色 + 后半主色），只换字与尺寸。
+ */
 function CalligraphyTitle() {
   return (
-    /* ★ 品牌名改为「砚舟」（2026-09-19）
-       这里原先硬编码英文 `Novel` + `Muse` 两段 span。
-       应用早在 commit 7e021b8「应用品牌名改为「砚舟」」就改名了，
-       登录页 / `<title>` / 页脚都改了，**唯独这个书架页字标漏了** ——
-       实测 `grep -rn "砚舟"` 只在这一处是用户可见的（其余都是
-       函数名/类型名/注释/console.error，不进 UI）。
-       保留原来的**双色处理**（前半墨色、后半主色），只换字。 */
     <h1
       className="select-none"
       style={{
         fontFamily: "'Noto Serif SC', 'Source Han Serif SC', 'STKaiti', 'KaiTi', serif",
-        fontSize: 'clamp(22px, 3.6vw, 38px)',
+        fontSize: 'clamp(20px, 2.4vw, 26px)',
         fontWeight: 700,
         color: 'hsl(var(--foreground))',
         letterSpacing: '0.12em',
         lineHeight: 1,
       }}
     >
-      <span className="opacity-90">听风</span>
-      <span style={{ color: 'hsl(var(--primary))' }}>细雨</span>
+      <span className="opacity-90">砚</span>
+      <span style={{ color: 'hsl(var(--primary))' }}>舟</span>
     </h1>
   );
 }
@@ -118,7 +124,6 @@ const BookCardItem = memo(function BookCardItem({
 
 export function BookshelfPage() {
   const navigate = useNavigate();
-  const handleSettingsPointerDown = useGlassRipple<HTMLButtonElement>();
   const logout = useAuthStore(s => s.logout);
   const setCurrentProject = useProjectStore(s => s.setProject);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -328,37 +333,34 @@ export function BookshelfPage() {
       {/* Main content layer */}
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* Top bar — 液态玻璃工具栏 */}
-        <header
-          className="sticky top-0 z-20 mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8 py-4"
-        >
-          <div className="flex items-center justify-between gap-4">
-            {/* Left: Calligraphy title */}
-            <CalligraphyTitle />
+        <header className="sticky top-0 z-20 bs-topbar">
+          <div className="bs-topbar-inner">
+            {/* Left: 字标 + 一处说明性小字（原来只有"听风细雨"四个大字孤零零挂着） */}
+            <div className="bs-brand">
+              <CalligraphyTitle />
+              <span className="bs-brand-tag">墨香书阁</span>
+            </div>
 
-            {/* Right: Search + Actions */}
-            <div className="flex items-center gap-2.5">
-              {/* Search bar — 液态玻璃胶囊
-                  ★ 2026-10-11：原聚焦套 ring-2 光环，输入时整框泛光，按反馈移除 ——
-                  聚焦反馈交由 hover 同款玻璃高亮承担（不再有独立发光态）。 */}
-              <div
-                className="glass-surface glass-hover flex items-center gap-2 rounded-full transition-all duration-300"
-                style={{ padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-6)' }}
-              >
-                <Search size={15} className="shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }} />
+            {/* Right: 搜索 + 设置 + 新建 */}
+            <div className="bs-topbar-actions">
+              {/* 搜索：**有边框的输入框**，不再是悬浮玻璃胶囊。
+                  胶囊 + 毛玻璃在顶栏里看起来像一枚标签而不是输入框，
+                  用户第一眼判断不出"这里能打字"；描边输入框是更直白的能指。
+                  聚焦反馈走 --ring（与全局焦点环同一 token）。 */}
+              <div className="bs-search">
+                <Search size={14} className="shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }} />
                 <input
                   type="text"
-                  placeholder="搜索作品..."
+                  placeholder="搜索作品…"
                   value={filter.search}
                   onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
-                  className="bg-transparent border-none outline-none text-[12px] min-w-[120px] sm:min-w-[160px]"
-                  style={{ color: 'hsl(var(--foreground))', fontFamily: "'Noto Serif SC', serif" }}
+                  className="bs-search-input"
                   aria-label="搜索作品"
                 />
                 {filter.search && (
                   <button
                     onClick={() => setFilter(f => ({ ...f, search: '' }))}
-                    className="flex items-center justify-center w-5 h-5 rounded-full transition-colors"
-                    style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+                    className="bs-search-clear"
                     aria-label="清除搜索"
                   >
                     <X size={12} />
@@ -366,21 +368,18 @@ export function BookshelfPage() {
                 )}
               </div>
 
-              {/* Settings button — 玻璃图标按钮 */}
+              {/* 设置：图标按钮改成方形描边（与输入框、主按钮同一套形态语言） */}
               <button
                 onClick={() => navigate('/settings')}
-                onPointerDown={handleSettingsPointerDown}
-                className="glass-surface glass-hover glass-ripple glass-pressable flex items-center justify-center w-9 h-9 rounded-full"
-                style={{ color: 'hsl(var(--primary))' }}
+                className="bs-icon-btn"
                 aria-label="设置"
               >
-                <Settings size={16} strokeWidth={1.5} />
+                <Settings size={16} strokeWidth={1.6} />
               </button>
 
-              {/* New Book button */}
               <button
                 className="nm-btn-apple-primary"
-                style={{ width: 100, height: 34, padding: 0, fontSize: 12 }}
+                style={{ height: 34 }}
                 onClick={() => setShowAddModal(true)}
               >
                 <Plus size={14} strokeWidth={2.5} />
@@ -391,10 +390,19 @@ export function BookshelfPage() {
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8 pb-8">
-          {/* Sort & filter bar — 分段排序控件（替代原生 select） */}
-          <div className="flex items-center justify-end gap-3 mb-6 mt-2">
-            <div className="glass-surface flex items-center gap-1 px-1.5 py-1 rounded-full flex-wrap">
+        <main className="bs-main">
+          {/* 工具条：左「共 N 部作品」计数，右排序分段控件。
+              原来是**只有右侧一坨**的悬浮胶囊（排序项 + 一道竖线 + 方向钮挤在
+              一个圆角胶囊里，还带彩色投影），左边整片空白 —— 一屏里两个水平带
+              （顶栏与它）都靠右堆东西，版心因此看不出边界。
+              现在把它做成一条**通栏工具条**：左侧给计数（版心起点有了内容），
+              右侧放排序，控件形态与顶栏统一（描边 + 方角 6px）。 */}
+          <div className="bs-toolbar">
+            <span className="bs-count">
+              {loading ? '正在整理书架…' : `共 ${filteredBooks.length} 部作品`}
+            </span>
+
+            <div className="bs-sort" role="group" aria-label="排序方式">
               {sortOptions.map(opt => {
                 const active = filter.sortBy === opt.value;
                 return (
@@ -403,24 +411,17 @@ export function BookshelfPage() {
                     type="button"
                     onClick={() => setFilter(f => ({ ...f, sortBy: opt.value as SortBy }))}
                     aria-pressed={active}
-                    className="px-2.5 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-medium transition-all duration-200"
-                    style={{
-                      color: active ? '#ffffff' : 'hsl(var(--muted-foreground))',
-                      background: active ? 'hsl(var(--primary) / 0.92)' : 'transparent',
-                      boxShadow: active ? '0 2px 10px hsl(var(--primary) / 0.35)' : 'none',
-                      fontFamily: "'Noto Serif SC', serif",
-                    }}
+                    className={active ? 'bs-sort-btn is-active' : 'bs-sort-btn'}
                   >
                     {opt.label}
                   </button>
                 );
               })}
-              <span className="w-px h-4 mx-0.5 shrink-0" style={{ background: 'hsl(var(--border))' }} aria-hidden="true" />
+              <span className="bs-sort-sep" aria-hidden="true" />
               <button
                 type="button"
                 onClick={() => setFilter(f => ({ ...f, sortOrder: f.sortOrder === 'asc' ? 'desc' : 'asc' }))}
-                className="flex items-center justify-center w-7 h-7 rounded-full transition-all shrink-0"
-                style={{ color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)' }}
+                className="bs-sort-btn bs-sort-order"
                 aria-label={filter.sortOrder === 'desc' ? '当前降序，点击切换为升序' : '当前升序，点击切换为降序'}
                 title={filter.sortOrder === 'desc' ? '降序' : '升序'}
               >
@@ -431,37 +432,40 @@ export function BookshelfPage() {
             </div>
           </div>
 
-          {/* Loading state */}
+          {/* 加载态：骨架屏。
+              ★ 2026-10-29 换掉原来的「大转圈 + 衬线体『墨香渐浓…』」——
+                转圈 + 一句文学化文案会让每次回到书架都像在等一个慢接口，
+                而实际上数据多数时候已在缓存里（useCachedQuery 同步出上一次结果）。
+                骨架屏的观感是"内容马上就来"，且高度与真实卡片一致 ⇒ 不跳动。 */}
           {loading && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: 'hsl(var(--primary) / 0.15)', borderTopColor: 'hsl(var(--primary))' }} />
-              <p className="mt-4 text-[13px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: "'Noto Serif SC', serif" }}>墨香渐浓...</p>
+            <div className="nm-book-grid" aria-hidden="true">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="bs-skeleton" />
+              ))}
             </div>
           )}
 
-          {/* Empty state */}
+          {/* 空态 */}
           {!loading && filteredBooks.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-6 glass-surface w-20 h-20 rounded-full flex items-center justify-center" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                <BookOpen size={40} strokeWidth={1} />
+            <div className="bs-empty">
+              <div className="bs-empty-icon">
+                <BookOpen size={26} strokeWidth={1.5} />
               </div>
-              <h2 className="text-[20.5px] font-semibold mb-3" style={{
-                color: 'hsl(var(--foreground))',
-                fontFamily: "'Noto Serif SC', 'Source Han Serif SC', serif",
-                letterSpacing: '0.05em',
-              }}>
-                {filter.search ? '未得此卷' : '开卷以待'}
+              <h2 className="bs-empty-title">
+                {filter.search ? '没有找到作品' : '书架还是空的'}
               </h2>
-              <p className="text-[13px] mb-8" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: "'Noto Serif SC', serif" }}>
-                {filter.search ? '试以他词寻之' : '点击下方按钮，启笔新篇'}
+              <p className="bs-empty-desc">
+                {filter.search
+                  ? `没有名称、笔名或流派匹配「${filter.search}」的作品`
+                  : '新建一部作品，开始你的第一段故事'}
               </p>
               {!filter.search && (
                 <button
                   className="nm-btn-apple-primary"
-                  style={{ width: 160, height: 48, padding: 0, fontSize: 14 }}
+                  style={{ height: 36 }}
                   onClick={() => setShowAddModal(true)}
                 >
-                  <Plus size={18} strokeWidth={2.5} />
+                  <Plus size={16} strokeWidth={2.5} />
                   新建作品
                 </button>
               )}
@@ -486,22 +490,15 @@ export function BookshelfPage() {
           )}
         </main>
 
-        {/* Footer */}
-        <footer className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8 pb-6">
-          <div className="flex items-center justify-between text-[10px] border-t pt-4" style={{
-            borderColor: 'hsl(var(--border) / 0.4)',
-            color: 'hsl(var(--muted-foreground))',
-            fontFamily: "'Noto Serif SC', serif",
-          }}>
-            <span>砚舟 · 墨香书阁</span>
-            <button
-              onClick={handleLogout}
-              className="transition-colors hover:opacity-70"
-              style={{ color: 'inherit' }}
-            >
-              退出登录
-            </button>
-          </div>
+        {/* Footer：只留一处版权与登出。
+            ★ 2026-10-29：去掉衬线体与「砚舟 · 墨香书阁」（品牌已由顶栏字标承担，
+              页脚再写一遍是重复信息）；字号从 10px 提到 11px —— 10px 的正文
+              在 1x 屏上低于中文可读下限。 */}
+        <footer className="bs-footer">
+          <span>© {new Date().getFullYear()} 砚舟</span>
+          <button type="button" onClick={handleLogout} className="bs-footer-link">
+            退出登录
+          </button>
         </footer>
       </div>
 
@@ -513,8 +510,195 @@ export function BookshelfPage() {
         editBook={editingBook}
       />
 
-      {/* Inline styles */}
+      {/* 书架页样式表。
+          ★ 说明：本仓的页面样式惯例是「Tailwind 工具类 + 内联 style」，
+            这里之所以仍然用一段作用域化的 <style>，是因为下面这些规则需要
+            hover / focus-visible / 媒体查询 —— 内联样式表达不了伪类。
+            全部取 token，无字面色值（改主题即跟随）。 */}
       <style>{`
+        /* ---- 顶栏：通栏一条，带下边发丝线与半透明底 ---- */
+        .bs-topbar {
+          background: rgb(var(--glass-tint) / 0.82);
+          backdrop-filter: blur(12px) saturate(150%);
+          -webkit-backdrop-filter: blur(12px) saturate(150%);
+          border-bottom: 1px solid hsl(var(--border) / 0.6);
+        }
+        .bs-topbar-inner {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: var(--space-6);
+          width: 100%; max-width: 1440px;
+          margin: 0 auto;
+          padding: var(--space-5) var(--space-8);
+        }
+        .bs-brand { display: flex; align-items: baseline; gap: var(--space-5); min-width: 0; }
+        /* 字标旁的一句说明：给品牌一个"这是什么"的注脚，也让顶栏左侧有第二段信息 */
+        .bs-brand-tag {
+          font-family: 'Noto Serif SC', serif;
+          font-size: 11px; letter-spacing: 0.16em;
+          color: hsl(var(--muted-foreground));
+          white-space: nowrap;
+        }
+        .bs-topbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+        /* ---- 搜索框：描边输入框（不是玻璃胶囊） ---- */
+        .bs-search {
+          display: flex; align-items: center; gap: var(--space-2);
+          height: 34px;
+          padding: 0 var(--space-2) 0 var(--space-5);
+          border: 1px solid hsl(var(--border));
+          border-radius: var(--r-sm);
+          background: hsl(var(--card));
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .bs-search:focus-within {
+          border-color: hsl(var(--ring));
+          box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
+        }
+        .bs-search-input {
+          min-width: 120px;
+          border: 0; outline: 0; background: transparent;
+          font-family: inherit; font-size: 12.5px;
+          color: hsl(var(--foreground));
+        }
+        .bs-search-input::placeholder { color: hsl(var(--muted-foreground)); }
+        .bs-search-clear {
+          display: flex; align-items: center; justify-content: center;
+          width: 20px; height: 20px; border: 0; border-radius: var(--r-pill);
+          background: hsl(var(--muted)); color: hsl(var(--muted-foreground));
+          cursor: pointer;
+        }
+        .bs-search-clear:hover { color: hsl(var(--foreground)); }
+
+        /* ---- 图标按钮：与输入框同高、同圆角、同描边 ---- */
+        .bs-icon-btn {
+          display: flex; align-items: center; justify-content: center;
+          width: 34px; height: 34px;
+          border: 1px solid hsl(var(--border));
+          border-radius: var(--r-sm);
+          background: hsl(var(--card));
+          color: hsl(var(--muted-foreground));
+          cursor: pointer;
+          transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+        }
+        .bs-icon-btn:hover {
+          color: hsl(var(--foreground));
+          border-color: hsl(var(--foreground) / 0.25);
+          background: hsl(var(--muted));
+        }
+        .bs-icon-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+        /* ---- 版心：与顶栏内层同宽同内边距，四条水平带对齐 ---- */
+        .bs-main {
+          flex: 1;
+          width: 100%; max-width: 1440px;
+          margin: 0 auto;
+          padding: var(--space-6) var(--space-8) var(--space-9);
+        }
+
+        /* ---- 工具条 ---- */
+        .bs-toolbar {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: var(--space-4);
+          padding-bottom: var(--space-5);
+          margin-bottom: var(--space-6);
+          border-bottom: 1px solid hsl(var(--border) / 0.55);
+        }
+        .bs-count {
+          font-size: 12px;
+          color: hsl(var(--muted-foreground));
+        }
+        .bs-sort {
+          display: flex; align-items: center; gap: var(--space-0);
+          padding: 2px;
+          border: 1px solid hsl(var(--border));
+          border-radius: var(--r-sm);
+          background: hsl(var(--muted) / 0.6);
+        }
+        .bs-sort-btn {
+          height: 26px;
+          padding: 0 var(--space-4);
+          border: 0; border-radius: var(--r-xs);
+          background: transparent;
+          color: hsl(var(--muted-foreground));
+          font-family: inherit; font-size: 12px;
+          cursor: pointer;
+          transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .bs-sort-btn:hover { color: hsl(var(--foreground)); }
+        .bs-sort-btn.is-active {
+          background: hsl(var(--card));
+          color: hsl(var(--foreground));
+          font-weight: 600;
+          box-shadow: 0 1px 2px hsl(var(--glass-shadow) / 0.10);
+        }
+        .bs-sort-btn.is-active:hover { color: hsl(var(--foreground)); }
+        .bs-sort-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+        .bs-sort-sep { width: 1px; height: 16px; background: hsl(var(--border)); }
+        .bs-sort-order { display: flex; align-items: center; justify-content: center; width: 30px; padding: 0; }
+
+        /* ---- 骨架屏 ---- */
+        .bs-skeleton {
+          aspect-ratio: 3 / 4;
+          border-radius: var(--r-lg);
+          background: hsl(var(--muted));
+          animation: bs-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes bs-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.55; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .bs-skeleton { animation: none; }
+        }
+
+        /* ---- 空态：左对齐的一块说明，而不是页面正中一座孤岛 ---- */
+        .bs-empty {
+          display: flex; flex-direction: column; align-items: center;
+          gap: var(--space-3);
+          padding: var(--space-10) var(--space-6);
+          text-align: center;
+        }
+        .bs-empty-icon {
+          display: flex; align-items: center; justify-content: center;
+          width: 56px; height: 56px;
+          margin-bottom: var(--space-2);
+          border: 1px solid hsl(var(--border));
+          border-radius: var(--r-pill);
+          background: hsl(var(--card));
+          color: hsl(var(--muted-foreground));
+        }
+        .bs-empty-title {
+          margin: 0;
+          font-family: 'Noto Serif SC', serif;
+          font-size: 17px; font-weight: 600;
+          letter-spacing: 0.04em;
+          color: hsl(var(--foreground));
+        }
+        .bs-empty-desc {
+          margin: 0 0 var(--space-3);
+          max-width: 34em;
+          font-size: 12.5px;
+          color: hsl(var(--muted-foreground));
+        }
+
+        /* ---- 页脚 ---- */
+        .bs-footer {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%; max-width: 1440px;
+          margin: 0 auto;
+          padding: var(--space-5) var(--space-8) var(--space-7);
+          border-top: 1px solid hsl(var(--border) / 0.55);
+          font-size: 11px;
+          color: hsl(var(--muted-foreground));
+        }
+        .bs-footer-link {
+          border: 0; background: transparent;
+          font: inherit; color: inherit;
+          cursor: pointer;
+        }
+        .bs-footer-link:hover { color: hsl(var(--foreground)); }
+
+        /* ---- 书架网格 ---- */
         .nm-book-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
@@ -526,16 +710,21 @@ export function BookshelfPage() {
         @media (max-width: 1024px) {
           .nm-book-grid { grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
         }
+        @media (max-width: 900px) {
+          .bs-topbar-inner, .bs-main, .bs-footer { padding-left: var(--space-5); padding-right: var(--space-5); }
+          .bs-brand-tag { display: none; }
+        }
         @media (max-width: 640px) {
           .nm-book-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
         }
-        main::-webkit-scrollbar { width: 6px; }
+
+        main::-webkit-scrollbar { width: 8px; }
         main::-webkit-scrollbar-track { background: transparent; }
         main::-webkit-scrollbar-thumb {
-          background: hsl(var(--primary) / 0.15);
-          border-radius: 3px;
+          background: hsl(var(--border));
+          border-radius: var(--r-pill);
         }
-        main::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.25); }
+        main::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
       `}</style>
     </div>
   );

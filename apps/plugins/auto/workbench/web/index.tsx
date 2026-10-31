@@ -83,15 +83,23 @@ export const name = 'novel.auto.workbench';
 //   auto 仍真注册 3 个 capability（见 apply() 第 3 步），故此注入项仍必需。
 export const inject = ['projectPanels', 'workbench', 'capability'];
 
-/** AI 写作工作台面板定义（与原 plugin/autoBuiltin.ts 完全一致） */
+/**
+ * AI 写作工作台面板定义（与原 plugin/autoBuiltin.ts 完全一致）。
+ *
+ * ★ 2026-10-29 新增 `section`（活动栏分区标题，见 kernel `components/shell/panelSections.ts`）。
+ *   注意它与既有 `group`（AI 工作台分页区自己的 'live'/'data' 二分）**不是一回事**：
+ *   `group` 是 auto 工作台内部的语义二分，`section` 是左竖栏的分区标题。
+ *   两者可以不一致 —— 例如「记忆审计」在 `group` 里算 data，但它服务的是
+ *   检视而非写作，故 `section` 归「工具」。
+ */
 export const AUTO_WORKBENCH_PANELS: FloatingPanelDef[] = [
-  { key: 'pipeline', label: '流水线', icon: Workflow, group: 'live', Component: PipelineGraphPanel.Component, preload: PipelineGraphPanel.preload, modes: ['auto'] },
-  { key: 'chapterPlan', label: '本章计划', icon: ClipboardList, group: 'live', Component: ChapterPlanGraphPanel.Component, preload: ChapterPlanGraphPanel.preload, modes: ['auto'] },
-  { key: 'entities', label: '实体与设定', icon: Network, group: 'data', Component: EntityOverviewPanel.Component, preload: EntityOverviewPanel.preload, modes: ['auto'] },
-  { key: 'memory', label: '记忆审计', icon: ShieldCheck, group: 'data', Component: MemoryGraphPanel.Component, preload: MemoryGraphPanel.preload, modes: ['auto'] },
-  { key: 'skills', label: '技能库', icon: Wand2, group: 'data', Component: SkillLibraryPanel.Component, preload: SkillLibraryPanel.preload, modes: ['auto'] },
+  { key: 'pipeline', label: '流水线', icon: Workflow, group: 'live', section: '写作', Component: PipelineGraphPanel.Component, preload: PipelineGraphPanel.preload, modes: ['auto'] },
+  { key: 'chapterPlan', label: '本章计划', icon: ClipboardList, group: 'live', section: '写作', Component: ChapterPlanGraphPanel.Component, preload: ChapterPlanGraphPanel.preload, modes: ['auto'] },
+  { key: 'entities', label: '实体与设定', icon: Network, group: 'data', section: '资料', Component: EntityOverviewPanel.Component, preload: EntityOverviewPanel.preload, modes: ['auto'] },
+  { key: 'memory', label: '记忆审计', icon: ShieldCheck, group: 'data', section: '工具', Component: MemoryGraphPanel.Component, preload: MemoryGraphPanel.preload, modes: ['auto'] },
+  { key: 'skills', label: '技能库', icon: Wand2, group: 'data', section: '工具', Component: SkillLibraryPanel.Component, preload: SkillLibraryPanel.preload, modes: ['auto'] },
   // 正文阅读：写出来的章节得能直接在界面上读（此前只能翻库/脚本，质量问题看不见）
-  { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', Component: ManuscriptPanel.Component, preload: ManuscriptPanel.preload, modes: ['auto'] },
+  { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', section: '资料', Component: ManuscriptPanel.Component, preload: ManuscriptPanel.preload, modes: ['auto'] },
 ];
 
 export function apply(ctx: WebPluginContext): void {

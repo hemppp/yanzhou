@@ -203,9 +203,15 @@
    改为 47px 后分隔线同样落在 x46，右侧三个竖栏全部左移 1px 与参考图对齐。 */
 .dock-shell {
   display: grid;
-  /* ★ 2026-10-27「VS Code 2026 密度」：活动栏 47 → 42px，与条目 40px 同档收紧
-     （条目两侧各留 1px；对应 VS Code 的 workbench.activityBar.compact）。 */
-  grid-template-columns: 42px minmax(0, 1fr);
+  /* ★ 2026-10-29：活动栏 42 → 52px，给「分区小标题 + 44px 条目」留出横向空间。
+     上一轮（2026-10-27）为了对齐参考图把竖栏收到 42px，代价是条目只有 40px 宽、
+     且完全没地方放分组文字 —— 作者口径「不知道哪个是哪个」正是这么来的。
+     这一次按可读性优先：加宽 10px 换来分段标题与更大的点击目标。
+
+     ★ 宽度只在 `--dock-rail-w` 里写一次：网格列与飞出层的 left 都引它。
+       两处各写一遍 52px 是必然漂移的（改了网格忘了飞出层 ⇒ 浮层错位）。 */
+  --dock-rail-w: 52px;
+  grid-template-columns: var(--dock-rail-w) minmax(0, 1fr);
   /* ★ 2026-10-11 单列布局：新增顶部 `docbar` 行（文档标签栏整宽一条）。 */
   grid-template-rows: auto minmax(0, 1fr) minmax(0, auto);
   grid-template-areas:
@@ -298,39 +304,110 @@
   max-height: 240px;
 }
 
-/* --- 活动栏 --- */
+/* --- 活动栏 ---
+   ★ 2026-10-29 重做（作者口径「UI 还是太难看」）：
+     原来是一列 16 个**等距无字**图标（42px 宽、40×32 条目、无分组），
+     只能靠悬停 tooltip 逐个认门。现在按 `FloatingPanelDef.section` 分成
+     写作 / 资料 / 工具 若干段，每段带一个小标题，条目悬停时向右飞出名称。
+     竖栏因此从 42px 加宽到 52px —— 加宽换来的是「一眼看得懂」，
+     而且条目从 40px 变成 44px 后点击目标也更大（移动/触控板更友好）。 */
 .dock-activity-bar {
   grid-area: activity;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  padding-top: var(--space-2);
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--space-2) 0 var(--space-3);
   background-color: var(--vscode-activityBar-background);
   color: var(--vscode-activityBar-foreground);
   border-right: 1px solid var(--vscode-activityBar-border);
 }
 
+/* 竖栏本体可滚动（面板多的模式 / 矮窗口）：滚动条隐藏，保持竖栏边缘干净。
+   ★ 这里**不能**给 `.dock-activity-bar` 直接加 `overflow-y:auto` 并把飞出层放在里面 ——
+   浮动层会被自身的滚动容器裁掉（与标签栏右键菜单同一个坑），
+   故滚动限制在内层，飞出层挂在外层的 `position: fixed`。 */
+.dock-activity-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.dock-activity-scroll::-webkit-scrollbar {
+  width: 0;
+}
+
+/* 分组之间加一条发丝分隔线：小标题本身已经表达"换组了"，但 10 个图标的
+   长组（资料）与下一组之间只靠 9px 文字分隔，视觉上会连成一片。
+   第一条不画（竖栏顶端不需要一条悬空的线）。 */
+.dock-activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-0);
+  width: 100%;
+  padding-top: var(--space-2);
+}
+
+.dock-activity-group + .dock-activity-group {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--vscode-activityBar-border);
+}
+
+/* 分区小标题：竖栏里唯一的文字。9px / 字距拉开，读起来像"目录分组"
+   而不是正文 —— 它不该和图标争视觉重量。 */
+.dock-activity-group-label {
+  width: 100%;
+  padding: 0 0 var(--space-1);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: var(--vscode-activityBar-inactiveForeground);
+  user-select: none;
+}
+
 .dock-activity-item {
-  /* ★ t6 尺寸对齐参考图：参考图活动栏条目实测「43×36，条目间距 10px（节距 46）」。
-   * ★ 2026-10-27「VS Code 2026 密度」：44×36 → 40×32（收紧一档），
-   *   对应 VS Code 的 `workbench.activityBar.compact`（更窄的活动栏腾出横向空间）。
-   *   图标 18px 在 40×32 里仍有 ~11/7px 呼吸，不会显得挤。 */
-  width: 40px;
+  /* 44×32：图标 18px 居中，左右各留 13px。 */
+  position: relative;
+  width: 44px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  border-left: 2px solid transparent;
+  border-radius: 6px;
   color: inherit;
   cursor: pointer;
   padding: 0;
+  transition: background-color 90ms ease-out, color 90ms ease-out;
+}
+
+/* 聚焦竖条：画在条目左缘之外，正好落在竖栏的最左边缘（x=0）。
+   条目 44px 居中于 52px 竖栏 ⇒ 两侧各 4px 外边距，故偏移 -4px。 */
+.dock-activity-item::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  /* 4px 上内缩：取值须落在间距尺子上（`scripts/tools/spacing-audit.mjs` 的
+     合法 px 集不含 5）——32px 高的条目里上下各内缩 4px。 */
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background-color: transparent;
+  transition: background-color 90ms ease-out;
 }
 
 .dock-activity-item:hover {
   color: var(--vscode-activityBar-activeBorder);
+  background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 /* ★ 2026-10-07 用户口径（m01330）：「打开了的功能按钮需要加深颜色」。
@@ -357,7 +434,45 @@
 .dock-activity-item.is-active {
   color: var(--vscode-activityBar-activeBorder);
   background-color: var(--vscode-activityBar-activeBackground);
-  border-left-color: var(--vscode-activityBar-activeBorder);
+}
+
+/* 聚焦竖条：与 .is-active 同时出现（原实现用 border-left，改用伪元素后
+   不再占用布局空间，条目在选中/未选中之间不会横向跳 2px）。 */
+.dock-activity-item.is-active::before {
+  background-color: var(--vscode-activityBar-activeBorder);
+}
+
+/* --- 活动栏悬停飞出标签 ---
+   ★ 必须 `position: fixed`：竖栏及其祖先（.dock-shell / .shell-root）都是
+     `overflow: hidden`，`absolute` 浮层会被整块裁掉（DOM 在、rect 正常，
+     但屏幕上什么都没有）。fixed 相对视口定位，不受任何祖先裁剪影响，
+     故左偏移直接取竖栏宽度 52px。
+   纯装饰：`aria-hidden` 由 JSX 给出，可访问名仍由按钮的 aria-label 承担。 */
+.dock-activity-flyout {
+  position: fixed;
+  left: var(--dock-rail-w);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* 垂直居中于被悬停的条目：JS 只给 top（条目中心），偏移交给 transform ——
+     比写死 `margin-top: -高度/2` 稳（浮层高度随字号/字串长度变化）。 */
+  transform: translateY(-50%);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+  background-color: var(--vscode-menu-background);
+  color: var(--vscode-menu-foreground);
+  box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+  font-size: 11.5px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 飞出层里的动作提示（「打开 / 收起」）：弱色，避免与面板名抢读。 */
+.dock-activity-flyout-hint {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
 }
 
 /* --- 分区标题条 / 占位侧栏：★ t1 已随两个占位侧栏一并删除 --- */

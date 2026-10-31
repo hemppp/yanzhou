@@ -62,6 +62,23 @@ export interface FloatingPanelDef {
    */
   group?: 'live' | 'data';
   /**
+   * ★ 2026-10-29 新增：**活动栏分组标题**（`shell-rail` 竖栏里的分区名）。
+   *
+   * 为什么需要它：活动栏此前是 16 个图标等距排一列，既没有分组也没有文字，
+   * 只能靠悬停 tooltip 逐个认 —— 作者口径「不知道哪个是哪个」。
+   * 现在按本字段把图标分进若干带小标题的区段（写作 / 资料 / 工具），
+   * 一眼能看出「这一组是查资料的」。
+   *
+   * ★ 放在**面板定义**而不是宿主里（2026-10-29）：分组的真源应该是
+   *   「谁拥有这个面板」—— 手写台的面板由手写台声明它属于哪一组，
+   *   宿主（DockShell）只负责按字段渲染，**不认识任何业务 key**
+   *   （DockShell.smoke.test 的「不硬编码业务面板」断言据此仍成立）。
+   *
+   * 未声明 ⇒ 归入 `DEFAULT_RAIL_SECTION`（`'其它'`），第三方插件零改动即可用。
+   * 同一分组的条目在竖栏里**按面板注册顺序连续排列**（不重排）。
+   */
+  section?: string;
+  /**
    * 浮窗左缘外侧贴附的功能气泡栏。
    *
    * ★ ADR §1.3 冻结（渲染位置迁移）：字段**保留不删**（第三方插件不炸），
@@ -246,6 +263,12 @@ export interface BuiltinPanelDef {
   modes?: PluginMode[];
   /** ★ t4：停靠布局元数据（全字段可选，语义与 `FloatingPanelDef.dock` 一致） */
   dock?: FloatingPanelDockMeta;
+  /**
+   * ★ 2026-10-29：活动栏分组标题。语义与 `FloatingPanelDef.section` 完全一致
+   *   （见该字段注释）；内置槽同样需要它 —— `'chapters'` 属「写作」、
+   *   `'ai-chat'` 属「写作」，否则这两个最常用的面板会被归进兜底分组。
+   */
+  section?: string;
 }
 
 /** @deprecated ADR D9：改名 `BuiltinPanelDef`。别名仅为兼容已发布插件。 */

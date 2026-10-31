@@ -258,6 +258,8 @@ export interface BuiltinBubbleDef {
   width?: number;
   height?: number;
   modes?: PluginMode[];
+  /** ★ 2026-10-29：工作台左竖栏的分区标题（语义见 `FloatingPanelDef.section`） */
+  section?: string;
 }
 
 export interface FloatingPanelDef {
@@ -280,6 +282,18 @@ export interface FloatingPanelDef {
    * 浮窗根 div 是绝对定位基准，组件自行绝对定位（参考 AI 对话气泡栏：absolute -left-14 top-4）。
    */
   rail?: unknown;
+  /**
+   * ★ 2026-10-29 新增：工作台左竖栏（活动栏）里的**分区标题**。
+   *
+   * 竖栏此前是一列等距无字图标，只能靠悬停 tooltip 逐个认门；
+   * 声明本字段即把该面板归进同名分区，宿主会渲染一个小标题把同组图标框在一起。
+   * 约定名：`'写作'` / `'资料'` / `'工具'`（宿主按此顺序排列已知分区）。
+   *
+   * 全可选：不声明 ⇒ 归入兜底分区（宿主侧 `DEFAULT_RAIL_SECTION`），
+   * 不会报错、不会被隐藏 ⇒ 已发布插件零改动兼容。
+   * 未知分区名按**首次出现顺序**追加在已知分区之后，同样不会丢。
+   */
+  section?: string;
 }
 
 export interface WebCommandDef {
