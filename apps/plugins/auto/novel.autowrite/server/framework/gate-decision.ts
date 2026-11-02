@@ -46,17 +46,37 @@ export type DecisionVerdict = 'accept' | 'rewrite' | 'accept_with_warning';
 export type DecisionIssue = 'duplication' | 'dialogue' | 'length' | 'plot_stall' | 'voice' | 'leak' | 'none';
 
 export interface GateDecision {
-  verdict: DecisionVerdict;
-  primaryIssue: DecisionIssue;
-  /** 再重写一次是否真能变好（false ⇒ 别白烧，带警示放行） */
-  worthIt: boolean;
-  /** 是否在重复上一章情节、没有实质推进（确定性去重抓不到） */
-  stalled: boolean;
-  /** 网文连载标准打分 1–10（缺省/越界时按 0 处理） */
+  // ——— 内容质量三判定（2026-10-27 新定位：文本体检仪）———
+  /** **AI 味**严重度 1–10（1=很自然，10=明显机器味）。0 = 未能判定 */
+  aiFlavor: number;
+  /** AI 味的具体剖面：句式模板化（P(yes)） */
+  aiFlavorTemplateSyntax: boolean;
+  /** AI 味的具体剖面：解释性旁白代替动作（P(yes)） */
+  aiFlavorExplainingNarrator: boolean;
+  /** **开头重复**：与前两章开头功能位雷同（P(yes)） */
+  openingRepeat: boolean;
+  /** **内容重复**：换句重讲已演过的事件（P(yes)） */
+  contentRepeat: boolean;
+  /** 可读性总分 1–10（独立于上面三项；0 = 未能判定） */
   quality: number;
-  /** 决策器一句话理由（落库/日志用） */
+
+
+  // ——— 兼容字段（旧的"放不放行"裁决）———
+  /**
+   * @deprecated 2026-10-27 起决策器**不再做总判决**（那是硬规则与调用方策略的事）。
+   * 保留此字段只为兼容旧调用点与既有测试；新代码应读 `contentProblems` 自行决定。
+   */
+  verdict: DecisionVerdict;
+  /** @deprecated 同上，由 `contentProblems` 取代 */
+  primaryIssue: DecisionIssue;
+  /** @deprecated 同上 */
+  worthIt: boolean;
+  /** @deprecated 由 `contentRepeat` 取代（语义更明确） */
+  stalled: boolean;
+
+  /** 决策器一句话理由（chat 兜底通道有；原生 systemone 不给理由，只有概率） */
   reason?: string;
-  /** 决策器自报的把握度（choice/score 有；noul 没有）—— 供日志观察，不参与判断 */
+  /** 决策器自报的把握度（choice/score 有；noul 没有） */
   confidence?: number;
 }
 
@@ -77,6 +97,16 @@ export interface DecisionState {
   maxRewrites: number;
   /** 正文节选（首尾各一段，避免把整章外发） */
   excerpt: string;
+  /**
+   * ★ 2026-10-27 新增（**开头重复判定必需**）：
+   * 本章开头（前 ~260 字，含第一段完整走向）与**前两章的开头**。
+   *
+   * 为什么必须给：开头重复是"每章都用同一套起手"——「天亮/雾起/他坐起来」这类
+   * 词面各章不同，但**功能位完全相同**（都是"环境起手 + 主角醒来/到某处"）。
+   * 词频统计对此零命中（我记忆里四轮标定都失败），只有把三段开头并排放给决策模型才判得出。
+   */
+  openingExcerpt?: string;
+  priorOpenings?: Array<{ chapter: string; opening: string }>;
 }
 
 export const DECISION_VERDICTS: readonly DecisionVerdict[] = ['accept', 'rewrite', 'accept_with_warning'];
@@ -135,15 +165,35 @@ function readJevEndpoint(
 }
 
 /**
- * 读 chat 兜底模型名。
- * - 未设置 / 空 → undefined（不启用 chat 模式）
- * - `off` / `none` → null
+ * chat 兜底模型名（**Jev 的替身**）。
+ *
+ * ★ 2026-10-27 改：**默认值从"未配置"改成 `hy3`**。
+ *
+ * 背景：Jev 在所有可用通道上都被地域门挡住（`403 This model is not available in your region`），
+ * 而"内容质量三判定"是每章都要跑的**常规体检**，不能因为 Jev 不可用就整个关掉
+ * （关掉 = 又退回只有词面统计的年代，那正是这三项测不出来的原因）。
+ *
+ * 替身选型（本机实测，同一套问题 + 真实文本）：
+ * | 模型 | JSON 稳定 | 判别力(坏/好) | 延迟 | 结论 |
+ * |---|---|---|---|---|
+ * | **hy3** | 3/3 | 8 vs 2（差6） | **4.0s** | ✅ 默认 |
+ * | glm-5.3-flash | 3/3 | 8 vs 2 | 6.7s | 可换 |
+ * | Qwen3.8-Flash | 3/3（偶有失败） | 8 vs 2 | 15.1s | ❌ 每章多等十几秒 |
+ * | deepseek-v4.1-flash | **0/3** | — | 超时 | ❌ 不可用 |
+ *
+ * **判别力三家打平** —— 说明这个判断不需要最强模型；分水岭是**稳定性与延迟**
+ * （决策器每章调 1–3 次）。选 hy3 还因为它本就是写作模型，不会引入陌生的文风偏好。
+ *
+ * 配置口径：
+ *   - 未设置 → **默认 `hy3`**（开箱即用；想关掉请显式设 `off`）
+ *   - `off` / `none` → null（决策器关闭）
+ *   - 其他值 → 原样使用（可写裸名，代理会自动映射成网关真实 id）
+ *   - 配了原生 Jev 时**优先走 Jev**，这里的值只是兜底
  */
 export function resolveChatDecisionModel(env: Record<string, string | undefined> = process.env): string | null | undefined {
   const raw = (env.AUTOWRITE_DECISION_MODEL ?? '').trim();
-  if (!raw) return undefined;
   if (raw.toLowerCase() === 'off' || raw.toLowerCase() === 'none') return null;
-  return raw;
+  return raw || 'hy3';
 }
 
 /** 决策器是否启用：配了原生 Jev 或配了 chat 兜底模型。**都没配 = 关闭**（不花钱）。 */
@@ -154,15 +204,23 @@ export function isDecisionEnabled(env: Record<string, string | undefined> = proc
 
 /** 决策器 system 提示词（仅 chat 兜底用）：要求**只输出一个 JSON** */
 const CHAT_SYSTEM = [
-  '你是长篇小说流水线的「意图门决策器」。作者已经写出一章正文，你要判断它该不该交付、还是值得再花一次重写。',
-  '你会拿到一份**代码统计出的诊断**（重复句数、对话占比、字数、提纲泄漏）和一小段正文节选。',
-  '确定性代码已经数得很准，**不要重复数**；你要做的是判断「该不该再改一次」「若改，最该改哪一条」。',
-  '判断原则：',
-  '· 若字数、重复、对话、泄漏**全部在带内** → accept。',
-  '· 若只有**一条**明显出格 → rewrite，primaryIssue 填那一条。',
-  '· 若已重写多次（rewritesSoFar 接近 maxRewrites）仍只差一点、或再改大概率只是换种方式犯同样的毛病 → accept_with_warning（别白烧）。',
-  '· 若情节在原地打转、没有实质推进（stalled=true）→ 即使字数达标也倾向 rewrite。',
-  '只输出**一个** JSON 对象，字段固定：verdict / primaryIssue / worthIt / stalled / quality / reason。不要解释、不要代码块。',
+  '你是小说流水线的「**内容质量体检员**」（chat 兜底通道 —— 有 Jev 时走原生 systemone）。',
+  '',
+  '你的职责**只有三项**，都是词面统计测不出来的：',
+  '  ① **AI 味**（aiFlavor 1–10 + 两个剖面）：句式模板化、过度对仗排比、',
+  '     解释性旁白代替动作、环境描写无信息量、每段结构雷同。**只看文字质感**。',
+  '  ② **开头重复**（openingRepeat）：本章开头与前两章开头**功能位雷同**',
+  '     （都是"环境起手 → 主角醒来/抵达 → 开始做事"）。词面不同也要判。',
+  '  ③ **内容重复**（contentRepeat）：换套句子重讲已经演过的事件，',
+  '     读者获得的信息与之前相同、处境没有实质变化。',
+  '',
+  '**不要判断"该不该交付/该不该重写"** —— 那是调用方的事。你只如实报告症状。',
+  '**不要重复数**重复句数、字数、对话占比 —— 那些确定性代码已精确算好，state 里给了。',
+  '',
+  '只输出**一个** JSON 对象，字段固定：',
+  '{"aiFlavor":1-10,"aiFlavorHasTemplateSyntax":true|false,"aiFlavorHasExplainingNarrator":true|false,' +
+    '"openingRepeat":true|false,"contentRepeat":true|false,"quality":1-10,"reason":"一句话"}',
+  'state 里没有 priorOpenings 时，openingRepeat 一律填 false。不要解释、不要代码块。',
 ].join('\n');
 
 /** 把结构化诊断拍成一段纯文本 state（原生 systemone 的 state 可以是 string/object/array） */
@@ -179,44 +237,106 @@ export function buildDecisionStatePayload(s: DecisionState): Record<string, unkn
     rewritesSoFar: s.rewritesSoFar,
     maxRewrites: s.maxRewrites,
     excerpt: s.excerpt,
+    /**
+     * ★ 2026-10-27：**开头重复判定的输入**。
+     * 把本章开头和前两章开头并排放进 state —— 模型要做的是"结构对比"，
+     * 而不是"读完全文回忆"，这样判断才稳定、也省输入。
+     */
+    ...(s.openingExcerpt ? { openingExcerpt: s.openingExcerpt } : {}),
+    ...(s.priorOpenings?.length
+      ? { priorOpenings: s.priorOpenings.slice(0, 2).map((p) => ({ chapter: p.chapter, opening: p.opening })) }
+      : {}),
   };
 }
 
 /** chat 兜底用的用户消息 */
 export function buildDecisionUserPrompt(s: DecisionState): string {
+  /**
+   * ★ 2026-10-27：**任务必须写在最前**（同一根因的第五次复现）。
+   *
+   * 实测（chat 兜底验证时）：user 消息只有【诊断】【正文】和一句"请输出 JSON"，
+   * 模型的原话是：
+   *   「这段内容里…你是想让我：1. 对比三章开头的写作风格/节奏变化？2. 续写本章正文？…」
+   * —— 它不知道要干什么，于是反问；反问不是 JSON，解析失败。
+   *
+   * 这个坑已经在 gates.ts（校对门/润色门）、supervise-review.ts（监工帮手）各踩过一次。
+   * 规律：**任务在最前、素材在中、契约在最后**。此处按同一结构重写。
+   */
   return [
-    '【诊断（代码统计）】',
+    `【本轮任务】对${s.chapter}做**内容质量体检**：判 AI 味（1–10 + 两个剖面）、`
+      + '开头是否与前两章功能位雷同、内容是否在重讲已演过的事件。'
+      + '**不要判断该不该交付**，也不要评价剧情好坏——只如实报告这三项症状。',
+    '',
+    '【诊断（代码已精确统计，不要重复数）】',
     JSON.stringify(buildDecisionStatePayload(s), null, 0),
     '',
     '【正文节选】',
     s.excerpt,
     '',
-    '请输出决策 JSON：',
-    '{"verdict":"accept|rewrite|accept_with_warning","primaryIssue":"duplication|dialogue|length|plot_stall|voice|leak|none","worthIt":true|false,"stalled":true|false,"quality":1-10,"reason":"一句话"}',
+    '【输出格式】只输出一个 JSON 对象，不要解释、不要代码块：',
+    '{"aiFlavor":1-10,"aiFlavorHasTemplateSyntax":true|false,"aiFlavorHasExplainingNarrator":true|false,'
+      + '"openingRepeat":true|false,"contentRepeat":true|false,"quality":1-10,"reason":"一句话"}',
+    '（若 state 里没有 priorOpenings，openingRepeat 一律填 false。）',
   ].join('\n');
 }
 
-/** 原生 systemone 的 questions 定义（5 问，一次请求共享 state 输入成本） */
+/**
+ * 原生 systemone 的 questions 定义 —— **内容质量三判定**（2026-10-27 改版）
+ *
+ * ★ 定位变化（按用户要求）：决策器从「意图门裁判（放不放行）」改成「**文本体检仪**」。
+ *
+ * 为什么这么改：`verdict/primaryIssue/worthIt` 那套问的是"该不该再改一次"，
+ * 而这些**确定性代码已经答得更好**（重复句数、篇幅、对话占比都是精确计数的）。
+ * 决策模型真正不可替代的是**词面统计测不出的三件事**：
+ *
+ *   ① AI 味（aiFlavor）—— 句法模板化、过度对仗排比、解释性旁白、无信息量的环境铺陈。
+ *      没有任何词频能测"这段读起来像机器写的"。
+ *   ② 开头重复（openingRepeat）—— 每章用同一套起手（天亮/雾起/他坐起来）。
+ *      词面各章不同，但**功能位相同**，必须把前两章开头并排给它看才判得出。
+ *   ③ 内容重复（contentRepeat）—— 换套句子重讲同一批事件。
+ *      我此前四轮标定（段落 Jaccard / 章内 LCS / 锚点顺序 / 两轮切点）全部失败，
+ *      唯一能判的就是语义层面 —— 这正是 System One 模型擅长的有界判断。
+ *
+ * 输出全是 `noul`（P(yes)）与 `score`（严重度档位），**不做"放不放行"的总判决** ——
+ * 放行与否交给硬规则 + 调用方策略，决策器只如实报告症状。
+ */
 export function buildSystemOneQuestions(): Record<string, unknown> {
   return {
-    verdict: {
-      type: 'choice',
-      instructions: '这一稿该放行、还是打回重写？accept=可以交付；rewrite=值得再花一次重写；accept_with_warning=带警示交付（再改也没用或只差一点）。',
-      criteria: { accept: '可以交付', rewrite: '值得再花一次重写', accept_with_warning: '带警示交付' },
+    aiFlavor: {
+      type: 'score',
+      instructions: '这一章读起来有多像"AI 写的"？（1=完全像人写的自然叙事；10=明显机器味：'
+        + '句式高度模板化、大量对仗排比、解释性旁白代替action、环境描写无信息量、'
+        + '每段结构雷同。只看文字质感，不看情节。）',
+      criteria: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
     },
-    primaryIssue: {
-      type: 'choice',
-      instructions: '若重写，最该修哪一条？（只挑一条，避免多要求互相打架）',
-      criteria: {
-        duplication: '章内或跨章重复', dialogue: '对话太少', length: '篇幅超出/不足',
-        plot_stall: '情节原地打转、没有推进', voice: '文风不对', leak: '正文混入提纲/元话语', none: '没有明显问题',
-      },
+    /** 硬判据：AI 味的典型剖面，逐条给概率（比单个分数更能指导写作官改哪里） */
+    aiFlavorHasTemplateSyntax: {
+      type: 'noul',
+      instructions: '本章是否大量使用**同一句式反复套用**（如"X。Y。Z。"式三连短句、'
+        + '连续四字对仗、"不…不…不…"排比）？看句式重复，不是看词重复。',
     },
-    worthIt: { type: 'noul', instructions: '再重写一次，真的能变好，还是只会换个方式犯同样的毛病？' },
-    stalled: { type: 'noul', instructions: '本章是否在重复上一章的情节，没有实质推进？' },
+    aiFlavorHasExplainingNarrator: {
+      type: 'noul',
+      instructions: '本章是否用**解释性旁白代替动作/对话**？（如"他心里明白这意味着什么"'
+        + '这类替读者总结的句子，而不是让人物用行为表现）',
+    },
+    openingRepeat: {
+      type: 'noul',
+      instructions: '本章开头是否与前两章开头**功能位雷同**？（比如都在写"天候/环境起手 → '
+        + '主角醒来或抵达某处 → 开始做事"。词面可以不同，看的是**起手结构**是否一成不变。）'
+        + '若 state 里没给 priorOpenings，忽略此题。',
+    },
+    contentRepeat: {
+      type: 'noul',
+      instructions: '本章是否在**重讲前面已经演过的事件**？（换了一套句子、换了地点或视角，'
+        + '但读者获得的信息与之前相同、处境没有实质变化。注意：连续的同一场景是正常的，'
+        + '要判的是"整块内容重复讲一遍"。）',
+    },
+    /** 严重度分档：给闸门一个可比较的量，而不是只有"是/否" */
     quality: {
       type: 'score',
-      instructions: '按网文连载标准给本章打分（1 最差，10 最好）。',
+      instructions: '按网文连载标准给本章的**可读性**打分（1 最差，10 最好）。'
+        + '这是独立于上面三项的总体判断（三项都干净也可能平淡）。',
       criteria: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
     },
   };
@@ -226,18 +346,43 @@ export function buildSystemOneQuestions(): Record<string, unknown> {
 export function normalizeDecision(raw: unknown): GateDecision | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  const verdict = String(o.verdict ?? '').trim().toLowerCase();
-  if (!DECISION_VERDICTS.includes(verdict as DecisionVerdict)) return null;
-  let issue = String(o.primaryIssue ?? 'none').trim().toLowerCase();
-  if (!DECISION_ISSUES.includes(issue as DecisionIssue)) issue = 'none';
-  const q = Number(o.quality);
+  const bool = (k: string): boolean => o[k] === true || o[k] === 'true' || o[k] === 1;
+  const clamp10 = (v: unknown): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : 0;
+  };
+
+  const aiFlavor = clamp10(o.aiFlavor);
+  const quality = clamp10(o.quality);
+  /**
+   * ★ 2026-10-27：**有效性判据改了**。旧实现要求 `verdict` 合法，否则返回 null ——
+   * 那是"裁决模型"年代的前置条件。新问题集里没有 verdict（决策器不再做总判决），
+   * 再用它当门槛会让**每次 chat 兜底调用都判无效**。
+   * 现在的判据：至少有一项内容质量判定拿到了值。
+   */
+  const hasAnySignal = aiFlavor > 0 || quality > 0
+    || o.openingRepeat !== undefined || o.contentRepeat !== undefined;
+  if (!hasAnySignal) return null;
+
+  const openingRepeat = bool('openingRepeat');
+  const contentRepeat = bool('contentRepeat');
+
+  /** 兼容字段：由内容问题反推旧语义（未迁移的调用点仍可用） */
+  const verdict: DecisionVerdict = contentRepeat || openingRepeat ? 'rewrite' : 'accept';
+  const primaryIssue: DecisionIssue = contentRepeat ? 'duplication' : openingRepeat ? 'voice' : 'none';
   const c = Number(o.confidence);
+
   return {
-    verdict: verdict as DecisionVerdict,
-    primaryIssue: issue as DecisionIssue,
-    worthIt: o.worthIt === true || o.worthIt === 'true' || o.worthIt === 1,
-    stalled: o.stalled === true || o.stalled === 'true' || o.stalled === 1,
-    quality: Number.isFinite(q) ? Math.max(0, Math.min(10, q)) : 0,
+    aiFlavor,
+    aiFlavorTemplateSyntax: bool('aiFlavorHasTemplateSyntax'),
+    aiFlavorExplainingNarrator: bool('aiFlavorHasExplainingNarrator'),
+    openingRepeat,
+    contentRepeat,
+    quality,
+    verdict,
+    primaryIssue,
+    worthIt: true,
+    stalled: contentRepeat,
     ...(Number.isFinite(c) ? { confidence: Math.max(0, Math.min(1, c)) } : {}),
     ...(typeof o.reason === 'string' && o.reason.trim() ? { reason: o.reason.trim().slice(0, 200) } : {}),
   };
@@ -259,31 +404,107 @@ export function normalizeDecision(raw: unknown): GateDecision | null {
 export function decisionFromSystemOneAnswers(answers: unknown): GateDecision | null {
   if (!answers || typeof answers !== 'object') return null;
   const a = answers as Record<string, Record<string, unknown>>;
-  const verdictRaw = a.verdict && typeof a.verdict === 'object' ? String(a.verdict.choice ?? '') : '';
-  if (!DECISION_VERDICTS.includes(verdictRaw as DecisionVerdict)) return null;
-  const issueRaw = a.primaryIssue && typeof a.primaryIssue === 'object' ? String(a.primaryIssue.choice ?? 'none') : 'none';
-  const issue = (DECISION_ISSUES as readonly string[]).includes(issueRaw) ? (issueRaw as DecisionIssue) : 'none';
+
+  /** noul：P(yes) ≥ 阈值即判 true */
   const noul = (k: string): boolean => {
     const v = a[k] && typeof a[k] === 'object' ? Number(a[k].noul) : NaN;
     return Number.isFinite(v) && v >= NOUL_YES_THRESHOLD;
   };
-  const scoreVal = a.quality && typeof a.quality === 'object' ? Number(a.quality.score) : NaN;
-  const quality = Number.isFinite(scoreVal) ? Math.max(1, Math.min(10, Math.round(scoreVal + 1))) : 0;
-  const conf = a.verdict && typeof a.verdict === 'object' ? Number(a.verdict.confidence) : NaN;
-  const probs = a.verdict && typeof a.verdict === 'object' ? a.verdict.probabilities : undefined;
-  const reason = probs && typeof probs === 'object'
-    ? `choice=${verdictRaw}; P=${Object.entries(probs as Record<string, number>).map(([k, v]) => `${k}:${v}`).join(',')}`
-    : undefined;
+  /** noul 的原始概率（0–1），拿不到时 undefined */
+  const noulProb = (k: string): number | undefined => {
+    const v = a[k] && typeof a[k] === 'object' ? Number(a[k].noul) : NaN;
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : undefined;
+  };
+  /** score：档位索引（0 起）→ 1..N 的整数 */
+  const score1to10 = (k: string): number => {
+    const v = a[k] && typeof a[k] === 'object' ? Number(a[k].score) : NaN;
+    return Number.isFinite(v) ? Math.max(1, Math.min(10, Math.round(v + 1))) : 0;
+  };
+
+  /**
+   * ★ 2026-10-27：**不再要求 verdict 存在**。
+   * 旧实现 `if (!DECISION_VERDICTS.includes(verdictRaw)) return null;` —— 那是"裁决模型"年代的
+   * 前置条件。新问题集里根本没有 verdict，再用它当门槛会让**每次调用都判为无效**。
+   * 现在的有效性判据变成：至少有一项内容质量判定拿到了值。
+   */
+  const aiFlavor = score1to10('aiFlavor');
+  const quality = score1to10('quality');
+  const hasAnySignal = aiFlavor > 0 || quality > 0
+    || noulProb('openingRepeat') !== undefined
+    || noulProb('contentRepeat') !== undefined
+    || noulProb('aiFlavorHasTemplateSyntax') !== undefined;
+  if (!hasAnySignal) return null;
+
+  const openingRepeat = noul('openingRepeat');
+  const contentRepeat = noul('contentRepeat');
+
+  /** 兼容字段：由内容问题反推一个"旧语义"的裁决，供尚未迁移的调用点使用 */
+  const verdict: DecisionVerdict = contentRepeat || openingRepeat ? 'rewrite' : 'accept';
+  const primaryIssue: DecisionIssue = contentRepeat ? 'duplication' : openingRepeat ? 'voice' : 'none';
+
+  const conf = a.aiFlavor && typeof a.aiFlavor === 'object' ? Number(a.aiFlavor.confidence) : NaN;
+  /** 原生 systemone 不给自然语言理由 —— 用概率串代替，便于事后回查 */
+  const p = [
+    ['openingRepeat', noulProb('openingRepeat')],
+    ['contentRepeat', noulProb('contentRepeat')],
+    ['template', noulProb('aiFlavorHasTemplateSyntax')],
+    ['narrator', noulProb('aiFlavorHasExplainingNarrator')],
+  ].filter(([, v]) => typeof v === 'number') as Array<[string, number]>;
+  const reason = p.length ? p.map(([k, v]) => `${k}:${v.toFixed(2)}`).join(',') : undefined;
+
   return {
-    verdict: verdictRaw as DecisionVerdict,
-    primaryIssue: issue,
-    worthIt: noul('worthIt'),
-    stalled: noul('stalled'),
+    aiFlavor,
+    aiFlavorTemplateSyntax: noul('aiFlavorHasTemplateSyntax'),
+    aiFlavorExplainingNarrator: noul('aiFlavorHasExplainingNarrator'),
+    openingRepeat,
+    contentRepeat,
     quality,
+    verdict,
+    primaryIssue,
+    worthIt: true,
+    stalled: contentRepeat,
     ...(Number.isFinite(conf) ? { confidence: Math.max(0, Math.min(1, conf)) } : {}),
     ...(reason ? { reason } : {}),
   };
 }
+
+/**
+ * 内容质量三判定的**严重度汇总**（给闸门/界面用的可比较分）。
+ *
+ * 为什么需要一个汇总：调用方要决定"要不要打回、只修哪一条"，
+ * 而三项是不同量纲（AI 味 1–10、两个布尔）。
+ * 这里把它们折算成同一把尺子上的"问题分"，**只用于排序与阈值判断**，
+ * 原始值仍在 GateDecision 上一一保留（不要让汇总值掩盖细节）。
+ */
+export interface ContentProblemScore {
+  /** 问题总分（0 = 干净；越大越该改） */
+  total: number;
+  /** 最该修的那一条（按权重取最大） */
+  top: 'aiFlavor' | 'openingRepeat' | 'contentRepeat' | 'none';
+  /** 逐项贡献（观测用） */
+  breakdown: { aiFlavor: number; openingRepeat: number; contentRepeat: number };
+}
+
+/** 各项权重：内容重复最伤（读者立刻察觉"这段讲过"），其次开头重复（翻页即见），AI 味再次 */
+export const CONTENT_WEIGHTS = { contentRepeat: 45, openingRepeat: 30, aiFlavor: 5 } as const;
+/** AI 味从第几档开始计入问题（1–4 属正常范围，不必改） */
+export const AI_FLAVOR_BASELINE = 4;
+
+export function scoreContentProblems(d: GateDecision): ContentProblemScore {
+  const aiFlavor = Math.max(0, (d.aiFlavor - AI_FLAVOR_BASELINE) * CONTENT_WEIGHTS.aiFlavor);
+  const openingRepeat = d.openingRepeat ? CONTENT_WEIGHTS.openingRepeat : 0;
+  const contentRepeat = d.contentRepeat ? CONTENT_WEIGHTS.contentRepeat : 0;
+  const total = aiFlavor + openingRepeat + contentRepeat;
+  const top = contentRepeat >= openingRepeat && contentRepeat >= aiFlavor && contentRepeat > 0
+    ? 'contentRepeat' as const
+    : openingRepeat >= aiFlavor && openingRepeat > 0
+      ? 'openingRepeat' as const
+      : aiFlavor > 0 ? 'aiFlavor' as const : 'none' as const;
+  return { total, top, breakdown: { aiFlavor, openingRepeat, contentRepeat } };
+}
+
+/** 问题分达到多少就值得打回重写（标定：内容重复单项 45 已超线；AI 味需 ≥9 档才够） */
+export const CONTENT_PROBLEM_REWRITE_THRESHOLD = 40;
 
 /**
  * 把决策结果翻成「是否打回」以及「重写指令聚焦哪一条」。
@@ -298,27 +519,95 @@ export function decisionFromSystemOneAnswers(answers: unknown): GateDecision | n
  *   就必须先重写一次（聚焦决策器给的 primaryIssue）；从第 2 次起才允许
  *   `worthIt=false` / `accept_with_warning` 带警示放行。
  *
- * @param d           决策器结论
- * @param attemptsDone 本章已重写次数（0 = 还没改过）
+ * ★ 2026-10-18 第二条底线（GUI 跑 10 章时抓到）：**篇幅是硬约束，决策器不许放行**。
+ *   实测第 10 章 5869 字（上限 3500，超 68%）、第 11 章 5064 字、第 15 章 2017 字
+ *   （下限 2500）都被交付了 —— 因为 worthIt=false 一票就能带警示放行。可是"篇幅"
+ *   不是审美取舍，是**可判定的物理事实**：超限几乎总等于"靠复述凑字数"（第 10 章同时
+ *   带 11 处章内重复），欠限则是没写完。这类事实**不进"值不值得改"的权衡**。
+ *   由 `nonNegotiable` 传入（调用方按确定性检查算出来），命中即打回，不再看 worthIt。
+ *   仍守住既有兜底：改满 MAX_REVISIONS 次还不达标，照样带警示交付（缺章更糟）。
+ *
+ * @param d              决策器结论
+ * @param attemptsDone   本章已重写次数（0 = 还没改过）
+ * @param opts.nonNegotiable 确定性硬伤（不可被 worthIt/accept 放行）；按顺序取第一条作为聚焦项
  */
-export function decisionToGateAction(d: GateDecision, attemptsDone = 1): {
+export function decisionToGateAction(
+  d: GateDecision,
+  attemptsDone = 1,
+  opts: { nonNegotiable?: readonly DecisionIssue[] } = {},
+): {
   pass: boolean;
   /** 打回时聚焦修的那一条（pass=true 时为 'none'） */
   focus: DecisionIssue;
   /** 是否因为"至少先改一次"的底线而强行打回（观测用） */
   forcedFirstRewrite?: boolean;
+  /** 是否因为确定性硬伤而强行打回（篇幅等在带外；观测用） */
+  forcedByHardFact?: boolean;
+  /** 内容体检的问题分与首要问题（观测用；pass 时也可能 >0，表示"带瑕疵放行"） */
+  content?: ContentProblemScore;
 } {
-  const focusOf = (): DecisionIssue => (d.primaryIssue === 'none' ? 'duplication' : d.primaryIssue);
+  /**
+   * ★ 2026-10-27：**从"读 verdict"改成"读内容体检结果"**。
+   *
+   * 旧逻辑读 `d.verdict`（accept/rewrite/accept_with_warning）—— 那是决策器做总判决的年代。
+   * 现在决策器只报告三项症状（AI 味 / 开头重复 / 内容重复），由**这里**决定怎么处理：
+   * 问题分 ≥ 阈值 → 打回，并聚焦最重的那一项。
+   */
+  const content = scoreContentProblems(d);
+  const focusOfContent = (): DecisionIssue => (
+    content.top === 'contentRepeat' ? 'duplication'
+      : content.top === 'openingRepeat' ? 'voice'
+        : content.top === 'aiFlavor' ? 'voice'
+          : 'none'
+  );
 
-  // 底线：一次都没改过时，硬规则既然判了不通过，就先改一次再说 —— 决策器不能跳过首次重写
+  // 底线一：一次都没改过时，硬规则既然判了不通过，就先改一次再说 —— 决策器不能跳过首次重写
+  /**
+   * ★ 2026-10-29 修（审计确认）：**"至少改一次"只该在"确实有问题"时触发**。
+   *
+   * 原实现无条件 `attemptsDone === 0 → 打回`，但体检改成**每章必跑**之后
+   * （原先只在硬规则不过时跑），这条底线变成了灾难：
+   * **每一章的第一轮都要被无理由打回一次** —— 哪怕体检三项全绿。
+   * 实测后果：每章 +1 次重写（多烧一次写作官），而且 focus 被填成 `duplication`，
+   * `renderFocusedHint` 在无重复时返回空串 ⇒ 写作官收到"本轮只改这一条：重复"
+   * 却没有任何具体内容，只能瞎改。
+   *
+   * 正确语义：这条底线的初衷是防「决策器在首次就判 worthIt=false ⇒ 一次都不改就交付」。
+   * 现在决策器**不再做放行判决**（只报告症状），所以：
+   *   · 有问题（content.total > 0 或单项成立）→ 仍要求先改一次（保留原意）
+   *   · 完全没问题 → **直接放行**，不白烧一次重写
+   */
   if (attemptsDone === 0) {
-    return { pass: false, focus: focusOf(), forcedFirstRewrite: true };
+    const hasProblem = content.total > 0 || d.contentRepeat || d.openingRepeat || d.aiFlavor >= 9;
+    if (!hasProblem) return { pass: true, focus: 'none', content };
+    const f = focusOfContent();
+    return { pass: false, focus: f === 'none' ? 'duplication' : f, forcedFirstRewrite: true, content };
   }
-  if (d.verdict === 'accept') return { pass: true, focus: 'none' };
-  if (d.verdict === 'accept_with_warning') return { pass: true, focus: 'none' };
-  // rewrite：只有 worthIt 为 true 才真的打回；worthIt=false 说明再改也没用 → 带警示放行
-  if (!d.worthIt) return { pass: true, focus: 'none' };
-  return { pass: false, focus: focusOf() };
+  // 底线二：确定性硬伤（如篇幅出带）—— 不看内容体检、不看别的，一律打回并聚焦该条
+  const hard = (opts.nonNegotiable ?? [])[0];
+  if (hard) {
+    return { pass: false, focus: hard, forcedByHardFact: true, content };
+  }
+  /**
+   * 内容问题够重 → 打回，只修最重的那一条（避免多要求互相打架）。
+   *
+   * ★ 2026-10-27 阈值口径修正（测试当场抓到）：**单看总分会让单项硬伤漏网**。
+   *   原实现只判 `total >= 40`，而「开头重复」单项 = 30、「AI 味 10 档」单项 = 30 ——
+   *   两者都够严重（读者一眼就看出来），却都低于 40 而不打回。
+   *
+   *   所以改成**两条都要**判：
+   *     · 总分达阈值（多项叠加）；**或**
+   *     · 单项本身就够重（内容重复 45 / 开头重复 30 / AI 味 ≥9 档折算 25+）
+   *   这三项是**性质不同的病**，不该让它们互相"凑分"才够格 —— 一项成立就该修。
+   */
+  const singleSerious = d.contentRepeat
+    || d.openingRepeat
+    || d.aiFlavor >= 9;
+  if (content.total >= CONTENT_PROBLEM_REWRITE_THRESHOLD || singleSerious) {
+    return { pass: false, focus: focusOfContent(), content };
+  }
+  // 问题不重 → 放行（content.total 可能 >0：那是"带瑕疵交付"，调用方可据此落一条警示）
+  return { pass: true, focus: 'none', content };
 }
 
 /** 决策器调用结果（失败时 decision=null，调用方回退旧规则） */

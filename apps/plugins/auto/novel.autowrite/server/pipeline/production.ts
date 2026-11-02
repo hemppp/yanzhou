@@ -22,14 +22,16 @@ import type { ServerPluginContext } from '@novel/core';
 import { schema, eq, and, isNull, desc, getProjectDb, type DrizzleDb } from '@novel/db';
 import { runDiscussion } from '../discuss/orchestrator.js';
 import { createChapterBridge } from './chapter-bridge.js';
-import { extractFirstJson } from '../framework/text.js';
+import { parseJsonTolerant } from '../framework/text.js';
 import { readDigestFor } from '../framework/memory/digest-gate.js';
 import { createAgentSkillResolver } from '../framework/agent-skills.js';
 import {
   createAgentMemory, createMemoryGate, experience, fingerprintOf, writeAudit,
 } from '../framework/memory/index.js';
-import { ROLE_PLOT } from '../discuss/roles.js';
-import { ROLE_SUPERVISOR, STAGE_SPEAK_MAX_TOKENS } from './roles-phase.js';
+import { ROLE_PLOT, WRITER_MIN_CHARS, WRITER_MAX_CHARS } from '../discuss/roles.js';
+import { ROLE_SUPERVISOR, TRACK_SYSTEM, STAGE_SPEAK_MAX_TOKENS } from './roles-phase.js';
+import { extractBeatCard, renderBeatCard, type BeatCard } from './beats.js';
+import { checkBeatCoverage, generateBeatCards, appendBeatCards } from './beat-rolling.js';
 import {
   PRODUCTION_BATCH, PRODUCTION_REVIEW_EVERY, type PipelineEvent, type TrackEntry,
 } from './types.js';
@@ -43,6 +45,96 @@ export function planProductionChapterOrders(lastDelivered: number, batch = PRODU
 }
 
 /**
+ * 从《剧情总纲》里读出**这本书计划写多少章**。读不出来返回 null（= 不设上限）。
+ *
+ * ★ 2026-10-22：这条守卫是拿一本书跑飞 85 章换来的。
+ *   实测：总纲白纸黑字写着「三幕（第 19–24 章）… 章 24 成与真相了结之人」，
+ *   而且**确实注入了模型**（digest 6000 字截断后三幕那三行全部存活，我量过），
+ *   但**没有任何代码拦「第 85 章」** —— `production` 里大纲只被轨迹确认（只读检查）用到。
+ *   于是长跑控件「写到第 N 章」只要 N 填得够大，就能一路越过总纲把它写完。
+ *   轨迹确认确实每次都报 major_drift（54–58 起 7 次），可那只是"事后喊停"，
+ *   而且是**可被作者点「继续长跑」按掉**的软信号。这道是硬边界。
+ *
+ * 识别三种写法（实测语料）：
+ *   · 「三幕：（第 19–24 章）…」        → 24
+ *   · 「三幕共 24 章」「全书 24 章」     → 24
+ *   · 「第1章：…」这种逐章条目          → 取最大章号
+ * 取所有命中里的**最大值**（逐章条目可能比幕范围更长，也可能反过来）。
+ */
+export function parseOutlineChapterLimit(outline: string | undefined | null): number | null {
+  const t = String(outline ?? '');
+  if (!t.trim()) return null;
+
+  // ★ 2026-10-30 改口径（实测误伤）：**单条逐章条目视为噪声，两条以上才算章节清单**。
+  //
+  // 旧口径把所有来源的命中**混在一起取最大值**，于是这两类文本会互相污染。
+  // 实测事故（《铁壳里的声音》）：plot 段的 artifact 不是大纲本体，而是**定稿官的裁决书**，
+  // 全文只有一句「可开第1章：收、拆、掉带」—— 里面那唯一一条
+  // 「第1章：」被当成"全书计划 1 章" ⇒ 上限 = 1。
+  // 而库里已有第 1–3 章 ⇒ 每批都判 `overrun` ⇒ **长跑一章不写、空转 6 万批**。
+  // 同一份状态里 `beats` 明确写着「第1–10章」，却被 plot 的误读盖住（旧代码只读 plot）。
+  //
+  // 新口径判据只有一条：**孤立的一条「第N章：」不可信，成串（≥2 条）才可信**。
+  //   · 「可开第1章：…」是**开工指示**，只有一条 ⇒ 丢弃（事故正是这一条）；
+  //   · 「第25章：尾声 / 第26章：后记」是**真章节清单** ⇒ 保留，且可以长于幕范围；
+  //   · 范围写法（第1–10章 / 共 24 章）永远是作者对篇幅的明确承诺，总是保留。
+  //   最后对**保留下来的信号取最大值** —— 既不丢尾章，也不会被一条误读压到 1。
+  const rangeHits: number[] = [];
+  const itemHits: number[] = [];
+
+  // ① 范围写法：（第 19–24 章）/ 第19-24章 / （第1至24章）
+  //    ★ 2026-10-22 实测补漏：**真契约里不写"第"字** —— 实际文本是「一幕章1–6」「三幕章19–24」。
+  //      第一版正则强制要求"第"，结果在这本书上读出 null、守卫等于没装
+  //      （`__tests__` 里用「（第 19–24 章）」造的样例反而过了，典型的"照着自己想象写测试"）。
+  //      现在「第」可选，并且**允许没有"章"字后缀**（"章19–24"是"章"在前）。
+  for (const m of t.matchAll(/第?\s*(\d+)\s*[–—\-~至到]\s*(\d+)\s*章?/g)) {
+    rangeHits.push(Number(m[2]));
+  }
+  // ①b "章19–24" 这种章字在前的写法
+  for (const m of t.matchAll(/章\s*(\d+)\s*[–—\-~至到]\s*(\d+)/g)) {
+    rangeHits.push(Number(m[2]));
+  }
+  // ② "共 N 章" / "全书 N 章" / "合计 N 章"
+  for (const m of t.matchAll(/(?:共|全书|总计|合计)\s*(\d+)\s*章/g)) {
+    rangeHits.push(Number(m[1]));
+  }
+  // ③ 逐章条目："第 12 章：…"（孤立一条视为噪声，见上）
+  for (const m of t.matchAll(/第\s*(\d+)\s*章\s*[：:]/g)) {
+    itemHits.push(Number(m[1]));
+  }
+
+  const ok = (n: number) => Number.isFinite(n) && n > 0 && n < 2000;
+  const signals = [...rangeHits.filter(ok)];
+  const items = itemHits.filter(ok);
+  // 孤立的一条逐章条目不构成"全书上限"的证据（见上面的事故说明）
+  if (items.length >= 2) signals.push(...items);
+  return signals.length > 0 ? Math.max(...signals) : null;
+}
+
+/**
+ * 本批实际要写的章号 —— 在总纲上限处**截断**。
+ * 返回 `{ orders, cappedBy }`：`cappedBy` 非空表示"因为总纲只到第 N 章，本批被截短了"。
+ */
+export function planWithinOutline(
+  lastDelivered: number,
+  limit: number | null,
+  batch = PRODUCTION_BATCH,
+): { orders: number[]; cappedBy: number | null; overrun: boolean } {
+  const all = planProductionChapterOrders(lastDelivered, batch);
+  if (limit == null) return { orders: all, cappedBy: null, overrun: false };
+  const allowed = all.filter((o) => o <= limit);
+  // ★ 原计划一章都不剩 = 已经写到（或越过）总纲上限 → **一章都不写**。
+  //   第一版这里写成 `all.slice(0, 1)`（"至少写一章免得空转"），那等于守卫自己越纲 ——
+  //   实测已交付 85 章、总纲只到 24 章，它会继续写第 86 章。必须直接拒。
+  return {
+    orders: allowed,
+    // `cappedBy` 只表示「本批被总纲截短了」；没有截短时保持 null（否则调用方会误报"已到上限"）
+    cappedBy: allowed.length < all.length ? limit : null,
+    overrun: allowed.length === 0,
+  };
+}
+
+/**
  * 单章指令。`hasPrevious` 决定口吻：
  * - 全书第 1 章 → 按总纲起笔；
  * - 否则一律"接着上一章往下写"（**不要**照抄作者最初那句指令，那是写给立设定那一段的）。
@@ -53,6 +145,76 @@ export function productionMessage(order: number, hasPrevious: boolean, extra?: s
       + '保持人物、伏笔与文风连续，不要重述上一章已经写过的内容。'
     : `按《剧情总纲》里第 ${order} 章的节拍，写出第 ${order} 章正文。`;
   return extra ? `${head}\n\n【作者补充】\n${extra}` : head;
+}
+
+/**
+ * 单章指令 —— **有节拍卡时以卡为准**。
+ *
+ * ★ 2026-10-23：这是"大纲牵引"真正落地的那一行。
+ *   旧版（上面那个 `productionMessage`）说「按《剧情总纲》里第 N 章的节拍走」——
+ *   而总纲只写到第 24 章，第 25 章之后**那句话是假的**，模型只能凭最近三章的手感往下接。
+ *   有卡时改为把**这张卡整张塞进创作指令**，并明确"以卡为准、总纲只作背景"。
+ *
+ *   `card` 为 null（这一段还没规划到这一章）→ **明确说出来**，并给出补救动作，
+ *   而不是继续假装有节拍可依。
+ */
+export function productionMessageWithCard(
+  order: number,
+  hasPrevious: boolean,
+  card: BeatCard | null,
+  extra?: string,
+): string {
+  const tail = extra ? `\n\n【作者补充】\n${extra}` : '';
+  if (!card) {
+    /**
+     * ★ 2026-10-30 修（实测灾难）：**不许再叫模型"先去补卡"**。
+     *
+     * 原文写的是「请先回到「章节大纲与节拍卡」段为本章补卡」——
+     * 而写作官**没有这个工具、也不该干这件事**（补纲由 `beat-rolling` 负责）。
+     * 它只能照字面在**正文里**补一张卡，然后接一句「以下为修正后完整正文：」。
+     * 实测第 4 章整章前半段就是这样一张【第4章节拍卡】+ 工作笔记，
+     * 连同「删去越章面摊段，章内补对话提占比」这种自我指令一起被当正文交付了。
+     *
+     * 正确说法：**把缺卡当成写作时的已知条件**，而不是派给它的任务。
+     * 同时明确"正文里不许出现节拍卡/任务清单"—— 不给它任何把工作笔记写进正文的入口。
+     */
+    return [
+      `接着上一章往下写第 ${order} 章。`,
+      '',
+      '（说明：本章暂时没有节拍卡，**这不是你要处理的事** —— 你只负责写正文。）',
+      '缺少施工图时，本章必须至少有一个**不可逆的结果**（处境 / 关系 / 信息 / 筹码变了一样），',
+      '并且不许重述上一章已经演过的场景。',
+      '',
+      '⚠️ **你的输出就是本章正文本身**：',
+      '· 不要写节拍卡、不要列提纲、不要交代"补卡""删减""提对话占比"这类工作过程；',
+      '· 不要写"以下为正文"这类前言 —— 从第一个字起就是正文。',
+    ].join('\n') + tail;
+  }
+  const head = hasPrevious
+    ? `接着上一章往下写第 ${order} 章。`
+    : `写出第 ${order} 章正文。`;
+  return [
+    head,
+    '',
+    '**本章以下面的节拍卡为准**（它是这一章的施工图；《剧情总纲》只作背景，卡与总纲冲突时以卡为准）：',
+    '',
+    renderBeatCard(card),
+    '',
+    /**
+     * ★ 2026-10-30 修（实测篇幅缩水）：**卡是骨架，不是成品**。
+     *
+     * 实测：加卡之后章节明显变短 —— 无卡段（74–86）均 2743 字、仅 2 章欠下限；
+     * **有卡段（87–106）均 2524 字、10 章欠下限**。根因是写作官把"3–5 拍"当成了
+     * **成品清单**：每拍写一两段就交，卡说完就停，不再展开。
+     *
+     * 而卡的拍数只是**结构骨架**（一章 3–5 拍是工程选择，不是篇幅上限）：
+     * 每一拍都要展开成完整的场景 —— 动作、对话、感官细节、心理转折都写足。
+     */
+    `**卡是骨架，不是成品**：每一拍都要展开成**完整的场景**（人物动作、对话、感官细节、处境变化都要写足），`,
+    `不能一两段带过。3–5 拍展开后自然就是 2500–3500 字；**本章篇幅仍须落在 ${WRITER_MIN_CHARS}–${WRITER_MAX_CHARS} 字之间**。`,
+    '',
+    '保持人物、伏笔与文风连续；**不要重述上一章已经写过的内容**。',
+  ].join('\n') + tail;
 }
 
 // ---- 写作监工 ----
@@ -105,14 +267,10 @@ export function renderSuperviseInput(o: {
  *   避免模型偶尔吐错 JSON 就把整条长跑打断。
  */
 export function parseSuperviseReport(text: string, order: number): SuperviseResult {
-  const raw = (() => {
-    try {
-      const json = extractFirstJson(text);
-      return json ? JSON.parse(json) as Record<string, unknown> : null;
-    } catch {
-      return null;
-    }
-  })();
+  // ★ 2026-10-21：改用宽容解析（先严格、失败再补未转义的引号）。
+  //   实测监工/轨迹确认**每一条**都因正文里的裸引号而被判「没能解析成 JSON」——
+  //   不是模型没回，是解析器太严（详见 text.ts 的 repairUnescapedQuotes）。
+  const raw = parseJsonTolerant(text);
 
   if (!raw) {
     return {
@@ -239,14 +397,8 @@ export function renderTrackInput(o: {
  *   与"没审出问题 vs 压根没审"同一取向：宁可记一条"请人工复核"，也不假装在轨。
  */
 export function parseTrackReview(text: string): TrackResult {
-  const raw = (() => {
-    try {
-      const json = extractFirstJson(text);
-      return json ? JSON.parse(json) as Record<string, unknown> : null;
-    } catch {
-      return null;
-    }
-  })();
+  // 同上：走宽容解析，避免"正文里有对话引号"就让整份轨迹确认作废
+  const raw = parseJsonTolerant(text);
 
   if (!raw) {
     return {
@@ -300,9 +452,22 @@ export interface ProductionOutcome {
     detail?: Array<{ kind: string; detail: string; evidence: string }>;
   } | null;
   halted: boolean;
+  /**
+   * ★ 2026-10-29：**为什么**停下。三种情况的后处置完全不同，不能混用一个 halted：
+   *   · outline-overrun —— 本批 0 章（越纲）→ 前端/脚本都该**停**（继续只会空转）
+   *   · supervisor-halt —— 监工判需修正，但**本批照常写完了** → 该**继续**（后端注释明写不再打断）
+   *   · major-drift —— 轨迹确认判定明显跑偏 → 该**停**，交作者决策
+   */
+  haltReason?: 'outline-overrun' | 'supervisor-halt' | 'major-drift';
   track: TrackEntry | null;
   /** 本轮结束后的全书游标（已交付的最后一章） */
   cursor: number;
+  /**
+   * ★ 2026-10-29：本轮**在线补纲**产出的新节拍卡（若有）。
+   * 编排层负责写回  —— 否则下一批会重复补同一段。
+   * 未补纲时为 undefined。
+   */
+  beatArtifact?: string;
   /** 本轮结束后的 sinceReview（供编排层写回 cursor） */
   sinceReview: number;
 }
@@ -475,7 +640,15 @@ async function runTrackReview(
 
   try {
     const result = await ctx.ai.agents.run({
-      system: await createAgentSkillResolver(ctx, o.userId).systemFor(ROLE_PLOT.key, ROLE_PLOT.system),
+      /**
+       * ★ 2026-10-21 修的真 bug：这里原来传的是 `ROLE_PLOT.system` —— 剧情设计师的
+       *   **讨论人格**，而那份契约末尾明写「不要 JSON、不要小标题堆砌」。
+       *   于是模型一边被要求"只输出 JSON"，一边被系统提示词要求"不要 JSON"，
+       *   结果**每一条**轨迹确认都解析失败、一律降级成 minor_drift（memory 里记的
+       *   「pipeline_tracks 5/5 全部输出没能解析成 JSON」就是这个）。
+       *   `TRACK_SYSTEM`（= `TRACK_PLOT_ROLE` 的 system）才是带 JSON 契约的那份，此前是死代码。
+       */
+      system: await createAgentSkillResolver(ctx, o.userId).systemFor(ROLE_PLOT.key, TRACK_SYSTEM),
       input,
       maxTurns: 2,
       maxTokens: STAGE_SPEAK_MAX_TOKENS,
@@ -545,6 +718,16 @@ export async function runProduction(
     reviewEvery?: number;
     /** 已批准的《剧情总纲》等契约（轨迹确认的对照物） */
     contracts?: Array<{ label: string; text: string }>;
+    /**
+     * ★ 2026-10-29：**心跳** —— 每章开始前调一次，给阶段续 。
+     * 没有它，一批跑超过 20 分钟就会被僵死扫描判成 failed（实测踩到）。
+     */
+    touchRunning?: () => Promise<void>;
+    /**
+     * ★ 2026-10-29：《剧情总纲》的章数上限（**用未截断全文算好传入**）。
+     * 见下方 outlineLimit 的注释 —— contracts 里的 plot 是截断版，长总纲会解析不出上限。
+     */
+    outlineChapterLimit?: number | null;
     /** minor_drift 补丁（上一轮轨迹确认留下的，注入本批第一章） */
     pendingPatch?: string;
   },
@@ -553,16 +736,84 @@ export async function runProduction(
   const { projectId, userId } = opts;
   const reviewEvery = opts.reviewEvery ?? PRODUCTION_REVIEW_EVERY;
 
-  const last = opts.lastDelivered && opts.lastDelivered > 0
-    ? opts.lastDelivered
-    : await maxChapterOrder(ctx, projectId);
-  const orders = planProductionChapterOrders(last);
+  /**
+   * 「已经写到第几章」——**流水线游标与库里实际章数取更大者**。
+   *
+   * ★ 2026-10-29 修（实测）：原先只用 `opts.lastDelivered`（流水线游标），
+   *   而**单章讨论模式（`/session`）写出的章不更新流水线游标**。
+   *   实测后果：《雾港长夜》库里已有 86 章，游标却停在 73 ——
+   *   于是长跑从**第 74 章**开始写，撞上「该章已有正文，不覆盖」，
+   *   一批 5 章全部 `deliver_blocked`，白烧。
+   *
+   *   游标是"框架以为写到哪"，DB 是"实际写到哪"。两者不一致时**必须以实际为准**
+   *   （否则会重复写已存在的章）。取 max 而不是直接换成 DB：游标可能包含
+   *   DB 里查不到的进度（例如章被软删过），取大者两边都不丢失。
+   */
+  const dbMax = await maxChapterOrder(ctx, projectId);
+  const last = Math.max(opts.lastDelivered ?? 0, dbMax);
+
+  /**
+   * ★ 2026-10-22：**总纲硬边界**。长跑只能写到《剧情总纲》计划的章数为止。
+   *   （为什么需要：见 `parseOutlineChapterLimit` 的注释 —— 一本书因此跑飞了 85 章。）
+   *   读不出总纲章数时不设限（老项目 / 没立总纲时保持原行为）。
+   */
+  /**
+   * ★ 2026-10-29 修（审计确认）：总纲上限要读**未截断**的原文。
+   *
+   * `contracts` 里 plot 用 `cut(art, 4000)`（为注入上下文省 token），而
+   * `parseOutlineChapterLimit` 靠正则从中找「共 N 章」—— **长篇总纲的这句若落在
+   * 4000 字之外，就读出 null，硬边界等于没装**（这正是 2026-10-22 那本书跑飞 85 章的同类风险）。
+   *
+   * 修法：编排层用**全文**算好上限传下来（`opts.outlineChapterLimit`），
+   * 不把全文塞进模型 prompt（那是另一回事，仍按预算截断）。
+   * 没传时退回从 contracts 解析（保持老行为）。
+   */
+  const outlineText = opts.contracts?.find((c) => c.label.includes('剧情'))?.text ?? '';
+  const outlineLimit = opts.outlineChapterLimit !== undefined
+    ? opts.outlineChapterLimit
+    : parseOutlineChapterLimit(outlineText);
+  const planned = planWithinOutline(last, outlineLimit);
+  const orders = planned.orders;
+  if (planned.overrun) {
+    /**
+     * 已经写到（或越过）总纲上限 → **本批一章都不写**，直接把情况交给作者。
+     *
+     * ★ 实测教训：这本书的总纲写着「三幕章19–24」（即 24 章收尾），却一路写到 85 章。
+     *   轨迹确认从第 54 章起报了 7 次 major_drift，但那是**可被点「继续长跑」按掉**的软信号。
+     *   这道硬边界的作用是：不管长跑控件把目标填成多少，都不许自动越过作者定下的总纲。
+     */
+    emit({
+      stage: 'production', type: 'stage_phase',
+      label: `《剧情总纲》只计划到第 ${planned.cappedBy} 章，但已交付到第 ${last} 章 —— `
+        + '本批不写任何新章。要继续往下写，请先改总纲（这是作者决策，框架不自动越纲）。',
+    });
+    const overrunMsg = `已越过《剧情总纲》上限（第 ${planned.cappedBy} 章），本批未写新章；请先改总纲或确认超纲继续`;
+    return {
+      chapters: [],
+      artifact: overrunMsg,
+      supervisor: null,
+      halted: true,          // 让编排层按"已停下"处理，而不是当作正常跑完一批
+      haltReason: 'outline-overrun',
+      track: null,
+      cursor: last,
+      sinceReview: opts.sinceReview ?? 0,
+    };
+  }
+  if (planned.cappedBy != null) {
+    emit({
+      stage: 'production', type: 'stage_phase',
+      label: `《剧情总纲》只计划到第 ${planned.cappedBy} 章 —— 本批写到第 ${planned.cappedBy} 章为止；`
+        + '要继续往下写，请先改总纲（作者决策，框架不自动越纲）',
+    });
+  }
   const total = orders.length;
   const records: ProductionChapterRecord[] = [];
   const ledger: Array<{ order: number; verdict: string; issues: number }> = [];
   const superviseHistory: SuperviseResult[] = [];
   let cursor = last;
   let halted = false;
+  /** 停下的原因（见 ProductionOutcome.haltReason） */
+  let haltReason: 'outline-overrun' | 'supervisor-halt' | 'major-drift' | undefined;
   let supervisorSummary: ProductionOutcome['supervisor'] = null;
   let sinceReview = opts.sinceReview ?? 0;
 
@@ -578,12 +829,16 @@ export async function runProduction(
    *   → 继续往下写。于是"发现问题"仍然触发"修正动作"，但不再把整条流水线停住。
    */
   let livePatch: string = opts.pendingPatch ?? '';
+  /** ★ 在线补纲产出的节拍卡（累积给编排层写回；见 beat-rolling.ts 与 orchestrator 的注释） */
+  let rollingBeats: string | undefined;
   /** 本轮轨迹确认结果（可能在循环内被"监工触发"改写，故在循环前声明） */
   let track: TrackEntry | null = null;
 
   for (let i = 0; i < total; i++) {
     const order = orders[i]!;
     const index = i + 1;
+    // 心跳：这一批可能跑 20–60 分钟，每章开头续一次 runningSince，避免被僵死扫描误杀
+    try { await opts.touchRunning?.(); } catch (e) { console.warn('[production] 心跳失败（不影响写作）:', e); }
     emit({ type: 'production_chapter', index, total, order, phase: 'start' });
 
     // 作者补充 + **当前生效的修正补丁**。补丁对后续**每一章**都注入 ——
@@ -595,6 +850,103 @@ export async function runProduction(
       stage: 'production', order, emit,
       onDelivered: ({ order: o }) => { cursor = Math.max(cursor, o); },
     });
+
+    /**
+     * ★ 2026-10-23：取出本章的**节拍卡**，作为写作指令的施工图。
+     *   卡来自《章节大纲与节拍卡》契约（`opts.contracts` 里 label 含「节拍」/「章节大纲」的那份）。
+     *   取不到就是 null —— 写作指令会**明确说"本章还没有卡"**，而不是继续假装有节拍可依。
+     */
+    /**
+     * ★ 2026-10-29：**在线补纲** —— 本章没有节拍卡就现场补一批（默认 5 章）。
+     *
+     * 背景（实测）：节拍卡只覆盖第 1–10 章，而书写到第 85 章 ——
+     * **75 章（88%）是在没有施工图的情况下写的**。这就是「开头重复 7/10」「平缓日常章」
+     * 「跨章重复 188 句」的共同上游原因：没有新事件可写，模型只能反复做同一个动作。
+     *
+     * 补卡走与 beats 段同构的角色阵容，但**不改流水线游标**（增补，不是重跑）。
+     * 补不出来就按无卡继续写（fail-open），绝不卡住长跑。
+     */
+    const beatRef = opts.contracts?.find((c) => /节拍|章节大纲/.test(c.label));
+    let beatArtifact = beatRef?.text ?? '';
+    {
+      /**
+       * ★ 起点用**全书已交付的最大章号**，不是本批的 `cursor`。
+       *   第一版实测：`cursor` 是本批游标（从 `last` 开始、循环内才增长），
+       *   于是"卡只到 10、已写到 73"时算出要补 **74–78** —— 而 74–78 早就写完了。
+       *   补已写章节的卡毫无意义（节拍卡是未来章节的施工图）。
+       */
+      const deliveredMax = Math.max(cursor, await maxChapterOrder(ctx, projectId));
+      const check = checkBeatCoverage(beatArtifact, order, deliveredMax);
+      if (check.needed) {
+        const fresh = await generateBeatCards(
+          {
+            ctx, projectId, userId, emit,
+            /**
+             * 补纲用的"发言"实现：与 `runStage` 的 speak 同口径（技能注入 + 阶段 token 上限），
+             * 但**不写 transcript、不记 L2、不发 stage_turn** —— 补纲是旁路增补，
+             * 不该污染当前 production 段的讨论记录（那是每章写作的上下文）。
+             */
+            speak: async (role, extra) => {
+              const skills = createAgentSkillResolver(ctx, userId);
+              /**
+               * ★ 2026-10-29 修（实测抓到的真 bug）：**补纲必须让角色看到项目现状**。
+               *
+               * 第一版只拼 `extra`（任务）—— 角色是"盲写"的。后果实测：
+               * 补出的卡里凭空出现了一个**库里根本没有的角色「陆绯」**，
+               * 让"陆绯"顶替主角去换俘。虽然讨论环节的安全网兜住了
+               * （角色设计师质疑「陆绯前两章没定位」→ 设定管家查库确认「没有陆绯任何设定」
+               *   → 剧情设计师改正回林砚），但**白烧了一轮重写**。
+               *
+               * 正常讨论路径由 `headerFor()` 按角色的 L1 权限过滤摘要（角色设计师看到角色库、
+               * 设定管家看到设定…）。补纲走的是旁路，必须自己补上这一步，
+               * 否则"讨论"就退化成凭印象编造。
+               */
+              let digestBlock = '';
+              try {
+                // 复用已有的 `discuss-context` 读因（同一条链路上语义一致：
+                // 都是"讨论前的装配，每个角色按自己的白名单拿一份"）
+                const { digest } = await readDigestFor(ctx, projectId, role.key, 'discuss-context', { narrative: true });
+                const parts = [
+                  digest.brief ? `【开书设定】\n${digest.brief}` : '',
+                  digest.characters ? `【已有角色（**不得凭空新增**，新角色必须先在本章正文里立起来）】\n${digest.characters}` : '',
+                  digest.foreshadows ? `【现有伏笔】\n${digest.foreshadows}` : '',
+                  digest.outline ? `【剧情总纲】\n${digest.outline}` : '',
+                  digest.chapters ? `【已写章节】\n${digest.chapters}` : '',
+                ].filter(Boolean);
+                digestBlock = parts.join('\n\n');
+              } catch (e) {
+                console.warn('[beats] 补纲读取项目现状失败（按无现状继续）:', e);
+              }
+              const res = await ctx.ai.agents.run({
+                system: await skills.systemFor(role.key, role.system),
+                input: [digestBlock, extra, `现在轮到你（${role.name}）发言。`].filter(Boolean).join('\n\n'),
+                tools: role.tools,
+                maxTurns: role.tools?.length ? 6 : 4,   // 与 roles.ts 的 turnsFor 同口径（原先误写成 2，实测会把推理模型卡死）
+                maxTokens: STAGE_SPEAK_MAX_TOKENS,
+                context: { projectId, userId },
+              });
+              return String(res.text ?? '').trim();
+            },
+          },
+          check.range,
+        );
+        if (fresh) {
+          beatArtifact = appendBeatCards(beatArtifact, fresh);
+          // 就地更新 contracts，后续章节直接读到新卡（否则每章都要重补一次）
+          if (beatRef) beatRef.text = beatArtifact;
+          else opts.contracts?.push({ label: '章节大纲与节拍卡', text: beatArtifact });
+          // 累积给编排层**写回 store**（否则下一批再进来又判"没卡"、重复补同一段）
+          rollingBeats = beatArtifact;
+        }
+      }
+    }
+    const beatCard = extractBeatCard(beatArtifact, order);
+    if (!beatCard) {
+      emit({
+        type: 'stage_phase', stage: 'production',
+        label: `第 ${order} 章没有节拍卡 —— 按"至少一个不可逆结果"的兜底要求写（在线补纲也未能产出）`,
+      });
+    }
     const warnings = result().warnings;
 
     try {
@@ -602,7 +954,7 @@ export async function runProduction(
         ctx,
         {
           projectId, userId,
-          message: productionMessage(order, last > 0 || i > 0, chapterExtra),
+          message: productionMessageWithCard(order, last > 0 || i > 0, beatCard, chapterExtra),
           chapterOrder: order,
           finalDone: false,
         },
@@ -651,6 +1003,7 @@ export async function runProduction(
         if (superviseShouldHalt(superviseHistory)) {
           // ★ 不再 break。记台账（supervisorHalted=true，作者可查）+ 立刻拿修正补丁。
           halted = true;
+          haltReason = 'supervisor-halt';
           emit({
             type: 'stage_phase', stage: 'production',
             label: `第 ${order} 章监工判需修正：记台账并取修正补丁，长跑继续（不再打断）`,
@@ -723,6 +1076,7 @@ export async function runProduction(
       emit({ type: 'track_review', from, to, verdict: tr.verdict, note: tr.note });
       if (tr.verdict === 'major_drift') {
         halted = true;
+        haltReason = 'major-drift';
       } else {
         // on_track / minor_drift 都算"确认过了"，计数归零
         sinceReview = 0;
@@ -738,9 +1092,12 @@ export async function runProduction(
     artifact,
     supervisor: supervisorSummary,
     halted,
+    ...(haltReason ? { haltReason } : {}),
     track,
     cursor,
     sinceReview,
+    // ★ 在线补纲产出的新卡（编排层负责写回 store，见 orchestrator 的注释）
+    ...(rollingBeats ? { beatArtifact: rollingBeats } : {}),
   };
 }
 

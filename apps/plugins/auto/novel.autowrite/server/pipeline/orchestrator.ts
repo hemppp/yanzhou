@@ -15,13 +15,17 @@
 import type { ServerPluginContext } from '@novel/core';
 import { getProjectDb } from '@novel/db';
 import type { DesignRole } from '../discuss/roles.js';
+import { takeInterjections, renderInterjections } from '../discuss/inbox.js';
 import { formatBrief, resolveSettingsDigest, type SettingsDigest } from '../framework/context-resolver.js';
 import { readDigestFor } from '../framework/memory/digest-gate.js';
 import { createAgentSkillResolver } from '../framework/agent-skills.js';
 import { createAgentMemory, createMemoryGate, experience, writeAudit, fingerprintOf } from '../framework/memory/index.js';
 import {
-  GATED_STAGES, REVISION_LIMIT, STAGE_LABEL, type PipelineEvent, type PipelineState, type SinkStats, type StageKey,
+  GATED_STAGES, REVISION_LIMIT, STAGE_LABEL,
+  BEAT_CARDS_INITIAL, BEAT_CARDS_PER_BATCH,
+  type PipelineEvent, type PipelineState, type SinkStats, type StageKey,
 } from './types.js';
+import { beatsCoverage, nextBeatRange, renderBeatsTask } from './beats.js';
 import {
   buildAssertions, mergeDriftReport, parseJudgments, renderAssertions, summarizeDrift,
   type DriftJudgment, type DriftReport,
@@ -29,13 +33,25 @@ import {
 import { readProjectBriefRaw } from '../framework/context-resolver.js';
 import { extractFirstJson } from '../framework/text.js';
 import { pilotSinkNotes, runPilot } from './pilot.js';
-import { productionSinkNotes, runProduction } from './production.js';
+import { productionSinkNotes, runProduction, parseOutlineChapterLimit } from './production.js';
 import { STAGE_SPEAK_MAX_TOKENS, specFor } from './roles-phase.js';
 import { nextStage, PipelineStore, computeBriefHash } from './store.js';
 import { sinkStageArtifact } from './sink.js';
 
 /** 单个前置阶段产出物注入上限：三段都塞进上下文会贵到离谱，也要防被截断误导 */
 const ARTIFACT_INJECT_MAX = 4000;
+
+/**
+ * 各阶段契约的注入预算。
+ *
+ * ★ 2026-10-23：节拍卡单独放宽到 12000。
+ *   它是 production 写每一章的**施工图来源**（一章一张卡 ≈ 400 字，10 张就 4000 字），
+ *   按 4000 截断会让**后半段的卡整段消失** —— 那些章就会变成"没有节拍卡"，
+ *   而现象与"根本没生成卡"一模一样，很难查。给足预算比事后排查便宜。
+ */
+function artifactBudget(stageKey: string): number {
+  return stageKey === 'beats' ? 12000 : ARTIFACT_INJECT_MAX;
+}
 /** 全部前置产出物的总上限 */
 const ARTIFACT_TOTAL_MAX = 9000;
 
@@ -192,6 +208,22 @@ export async function runStage(
   // ---- drift（偏离核查）专用：逐条断言 + 收集各角色的机器可读判定 ----
   //   ★ 断言来自 brief 的**字段**（确定性生成，零成本）：见 drift.ts buildAssertions 的注释
   const driftAssertions = stage === 'drift' ? buildAssertions(await readProjectBriefRaw(ctx, projectId)) : [];
+
+  /**
+   * ★ 2026-10-23：节拍卡这一轮规划哪几章。
+   *   · 第一次跑（还没有卡）：铺 `BEAT_CARDS_INITIAL` 章（够前几批用）
+   *   · 之后每次跑：从已覆盖的下一章起，滚动补 `BEAT_CARDS_PER_BATCH` 章
+   *   —— 这是专业做法里的"滚动补纲"：不要一次写完全书，
+   *   否则写到第 20 章时前面 19 张卡早被水车挤掉了，等于没有。
+   */
+  const beatRange = stage === 'beats'
+    ? nextBeatRange(
+        store.load()?.stages.beats?.artifact,
+        beatsCoverage(store.load()?.stages.beats?.artifact).max > 0 ? BEAT_CARDS_PER_BATCH : BEAT_CARDS_INITIAL,
+        // ★ 起点还要看"写到第几章了"：已经写过的章补卡毫无意义（节拍卡是未来章节的施工图）
+        store.load()?.cursor.lastDelivered ?? 0,
+      )
+    : [];
   const driftJudgments: DriftJudgment[] = [];
   const parseSpeakerJudgments = (text: string): DriftJudgment[] => {
     try {
@@ -218,6 +250,18 @@ export async function runStage(
   };
 
   const speak = async (role: DesignRole, extra?: string): Promise<string> => {
+    /**
+     * ★ 2026-10-25：**作者插话**（人在环中）—— 与单章讨论（discuss/orchestrator 的 runRole）
+     * 共用同一个信箱与同一段措辞（inbox.ts 只实现一次，避免两条链路语义漂移）。
+     * 粒度同样是"下一个角色开口前"，不打断正在跑的模型调用。
+     */
+    const pending = takeInterjections(ctx, projectId);
+    if (pending.length) {
+      extra = [extra, renderInterjections(pending)].filter(Boolean).join('\n\n');
+      emit({ type: 'interjection', texts: pending.map((p) => p.text) });
+      // 可观测：与单章链路同一口径（排查"插话进没进 prompt"时两条链路都能查到）
+      console.log(`[pipeline] 作者插话已注入「${role.name}」的 input：${pending.map((p) => p.text.slice(0, 40)).join(' / ')}`);
+    }
     emit({ type: 'stage_phase', stage, label: `${role.name}发言中` });
     const roleHeader = await headerFor(role.key);
     const result = await ctx.ai.agents.run({
@@ -266,6 +310,7 @@ export async function runStage(
     // 主笔 → 其余角色依次回应（每个角色都能看到前面人的发言）
     for (const role of spec.speakers) {
       // drift：把断言清单 + 库事实对照物塞给它，并要求逐条回 JSON 判定
+      // beats：把**要规划哪几章**写死给它（不写死它会自由发挥规划别的章号）
       const extra = stage === 'drift'
         ? [
             '【断言清单（逐条判定，id 必须原样回填）】',
@@ -275,7 +320,9 @@ export async function runStage(
             digest.characters || '（暂无角色）',
             digest.foreshadows || '（暂无伏笔）',
           ].join('\n')
-        : undefined;
+        : stage === 'beats'
+          ? renderBeatsTask(beatRange)
+          : undefined;
       const said = await speak(role, extra);
       if (stage === 'drift') driftJudgments.push(...parseSpeakerJudgments(said));
     }
@@ -407,15 +454,45 @@ async function runPilotStage(
 
   try {
     const started = store.load();
-    if (started) await store.beginStage(started, stage);
+    /**
+     * ★ 2026-10-29：`beginStage` 现在会在「该段已在跑」时**抛错**（原子锁，见 store.ts）。
+     * 这里必须**单独接住并直接返回** —— 掉进下面的大 catch 会把**正在跑的那一批**
+     * 状态误写成 failed（那正是这次要防的事）。
+     */
+    try {
+      if (started) await store.beginStage(started, stage);
+    } catch (e) {
+      // 只报错、**不动状态**：真正在跑的那一批自己会写台账，这里再写会把它的进度盖掉
+      emit({ type: 'error', message: `本次未启动：${e instanceof Error ? e.message : String(e)}` });
+      return;
+    }
     emit({ type: 'stage_start', stage, revision: store.load()?.stages[stage]?.revision ?? 0 });
 
     // 已批准的宪章/圣经/总纲：跨章审阅判断"漂没漂"的基准（正文里看不到这些）
     const st = store.load();
+    /**
+     * ★ 2026-10-29 修（审计确认）：**beats 用全文，不用截断版**。
+     *
+     * `cut(art, 12000)` 是为**注入上下文**省 token；但 production 会把 `contracts` 里的
+     * beats 当成**契约本体** —— 补纲后 `beatRef.text = 追加后的全文`，编排层再
+     * `state.stages.beats.artifact = outcome.beatArtifact` **写回 store**。
+     *
+     * 后果：节拍卡每批追加 5 张（约 1600 字），**约 4 批后累计超 12000** ⇒
+     * 截断版被当成新契约写回 ⇒ **尾部的卡永久丢失** ⇒ 那些章一直"没有节拍卡"
+     * ⇒ **每批重复补纲**（白烧一次 5 角色讨论）。
+     *
+     * 所以 beats 传**未截断全文**：它不进模型上下文（production 只用 extractBeatCard
+     * 取本章那一张），不费 token。
+     */
     const contracts: Array<{ label: string; text: string }> = [];
-    for (const k of ['cast', 'bible', 'plot'] as StageKey[]) {
+    for (const k of ['cast', 'bible', 'plot', 'beats'] as StageKey[]) {
       const art = st?.stages[k]?.artifact;
-      if (art && st?.stages[k]?.status === 'approved') contracts.push({ label: STAGE_LABEL[k], text: cut(art, ARTIFACT_INJECT_MAX) });
+      if (!art || st?.stages[k]?.status !== 'approved') continue;
+      contracts.push({
+        label: STAGE_LABEL[k],
+        // beats 是**可增长的契约**（补纲会追加），必须传全文；其余三段只用于注入，按预算截断
+        text: k === 'beats' ? art : cut(art, artifactBudget(k)),
+      });
     }
 
     // 作者上一轮的批注：重跑本段时必须生效（否则"改了等于没改"）
@@ -495,15 +572,47 @@ async function runProductionStage(
 
   try {
     const started = store.load();
-    if (started) await store.beginStage(started, stage);
+    /**
+     * ★ 2026-10-29：`beginStage` 现在会在「该段已在跑」时**抛错**（原子锁，见 store.ts）。
+     * 这里必须**单独接住并直接返回** —— 掉进下面的大 catch 会把**正在跑的那一批**
+     * 状态误写成 failed（那正是这次要防的事）。
+     */
+    try {
+      if (started) await store.beginStage(started, stage);
+    } catch (e) {
+      // 只报错、**不动状态**：真正在跑的那一批自己会写台账，这里再写会把它的进度盖掉
+      emit({ type: 'error', message: `本次未启动：${e instanceof Error ? e.message : String(e)}` });
+      return;
+    }
     emit({ type: 'stage_start', stage, revision: store.load()?.stages[stage]?.revision ?? 0 });
 
     const st = store.load();
-    // 已批准的宪章/圣经/总纲：轨迹确认判断"偏没偏"的基准
+    // 已批准的宪章/圣经/总纲/**节拍卡**：轨迹确认判断"偏没偏"的基准；
+    //   ★ 'beats' 是 production 写每一章时的**施工图来源**（production 从这里取本章的卡），
+    //   漏掉它 = 章章都"没有节拍卡"，牵引等于没接。
+    /**
+     * ★ 2026-10-29 修（审计确认）：**beats 用全文，不用截断版**。
+     *
+     * `cut(art, 12000)` 是为**注入上下文**省 token；但 production 会把 `contracts` 里的
+     * beats 当成**契约本体** —— 补纲后 `beatRef.text = 追加后的全文`，编排层再
+     * `state.stages.beats.artifact = outcome.beatArtifact` **写回 store**。
+     *
+     * 后果：节拍卡每批追加 5 张（约 1600 字），**约 4 批后累计超 12000** ⇒
+     * 截断版被当成新契约写回 ⇒ **尾部的卡永久丢失** ⇒ 那些章一直"没有节拍卡"
+     * ⇒ **每批重复补纲**（白烧一次 5 角色讨论）。
+     *
+     * 所以 beats 传**未截断全文**：它不进模型上下文（production 只用 extractBeatCard
+     * 取本章那一张），不费 token。
+     */
     const contracts: Array<{ label: string; text: string }> = [];
-    for (const k of ['cast', 'bible', 'plot'] as StageKey[]) {
+    for (const k of ['cast', 'bible', 'plot', 'beats'] as StageKey[]) {
       const art = st?.stages[k]?.artifact;
-      if (art && st?.stages[k]?.status === 'approved') contracts.push({ label: STAGE_LABEL[k], text: cut(art, ARTIFACT_INJECT_MAX) });
+      if (!art || st?.stages[k]?.status !== 'approved') continue;
+      contracts.push({
+        label: STAGE_LABEL[k],
+        // beats 是**可增长的契约**（补纲会追加），必须传全文；其余三段只用于注入，按预算截断
+        text: k === 'beats' ? art : cut(art, artifactBudget(k)),
+      });
     }
 
     // 上一轮轨迹确认留下的补丁（minor_drift）：本批必须遵守
@@ -519,6 +628,24 @@ async function runProductionStage(
       reviewEvery: st?.cursor.reviewEvery ?? 3,
       contracts,
       ...(pendingPatch ? { pendingPatch } : {}),
+      // ★ 2026-10-29：每章开头给阶段续命，避免 20 分钟的僵死扫描误杀一批要跑 20–60 分钟的长跑
+      touchRunning: () => store.touchRunning('production'),
+      /**
+       * ★ 2026-10-29：总纲章数上限用**未截断全文**算好传下去。
+       * `contracts` 里的 plot 是 `cut(..., 4000)` 的截断版，长总纲的「共 N 章」
+       * 若落在 4000 字外就读出 null ⇒ 硬边界静默失效（正是 2026-10-22 跑飞 85 章的同类风险）。
+       *
+       * ★ 2026-10-30 修**读错源**（实测《铁壳里的声音》长跑空转 6 万批）：
+       *   `plot` 段的 artifact **不是大纲本体**，而是**定稿官的裁决书**（"裁定如下…可开第1章：收、拆、掉带"）。
+       *   旧代码只读 plot，把裁决书里那唯一一条「第1章：」当成"全书计划 1 章"⇒ 上限 = 1
+       *   ⇒ 库里已有 1–3 章，每批都判 `overrun`、**一章不写**，长跑变成死循环。
+       *   而 `beats` 的 artifact 里明确写着「第1–10章」，却根本没被读。
+       *   修法：**两段一起看**（解析器内部已改成"范围写法优先、逐章条目需 ≥2 条"，
+       *   所以合并喂进去不会被单条误读带偏）。
+       */
+      outlineChapterLimit: parseOutlineChapterLimit(
+        [st?.stages.plot?.artifact, st?.stages.beats?.artifact].filter(Boolean).join('\n'),
+      ),
     }, emit);
 
     const state = store.load();
@@ -535,6 +662,20 @@ async function runProductionStage(
     state.cursor.lastDelivered = Math.max(state.cursor.lastDelivered, outcome.cursor);
     state.cursor.sinceReview = outcome.sinceReview;
 
+    /**
+     * ★ 2026-10-29：**在线补纲的产出必须落盘**。
+     *
+     * production 在长跑途中补出的节拍卡原先只活在本次调用的内存里（`opts.contracts`）——
+     * 本批内后续章节读得到，但**store 里的 beats.artifact 还是旧的**。
+     * 后果：下一批再进来又判"没有卡"、**重复补同一段**（白烧一次讨论），
+     * 而且讨论回看/记忆面板里也看不到新卡。
+     * 实测依据：补纲日志打了「完成：新增第 87–91 章」，但 store 里 artifact 仍只覆盖 1–10。
+     */
+    if (outcome.beatArtifact) {
+      state.stages.beats.artifact = outcome.beatArtifact;
+      console.log(`[pipeline] 在线补纲产出已写回 beats.artifact（${outcome.beatArtifact.length} 字）`);
+    }
+
     const notes = productionSinkNotes(outcome.chapters);
     rec.sinked = notes.length === 0;
     rec.error = notes.length ? notes.join('；') : undefined;
@@ -544,6 +685,44 @@ async function runProductionStage(
 
     rec.status = 'awaiting_user';
     await store.save(state);
+
+    /**
+     * ★ 2026-10-22：`halted` 时补发一条 `stage_failed`，让**前端长跑循环**立刻停下。
+     *
+     * 背景：长跑控件（PipelineGraphPanel.handleLongRun）是「写一批 → 检查 → 再写一批」的
+     * 客户端循环，只认 `stage_failed` / 监工 halt / 轨迹 major_drift 三种终止信号，
+     * 否则一路跑到 `guard > 400` 才停。
+     * 新加的「总纲硬边界」在本批**一章都不写**、返回 `halted: true` —— 服务端行为正确，
+     * 但实测界面空转了 400 批才显示"已达安全上限"（每批都被同一条守卫拒写）。
+     * 补这条终止信号，语义也准确：这一批确实没能推进。
+     */
+    /**
+     * ★ 2026-10-29：**只有"该停"的两种 halt 才发 stage_failed**。
+     *
+     * 原实现 `if (outcome.halted)` 一视同仁，但 halted 被三种情况共用：
+     *   · outline-overrun（越纲，本批 0 章）—— 该停（继续只会空转）✅ 发 stage_failed
+     *   · major-drift（轨迹确认判明显跑偏）—— 该停，交作者决策 ✅ 发 stage_failed
+     *   · **supervisor-halt（监工判需修正）—— 后端明写"不再打断、继续写"，本批章是全写完了的**
+     *     ✗ 不该发 stage_failed —— 实测后果：GUI 长跑把它当终止信号 throw 掉，
+     *       与后端 "监工 halt 不再打断长跑" 的设计**直接矛盾**；
+     *       脚本侧则相反（不检查 stage_failed），越纲时 0 章还会无限 approve 空转。
+     *
+     * 所以按 haltReason 分流：supervisor-halt 只发一条**警示**（长跑继续）。
+     */
+    const haltReason = outcome.haltReason;
+    if (outcome.halted && haltReason !== 'supervisor-halt') {
+      emit({
+        type: 'stage_failed',
+        stage,
+        message: outcome.artifact.split('\n')[0]?.slice(0, 400) || '本批未能推进，长跑已停下',
+      });
+    } else if (haltReason === 'supervisor-halt') {
+      emit({
+        type: 'stage_phase',
+        stage,
+        label: `监工判需修正（已记台账 + 取修正补丁，长跑继续）—— 本批已交付 ${outcome.chapters.filter((c) => c.delivered).length} 章`,
+      });
+    }
 
     emit({
       type: 'awaiting_user',
@@ -588,14 +767,14 @@ function buildHeader(o: {
   if (o.digest.projectName) parts.push(`书名：${o.digest.projectName}`);
 
   // 已定稿的前置阶段：让世界圣经建立在角色宪章之上、剧情总纲建立在两者之上
-  const order: StageKey[] = ['cast', 'bible', 'plot'];
+  const order: StageKey[] = ['cast', 'bible', 'plot', 'beats'];
   const priorTexts: string[] = [];
   let budget = ARTIFACT_TOTAL_MAX;
   for (const k of order) {
     if (k === o.stage) break;
     const art = o.state?.stages[k]?.artifact;
     if (!art || o.state?.stages[k]?.status !== 'approved') continue;
-    const piece = cut(art, Math.min(ARTIFACT_INJECT_MAX, budget));
+    const piece = cut(art, Math.min(artifactBudget(k), budget));
     budget -= piece.length;
     if (budget <= 0) {
       priorTexts.push(`（已定稿的《${STAGE_LABEL[k]}》因篇幅过长被省略，需要时用工具查库）`);

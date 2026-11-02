@@ -20,8 +20,10 @@
 
 import { Hono, type Context } from 'hono';
 import type { ServerPluginContext } from '@novel/core';
-import { schema, eq, and, desc, type DrizzleDb } from '@novel/db';
-import { runDiscussion, runChapters } from './discuss/orchestrator.js';
+import { schema, eq, and, desc, like, type DrizzleDb } from '@novel/db';
+import { runDiscussion, runChapters, resolveStartOrder, lastDeliveredOrder } from './discuss/orchestrator.js';
+import { metaOf } from './discuss/agent-meta.js';
+import { pushInterjection, pendingCount } from './discuss/inbox.js';
 import { formatBrief } from './framework/context-resolver.js';
 import { PipelineStore, computeBriefHash, canRun, nextStage } from './pipeline/store.js';
 import { writeAudit } from './framework/memory/index.js';
@@ -90,11 +92,24 @@ export function createAutowriteRouter(ctx: ServerPluginContext): Hono {
           }, 15_000);
 
           try {
+            /**
+             * ★ 2026-10-29 修（审计确认）：**单章路径也要解析起始章号**。
+             *
+             * `433d8e5` 只修了连写（`runChapters`）——它内部用 `resolveStartOrder`。
+             * 但 `chapterCount === 1` 走的是 `runDiscussion`，`chapterOrder` 为 undefined 时
+             * 下游 `parseChapterOrder(message)` 若也没解析出来 ⇒ `deliver()` 报
+             * `deliver_blocked order 0` ⇒ **整轮讨论白烧、不入库**。
+             * 即原 bug 在单章路径上原样保留。
+             *
+             * 这里统一解析：显式 > 消息里的「第 N 章」> 已交付最后一章 + 1。
+             */
+            const resolvedOrder = body.chapterOrder
+              ?? resolveStartOrder({ message }, await lastDeliveredOrder(ctx, projectId));
             const base = {
               projectId,
               userId: user?.id ?? '',
               message,
-              chapterOrder: body.chapterOrder,
+              chapterOrder: resolvedOrder,
             };
             if (chapterCount > 1) {
               await runChapters(ctx, { ...base, chapterCount }, send);
@@ -123,6 +138,29 @@ export function createAutowriteRouter(ctx: ServerPluginContext): Hono {
         },
       },
     );
+  });
+
+  /**
+   * ---- 作者插话（人在环中，2026-10-25）----
+   *
+   * 为什么单独一条**短连接** POST：`/session` 与 `/pipeline/advance` 都是"跑到完"的 SSE，
+   * 跑起来之后没有第二个入口。插话必须走独立请求写进信箱，讨论循环在**每个角色开口前**
+   * 读信箱并注入（见 discuss/inbox.ts）。**不打断正在跑的模型调用** —— 粒度是"下一个角色"。
+   *
+   * 返回 `queued`：当前还有几条待生效（前端显示"已排队"）。
+   */
+  router.post('/interject', async (c) => {
+    const projectId = c.req.header('x-project-id');
+    if (!projectId) return fail(c, 400, 'BAD_REQUEST', '缺少 X-Project-Id 头');
+    const body = await c.req.json().catch(() => ({})) as { text?: string };
+    const text = String(body.text ?? '').trim();
+    if (!text) return fail(c, 400, 'BAD_REQUEST', '插话内容为空');
+    try {
+      const entry = await pushInterjection(ctx, projectId, text);
+      return c.json({ data: { id: entry.id, at: entry.at, queued: pendingCount(ctx, projectId) } });
+    } catch (e) {
+      return fail(c, 400, 'BAD_REQUEST', e instanceof Error ? e.message : String(e));
+    }
   });
 
   // ============================================================
@@ -534,6 +572,73 @@ export function createAutowriteRouter(ctx: ServerPluginContext): Hono {
     if (!projectId) return fail(c, 400, 'BAD_REQUEST', '缺少 X-Project-Id 头');
     const store = storeFor(projectId);
     return c.json({ data: { runs: store.getRuns() } });
+  });
+
+  /**
+   * ---- 讨论回看：某段 / 某章的逐条发言（2026-10-25）----
+   *
+   * 动机（团队评审 + 用户提问）：讨论**早就落库了**（`agent_memory` 的
+   * `exp.stage.<段>.turn<N>` / `exp.ch<N>.turn<M>`），但一直**没有读的出口** ——
+   * 用户问"剧情经过团队讨论了吗"时，我只能拿出 872 字的闸门摘要，
+   * 拿不出"剧情设计师说了什么、世界观设计师怎么质疑、定稿官怎么收敛"。
+   * 实时看只能守着 SSE，跑完就没了。这条路由把落库的发言按顺序取回，供界面回看。
+   *
+   * 参数：`stage=<段key>`（如 plot）或 `chapter=<章号>`（如 3）。二者给一个。
+   * 只读，不改任何状态。发言正文在 value 的 JSON 里（`{kind:'said', text}`）。
+   */
+  router.get('/pipeline/turns', async (c) => {
+    const projectId = c.req.header('x-project-id');
+    if (!projectId) return fail(c, 400, 'BAD_REQUEST', '缺少 X-Project-Id 头');
+    const stage = c.req.query('stage');
+    const chapterRaw = c.req.query('chapter');
+    if (!stage && !chapterRaw) return fail(c, 400, 'BAD_REQUEST', '要给 stage 或 chapter');
+    if (stage && !STAGES.includes(stage as StageKey)) {
+      return fail(c, 400, 'BAD_REQUEST', `未知阶段 ${stage}（可选：${STAGES.join(' | ')}）`);
+    }
+    const chapter = chapterRaw != null ? Number(chapterRaw) : null;
+    if (chapterRaw != null && !Number.isFinite(chapter)) {
+      return fail(c, 400, 'BAD_REQUEST', `chapter 必须是数字，收到 ${chapterRaw}`);
+    }
+    /** 记忆流里的 key 前缀 —— 段讨论与章讨论是两套编号（见 orchestrator 的 writeOwn） */
+    const prefix = stage ? `exp.stage.${stage}.turn` : `exp.ch${chapter}.turn`;
+
+    const db = ctx.db.project(projectId) as DrizzleDb | null;
+    if (!db) return c.json({ data: { scope: { stage: stage ?? null, chapter }, turns: [] } });
+
+    const rows = await db.select({
+      agentId: schema.agentMemory.agentId,
+      key: schema.agentMemory.key,
+      value: schema.agentMemory.value,
+      at: schema.agentMemory.createdAt,
+    })
+      .from(schema.agentMemory)
+      .where(and(
+        eq(schema.agentMemory.projectId, projectId),
+        like(schema.agentMemory.key, `${prefix}%`),
+      ));
+
+    /** key 尾部的 turn 序号（排序用：发言必须按发生顺序，不能按 agent 分组） */
+    const turnNo = (key: string): number => {
+      const m = /turn(\d+)$/.exec(key);
+      return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+    };
+    const turns = rows
+      .map((r) => {
+        let text = '';
+        try {
+          const parsed = JSON.parse(String(r.value ?? '')) as { text?: unknown; kind?: unknown };
+          text = typeof parsed.text === 'string' ? parsed.text : '';
+        } catch { /* 脏数据：跳过，不让它把整次回看打垮 */ }
+        const meta = metaOf(r.agentId);
+        return {
+          agent: r.agentId, name: meta.name, short: meta.short, color: meta.color,
+          turn: turnNo(r.key), text, at: r.at instanceof Date ? r.at.getTime() : Number(r.at) || 0,
+        };
+      })
+      .filter((t) => t.text.length > 0)
+      .sort((a, b) => a.turn - b.turn);
+
+    return c.json({ data: { scope: { stage: stage ?? null, chapter }, turns } });
   });
 
   return router;

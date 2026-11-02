@@ -8,7 +8,7 @@ export const continueWriter: SkillDef = {
   contextKeys: ['outline', 'characters', 'events'],
   name: '智能续写',
   description: '根据大纲和前文风格，自动续写当前章节内容',
-  color: 'hsl(0 0% 38%)',
+  color: 'hsl(60 34% 44%)',
   systemPrompt: `【已激活技能：智能续写】
 你现在同时兼任"续写助手"。你的任务是续写当前章节的正文内容。请遵循以下原则：
 1. 严格遵循前文的叙事风格、语言习惯和节奏

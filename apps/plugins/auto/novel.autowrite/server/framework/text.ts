@@ -49,20 +49,66 @@ export function parseJsonLoose<T>(raw: string): T {
   }
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
-  // ★ 2026-10-23：报错必须**点名截断**。
-  //   实测（真机跑第 1 章）：实体沉淀只报 `Expected ',' or '}' after property value
-  //   in JSON at position 3847` —— 这是 JSON.parse 的位置信息，看不出「输出被 maxTokens
-  //   砍了」。而截断是推理模型下最常见的一种失败（思考 token 也计入上限），
-  //   判据也很硬：`extractFirstJson` 返回 null 就代表**括号没配平**，只可能是被砍了。
-  //   把这条判据写进消息，下一次谁看到都知道该去调预算，而不是去查 JSON 语法。
-  if (start < 0 || end <= start) {
-    throw new Error(`输出中未找到 JSON 对象（收到 ${raw.length} 字符，疑似被 maxTokens 截断）：` + raw.slice(0, 120));
+  if (start < 0 || end <= start) throw new Error('输出中未找到 JSON 对象：' + raw.slice(0, 120));
+  return JSON.parse(raw.slice(start, end + 1)) as T;
+}
+
+/**
+ * 修补「字符串值里出现未转义 ASCII 双引号」的 JSON。
+ *
+ * ★ 2026-10-21 实测抓到：监工/轨迹确认的 JSON **本身是合法的意图**，但模型把正文里的
+ *   对话原样写进了 `evidence` —— `"evidence": ""小周被褥里声淡："他缩着？""`，
+ *   值内部的双引号没转义 ⇒ `JSON.parse` 必失败 ⇒ 整份报告被判「没能解析成 JSON」。
+ *   实测 48 章的书里 supervisor/track **每一条**都栽在这上面（memory 里记的
+ *   「pipeline_tracks 5/5 全部输出没能解析成 JSON」就是同一个根因）。
+ *
+ * 判据（扫描时逐字符判断，不重排内容）：在一个字符串**内部**遇到 `"` 时，
+ * 向后看第一个非空白字符 —— 若是 `,` `}` `]` `:` 或字符串结束，那是真正的收尾引号；
+ * 否则就是正文里的引号，补一个反斜杠转义。已经转义的（前面是 `\`）跳过。
+ *
+ * 修不好就原样返回，调用方照旧按"解析失败"兜底 —— 这里只做**尽力而为**，不吞错。
+ */
+export function repairUnescapedQuotes(json: string): string {
+  let out = '';
+  let inStr = false;
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i]!;
+    if (!inStr) {
+      out += ch;
+      if (ch === '"') inStr = true;
+      continue;
+    }
+    if (ch === '\\') {          // 转义序列整体照抄（含 \" 与 \\）
+      out += ch + (json[i + 1] ?? '');
+      i += 1;
+      continue;
+    }
+    if (ch !== '"') { out += ch; continue; }
+    // 位于字符串内部的双引号：向后找第一个非空白字符，判断它是不是收尾
+    let j = i + 1;
+    while (j < json.length && /\s/.test(json[j]!)) j += 1;
+    const next = json[j];
+    const isTerminator = next === undefined || next === ',' || next === '}' || next === ']' || next === ':';
+    if (isTerminator) { out += ch; inStr = false; }
+    else out += '\\"';          // 正文里的引号 → 转义
   }
+  return out;
+}
+
+/**
+ * 解析模型输出的 JSON，**先严格、失败再修补引号**。
+ * 返回 null 表示确实解析不出来（调用方据此走"保守兜底"，不要当成 ok）。
+ */
+export function parseJsonTolerant(raw: string): Record<string, unknown> | null {
+  const first = extractFirstJson(raw);
+  if (!first) return null;
   try {
-    return JSON.parse(raw.slice(start, end + 1)) as T;
-  } catch (e) {
-    const why = e instanceof Error ? e.message : String(e);
-    throw new Error(`JSON 未配平（收到 ${raw.length} 字符，疑似被 maxTokens 截断）：${why}`);
+    return JSON.parse(first) as Record<string, unknown>;
+  } catch { /* 落到修补 */ }
+  try {
+    return JSON.parse(repairUnescapedQuotes(first)) as Record<string, unknown>;
+  } catch {
+    return null;
   }
 }
 
@@ -92,4 +138,82 @@ export function countProseChars(s: string): number {
 /** 短 id（时间戳 + 随机后缀），用于快照等无 UUID 要求的场景 */
 export function nowId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * 剥掉正文**开头**的「工作笔记 / 元语言前言」。
+ *
+ * ★ 2026-10-30 实测事故（《铁壳里的声音》第 4 章全文开头）：
+ *
+ *   先补第4章节拍卡（依项目现状，原大纲只到第3章，本章无卡，按作者要求补卡并落至少一个不可逆结果）：
+ *   【第4章节拍卡】
+ *   - 起：韩野绕城北孙站记账窗…
+ *   - 果（不可逆）：发夹离手归孙站…
+ *   以下为修正后完整正文（删去越章面摊段，章内补对话提占比…）：
+ *   韩野把发夹塞回裤包，骑三轮回城北。…
+ *
+ * 根因不是模型"不听话"，而是**指令把它引到了那里**：
+ *   第 4 章没有节拍卡 ⇒ `productionMessageWithCard` 走无卡分支，
+ *   该分支原文写着「**请先回到「章节大纲与节拍卡」段为本章补卡**」——
+ *   写作官照做了，把"补卡"当成任务写进正文，然后才说"以下为…完整正文"。
+ *   （该指令已于同日修正，但**不能只靠提示词**：一旦模型再把工作笔记写进正文，
+ *   这里要能兜住 —— 提示词管"怎么写"，管不了它"跑偏了会被交出去"。）
+ *
+ * 三层剥离（任一层的剥离都必须**留下足够的正文**，否则放弃，见 `MIN_KEEP`）：
+ *   ① 若出现「以下为…正文」这类**分界句**，取它**之后**的部分 —— 最可靠；
+ *   ② 否则从开头逐段丢弃，直到某段不再是元语言；
+ *   ③ 兜底：若「节拍卡」块出现在开头且其后仍有正文，从卡块之后开始。
+ *
+ * 「元语言」的判据只看**开头那段**（不是全文搜索）：正文里出现"回收""作者"这种词
+ * 属于正常叙事（实测第 1 章「我上**回收**台电视机」就是误报过的例子），
+ * 而**段首**的「先补…」「以下为…」「按作者要求」则只可能是在交代工作。
+ */
+const PREAMBLE_SPLIT_RE = /^.*?(?:以下|下面|如下)[是为]?\s*(?:修正后|修改后|改后|重写后)?\s*(?:的)?\s*(?:完整)?\s*正文.*?[：:]\s*$/m;
+/** 段首的元语言：交代任务/补卡/删改/篇幅，而不是在讲故事 */
+const PREAMBLE_LINE_RE = /^(?:先|另|顺便|补充|说明|备注|注|注意)?\s*(?:补|写|生成|列出|给出|输出|添加|修改|删去|删掉|压缩|扩写|修正|按|依|根据|为|因|由于)/;
+/** 工作笔记的特征物：节拍卡块、条目符、括号内的自我指令 */
+const PREAMBLE_MARK_RE = /【[^】]*(?:节拍卡|大纲|结论|任务|要求)[^】]*】|^\s*[-•·]\s*(?:起|承|转|合|探|变|果|目标|阻碍|灾难|反应|困境|决定|本章功能)\s*[:：]|本条|本章|第\s*\d+\s*章|作者要求|元评论|不计入正文/;
+
+/** 保护阀：剥离后正文不得少于这个比例，否则认为"这不是前言，是正文"，原样返回 */
+const MIN_KEEP = 0.5;
+
+/**
+ * @param raw 写作官的原始输出
+ * @returns 剥掉开头工作笔记后的正文（若不满足保护阀则原样返回）
+ */
+export function stripProsePreamble(raw: string): string {
+  const text = String(raw ?? '');
+  if (!text.trim()) return text;
+
+  const accept = (candidate: string): string | null => {
+    const c = candidate.replace(/^\s+/, '');
+    // 保护阀：剥完还剩一半以上，才算"真的剥掉了前言"；否则宁可不动
+    return countProseChars(c) >= countProseChars(text) * MIN_KEEP && countProseChars(c) > 0 ? c : null;
+  };
+
+  // ① 分界句最可靠：「以下为（修正后）完整正文：」
+  const split = PREAMBLE_SPLIT_RE.exec(text);
+  if (split) {
+    const after = accept(text.slice(split.index + split[0].length));
+    if (after) return after;
+  }
+
+  // ② 逐段丢弃开头的元语言段（最多丢掉前 1/MIN_KEEP 的位置，避免把正文吃光）
+  const paras = text.split(/\n\s*\n/);
+  let drop = 0;
+  const limit = Math.max(1, Math.floor(paras.length * (1 - MIN_KEEP)));
+  while (drop < limit && drop < paras.length) {
+    const p = paras[drop]!.trim();
+    if (!p) { drop++; continue; }
+    // 一个"前言段"= 段首是元语言 或 含工作笔记特征物
+    const looksMeta = PREAMBLE_LINE_RE.test(p) || PREAMBLE_MARK_RE.test(p);
+    if (!looksMeta) break;
+    drop++;
+  }
+  if (drop > 0) {
+    const rest = accept(paras.slice(drop).join('\n\n'));
+    if (rest) return rest;
+  }
+
+  return text;
 }

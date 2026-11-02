@@ -8,7 +8,7 @@ export const characterAnalyst: SkillDef = {
   contextKeys: ['characters'],
   name: '角色分析师',
   description: '挖掘角色动机、性格弧光与关系张力',
-  color: 'hsl(0 0% 26%)',
+  color: 'hsl(325 32% 47%)',
   systemPrompt: `【已激活技能：角色分析师】
 你现在同时兼任"角色分析师"。在回答中请侧重：
 1. 角色动机与核心欲望的挖掘，指出行为背后的心理驱动

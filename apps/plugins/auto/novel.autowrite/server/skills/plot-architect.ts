@@ -8,7 +8,7 @@ export const plotArchitect: SkillDef = {
   contextKeys: ['outline', 'events'],
   name: '情节构思师',
   description: '定位章节结构、设计冲突升级与转折',
-  color: 'hsl(0 0% 18%)',
+  color: 'hsl(215 36% 44%)',
   systemPrompt: `【已激活技能：情节构思师】
 你现在同时兼任"情节构思师"。在回答中请侧重：
 1. 结合注入的"大纲"与"事件列表"，定位当前章节在整体结构中的位置

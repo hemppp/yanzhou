@@ -153,7 +153,7 @@ export function EntityOverviewPanel() {
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`px-2.5 py-1 rounded-full text-[11px] transition-colors ${
+            className={`px-2.5 py-1 rounded-full text-[12px] transition-colors ${
               tab === k ? 'bg-secondary font-medium' : 'opacity-60 hover:opacity-100'
             }`}
           >
@@ -165,10 +165,7 @@ export function EntityOverviewPanel() {
         <GraphShell
           title={tab === 'characters' ? '角色关系' : tab === 'items' ? '物品持有' : '地点分布'}
           countText={`${nodes.length} 个节点 · ${edges.length} 条关系`}
-          /* ★ 2026-10-22（U3 修复）：原文案是「可在手写台的面板中维护」，但本面板
-             只出现在 AI 模式，而手写台面板在 AI 模式下**不挂载**（模式分离的既定契约）
-             —— 等于把用户指向一个不可达的入口。改成指向本模式真实存在的路径。 */
-          emptyHint="暂无实体数据 —— 流水线跑过「角色与节奏 / 世界圣经」后，角色、地点、物品会出现在这里"
+          emptyHint="暂无实体数据，可在手写台的面板中维护"
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}

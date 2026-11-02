@@ -31,6 +31,56 @@ import { countProseChars } from './text.js';
  *   下调/上调都只改这一个常量，orchestrator 与单测都引用它。
  */
 export const DIALOGUE_RATIO_MIN = 0.15;
+/**
+ * ★ 2026-10-30 新增**上限**：对话占比超过这个就算对话凑情节。
+ *
+ * 为什么需要（用户反馈「对话情节太多了」）：此前只有下限 15%，没有上限。
+ * 实测第 114 章 **对话占比 63%** —— 整章几乎全是两人对骂，动作与环境几乎消失，
+ * 读起来像剧本不像小说。悬疑/调查类小说 30–45% 是有质感的区间。
+ *
+ * ★ 2026-10-30 二次收紧 0.5 → 0.4：用户对《铁壳里的声音》前 3 章反馈「对话太多了」，
+ *   实测占比 29%。29% 单看不算越界，但配合下面的「段太碎」才是真问题 ——
+ *   上限放宽会被"字多但碎"的稿子钻空子，故收紧一档，与碎句判据形成合围。
+ */
+export const DIALOGUE_RATIO_MAX = 0.4;
+
+/**
+ * ★ 2026-10-30 新增**对话形态**判据（用户反馈：「对话内容太短了，有点太像 AI 了」）。
+ *
+ * 为什么必须用代码数（而不是靠提示词）：
+ *   提示词里本来就有一句「不要为了凑占比灌水式加『嗯』『哦』这类单字应答」
+ *   （见 renderDialogueHint），**但实测无效** —— 《铁壳里的声音》前 3 章 317 个对话段里，
+ *   **中位数只有 4 字、53% 的段落 ≤4 字、32% ≤2 字**（「嗯。」「卖。」「五块。」「小气。」）。
+ *
+ *   根因：占比下限（≥20%）是个**只设下界**的指标，模型最省力的达标方式就是
+ *   **把一句话拆成十个短应答**去堆字数 —— 数量凑占比。指标本身在鼓励它。
+ *   这正是"AI 味"的机制之一：真实的市井对话松散、有废话、有半句没说完的；
+ *   而碎句对轰是**一问一答、每句都精准有用**，读起来就是机器在交换信息。
+ *
+ * 口径（三个条件**同时**成立才判"太碎"，避免误伤紧张戏里正当的短接话）：
+ *   · 段数够多（`DIALOGUE_FRAG_MIN_SEGS`）—— 只有两三句对白的章不适用；
+ *   · 平均段长 < `DIALOGUE_MEAN_SEG_MIN`；
+ *   · ≤`DIALOGUE_SHORT_SEG_CHARS` 字的段占比 > `DIALOGUE_SHORT_SEG_MAX`。
+ *
+ * 标定（★ 本仓四本书的真实章节，用 detectDialogue 同一把尺子量出来的，不是拍的）：
+ *
+ *   书（章节数）                     平均段长中位   短段(≤4字)占比中位
+ *   《铁壳里的声音》  (3，用户嫌碎)      **5.6**        **55%**
+ *   《雾港旧档》      (23)                8.1            36%
+ *   《雾港长夜》      (111，最干净)      **10.3**        **19%**
+ *   《雪线以北》      (16)              **11.5**        **15%**
+ *
+ *   第一版阈值（<8 字 + >35%）**太松**：最干净那本的第 10 百分位章（平均 7.9 / 短段 33%）
+ *   正好压在线上，会误伤约一成好章。按上表的断档收到 **7 字 / 40%**：
+ *   · 《铁壳里的声音》3 章全部命中（平均 5.5–6.6，短段 42–58%）；
+ *   · 三本正常书的中位数与各自第 10 百分位章都不再命中。
+ *   两个阈值都留了余量：紧张戏可以有一批「谁？」「我。」，但**不能过半**，平均也不能低到 7 字以下。
+ */
+export const DIALOGUE_SHORT_SEG_CHARS = 4;
+export const DIALOGUE_MEAN_SEG_MIN = 7;
+export const DIALOGUE_SHORT_SEG_MAX = 0.4;
+/** 段数少于此值不判"太碎"（对白本来就少的章，是"太少"那条在管，不该重复打回） */
+export const DIALOGUE_FRAG_MIN_SEGS = 10;
 
 export interface DialogueReport {
   /** 对话占比 = 引号内内容字数 / 正文内容字数（0–1）；空稿为 0 */
@@ -39,8 +89,20 @@ export interface DialogueReport {
   dialogueChars: number;
   /** 正文内容字数（归一化后） */
   totalChars: number;
+  /** 引号段落数（一个「…」算一段；未闭合的按到结尾算一段） */
+  segments: number;
+  /** 对话段的平均字数（归一化后；无对话为 0） */
+  meanSegChars: number;
+  /** ≤DIALOGUE_SHORT_SEG_CHARS 字的段数 */
+  shortSegs: number;
+  /** 短段占比（0–1；无对话为 0） */
+  shortSegRatio: number;
   /** 是否低于 DIALOGUE_RATIO_MIN（调用方据此打回/重写） */
   tooLow: boolean;
+  /** 是否高于 DIALOGUE_RATIO_MAX（对话塞满全章、动作与环境被挤掉） */
+  tooHigh: boolean;
+  /** 是否「段太碎」：段多、平均短、短段过半（见上面的标定说明） */
+  tooFragmented: boolean;
 }
 
 /**
@@ -75,20 +137,59 @@ export function detectDialogue(content: string): DialogueReport {
   let inQuote = false;
   /** 用「内容字符」累加，避免把引号内的标点算成对话 */
   let dialogueChars = 0;
+  /** 当前正在累积的对话段（用于统计段数与段长） */
+  let cur = '';
+  const segLens: number[] = [];
+  const pushSeg = () => {
+    const n = countProseChars(cur);   // 同一把尺子：段长也是"内容字数"
+    if (n > 0) segLens.push(n);
+    cur = '';
+  };
   for (const ch of chars) {
-    if (ch === '"' || ch === "'") { inQuote = !inQuote; continue; }
-    if (CJK_CLOSE.includes(ch)) { inQuote = false; continue; }
+    if (ch === '"' || ch === "'") { if (inQuote) pushSeg(); inQuote = !inQuote; continue; }
+    if (CJK_CLOSE.includes(ch)) { if (inQuote) pushSeg(); inQuote = false; continue; }
     if (CJK_OPEN.includes(ch)) { inQuote = true; continue; }
-    if (inQuote) dialogueChars += countProseChars(ch);
+    if (inQuote) { dialogueChars += countProseChars(ch); cur += ch; }
   }
+  // 未闭合的引号：到结尾都算对话（与上面的口径一致），收尾时补一段
+  if (inQuote) pushSeg();
+
+  const segments = segLens.length;
+  const meanSegChars = segments > 0 ? segLens.reduce((a, n) => a + n, 0) / segments : 0;
+  const shortSegs = segLens.filter((n) => n <= DIALOGUE_SHORT_SEG_CHARS).length;
+  const shortSegRatio = segments > 0 ? shortSegs / segments : 0;
   const ratio = totalChars > 0 ? dialogueChars / totalChars : 0;
   return {
     ratio,
     dialogueChars,
     totalChars,
+    segments,
+    meanSegChars,
+    shortSegs,
+    shortSegRatio,
     // 空稿（totalChars=0）不算「对话偏少」—— 那是篇幅门的事，不该在这里重复打回
     tooLow: totalChars > 0 && ratio < DIALOGUE_RATIO_MIN,
+    tooHigh: totalChars > 0 && ratio > DIALOGUE_RATIO_MAX,
+    // 段太碎：三个条件同时成立（段够多 + 平均短 + 短段过半）
+    tooFragmented: segments >= DIALOGUE_FRAG_MIN_SEGS
+      && meanSegChars < DIALOGUE_MEAN_SEG_MIN
+      && shortSegRatio > DIALOGUE_SHORT_SEG_MAX,
   };
+}
+
+/**
+ * 「对话太碎」的那一行事实陈述（复核消息与重写指令共用，只有一份真源）。
+ *
+ * 只报**数出来的**事实与阈值，不替模型写台词 —— 缺的从来不是素材，
+ * 是「意识到短应答是在凑数」。
+ */
+export function renderFragmentedLine(rep: DialogueReport): string {
+  const mean = rep.meanSegChars.toFixed(1);
+  const pctShort = (rep.shortSegRatio * 100).toFixed(0);
+  return `框架逐字统计：本章有 ${rep.segments} 个对话段，**平均每段只有 ${mean} 字**，`
+    + `其中 ${rep.shortSegs} 段（${pctShort}%）不超过 ${DIALOGUE_SHORT_SEG_CHARS} 字`
+    + `（下限：平均 ≥ ${DIALOGUE_MEAN_SEG_MIN} 字，且短段占比 ≤ ${(DIALOGUE_SHORT_SEG_MAX * 100).toFixed(0)}%）。`
+    + `一句话被拆成了十个短应答 —— 这是"用数量凑占比"，读起来像机器在对单据。`;
 }
 
 /**
@@ -100,6 +201,46 @@ export function detectDialogue(content: string): DialogueReport {
 export function renderDialogueHint(rep: DialogueReport): string {
   const pct = (rep.ratio * 100).toFixed(1);
   const min = (DIALOGUE_RATIO_MIN * 100).toFixed(0);
+  /**
+   * ★ 2026-10-30：**对话过多**也要有指令（原先只处理"太少"）。
+   * 实测第 114 章对话 63% —— 整章两人对骂，动作与环境几乎消失，读起来像剧本。
+   */
+  if (rep.tooHigh) {
+    const max = (DIALOGUE_RATIO_MAX * 100).toFixed(0);
+    return [
+      '【本次重写的硬性要求：对话**压下来**】',
+      `框架逐字统计：本章对话占比高达 ${pct}%（引号内 ${rep.dialogueChars} 字 / 正文 ${rep.totalChars} 字），超过 ${max}% 的上限。`,
+      '整章几乎全是人物在说话，**动作、环境、物件、身体反应全被挤掉了** —— 读起来像剧本，不像小说。',
+      '请这样改：',
+      '· 把一部分**台词改成动作或状态**：他说了什么 → 他做了什么（手在抖、把东西塞回袖里、后退半步）；',
+      '· 给每个对话场景补上**空间与物件**：他们在哪、手边有什么、光线怎样；',
+      '· 只保留**真正有信息差或冲突**的对话轮次，寒暄与重复表态删掉。',
+      ...(rep.tooFragmented ? [renderFragmentedLine(rep)] : []),
+      `注意：对话**不能低于 ${min}%**（下限照旧），目标是落到 ${min}%–${max}% 之间；篇幅仍须在区间内。`,
+    ].join('\n');
+  }
+  /**
+   * ★ 2026-10-30：**对话太碎**也单列一条 —— 它不是"太多"也不是"太少"：
+   *   占比可能正好，但每句都是「嗯。」「卖。」这种一到四字的应答。
+   *   用户对《铁壳里的声音》的评价就是「对话内容太短了，有点太像 AI 了」。
+   *   治法不是增删对话数量，而是**把碎应答合并成有分量的整句**。
+   */
+  if (rep.tooFragmented) {
+    return [
+      '【本次重写的硬性要求：对话**写实、写厚**（现在太碎）】',
+      renderFragmentedLine(rep),
+      '请这样改（注意：**不是**加减对话数量，是把每一句写实）：',
+      '· 把「一问一答、每句两个字的电报体」合并成**一次说完的整句**：',
+      '  反面：「『卖不？』『卖。』『几块？』『五块。』」——像机器在对单据。',
+      '  正面：把信息压进**一次发言**里，并让人物**答非所问、带情绪、夹动作**'
+        + '（「我问你卖不卖。」「你先说谁让你来的。」）。',
+      '· 让人物**说人话**：真实的市井/同事对话有语气词、有半句没说完、有废话和重复 ——'
+        + '不要每句都精准、都有用、都推进信息（那正是机器味）。',
+      '· **禁止**用「嗯／哦／晓得／卖／五块／小气」这类一到四字的单字应答连排；'
+        + '同一段里最多留一处极短应答，其余补成完整发言。',
+      '· 台词长一点之后，可以**减少对话轮数**把篇幅让给动作与环境，但**占比不得低于下限**。',
+    ].join('\n');
+  }
   return [
     '【本次重写的硬性要求：把对话补上来】',
     `框架逐字统计：本章对话占比只有 ${pct}%（引号内 ${rep.dialogueChars} 字 / 正文 ${rep.totalChars} 字），低于 ${min}% 的下限。`,

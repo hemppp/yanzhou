@@ -72,7 +72,19 @@ async function completeJson<T>(
       const raw = await ctx.ai.complete({
         messages: [
           { role: 'system', content: opts.system },
-          { role: 'user', content: attempt === 1 ? opts.user : opts.user + NUDGE },
+          /**
+           * ★ 2026-10-25 修：**第一次就带上格式要求**（原为 `attempt === 1 ? opts.user : opts.user + NUDGE`）。
+           *
+           * 实测（长跑第 12–14 章）：校对官/评审官**几乎每次都先输出散文、再被重试救回来** ——
+           * 日志里成片的「第 1 次输出无法解析，重试一次：…这是第14章初稿，内容完整…
+           * 需要我帮你做什么？」。每次失败 = 白烧一次大 prompt 调用 + 拖慢一章 1 分钟以上。
+           *
+           * 根因与 `supervise-review` 的帮手 bug **同源**：JSON 契约只在 system 里，
+           * 而 system 还有几百字审阅方法论；模型读完方法论就顺着"给结论"的语感写散文。
+           * **离生成最近的指令权重最高** —— 所以格式要求必须出现在 user 消息**末尾**，
+           * 而且第一次就要有，不能等失败了一次才补。
+           */
+          { role: 'user', content: opts.user + NUDGE },
         ],
         json: true,
         temperature: opts.temperature,
@@ -98,7 +110,26 @@ export async function runConsistencyGate(
   ctx: ServerPluginContext,
   opts: { order: number; draft: string; digest: GateDigest; userId?: string },
 ): Promise<ConsistencyVerdict> {
+  /**
+   * ★ 2026-10-25 修（**真根因**）：user 消息原先只有**素材**、没有**任务**。
+   *
+   * 实测模型的原话（长跑第 12–16 章，每次首轮都这样）：
+   *   「这是你贴的第16章初稿和设定摘要，但**没给具体指令**。你是想让我：
+   *     1. 对照设定/大纲校验… 2. 润色或压缩… 3. 补写缺失角色…？」
+   *
+   * 模型的困惑完全合理：任务只写在 system 里，而 user 给了一坨素材 + 一句「只输出 JSON」。
+   * 它不知道要干什么，就先反问 → 反问不是 JSON → 解析失败 → 重试才靠 NUDGE 救回来。
+   *
+   * 之前只修「格式要求的位置」是**治标**：位置对了，任务还是缺的。
+   * 正确结构是**任务在最前、素材在中、契约在最后**：
+   *   · 任务在最前 —— 模型一进来就知道要做什么，不会进入"等我指令"模式；
+   *   · 素材在中 —— 2500–3500 字正文放在任务之后，不会把任务挤出注意力；
+   *   · 契约在最后（由 completeJson 追加）—— 离生成最近，权重最高。
+   */
   const user = [
+    `【本轮任务】核对第 ${opts.order} 章初稿是否与下面的设定一致。只判**事实冲突**，`
+      + '不做文学评价、不润色、不给建议。没有冲突就判通过。',
+    '',
     '【设定摘要】',
     '角色：',
     opts.digest.characters,
@@ -109,7 +140,7 @@ export async function runConsistencyGate(
     '大纲：',
     opts.digest.outline,
     '',
-    `【章节初稿（第${opts.order}章）】`,
+    `【待核对的章节初稿（第${opts.order}章）】`,
     opts.draft,
   ].join('\n');
 
@@ -146,7 +177,19 @@ export async function runPolishGate(
 ): Promise<PolishVerdict> {
   const { parsed, error } = await completeJson<{ score?: unknown; comments?: unknown }>(ctx, {
     system: REVIEWER_SYSTEM,
-    user: `【章节初稿（第${opts.order}章）】\n${opts.draft}`,
+    /**
+     * ★ 2026-10-25：同 `runConsistencyGate` —— **任务必须在最前**。
+     * 实测模型收到"只有初稿"的 user 消息时原话：
+     *   「这是第16章的初稿内容，你已经贴出来了。请问你需要我做什么？
+     *     比如：精简/润色… 结构梳理… 问题诊断…」
+     */
+    user: [
+      `【本轮任务】按网文连载标准给第 ${opts.order} 章打分（0–10）。`
+        + '只看四件事：叙事节奏、代入感与画面感、章节钩子、对设定的化用。不要复述剧情。',
+      '',
+      `【待评分的章节初稿（第${opts.order}章）】`,
+      opts.draft,
+    ].join('\n'),
     maxTokens: 1536,
     temperature: 0.2,
     userId: opts.userId,

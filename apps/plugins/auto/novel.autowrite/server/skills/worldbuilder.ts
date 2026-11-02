@@ -8,7 +8,7 @@ export const worldbuilder: SkillDef = {
   contextKeys: ['locations', 'items'],
   name: '世界观顾问',
   description: '核对地点物品设定、补全世界观空白',
-  color: 'hsl(0 0% 30%)',
+  color: 'hsl(145 30% 41%)',
   systemPrompt: `【已激活技能：世界观顾问】
 你现在同时兼任"世界观顾问"。在回答中请侧重：
 1. 结合注入的"地点库"与"物品库"，核对当前章节的设定一致性

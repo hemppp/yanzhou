@@ -135,18 +135,62 @@ export class PipelineStore {
    *   开两个标签页、或者跑的中途刷新，都会再点一次「跑这一段」。
    */
   async beginStage(state: PipelineState, stage: StageKey): Promise<void> {
-    const rec = state.stages[stage];
+    /**
+     * ★ 2026-10-29：**在锁内做原子检查**（审计确认的并发缺口）。
+     *
+     * 原先 start 路径是「load() → canRun() → beginStage()」三步，中间隔着 await，
+     * 两个并发请求（双击"开始长跑" / 脚本重试 / 两个标签页）**都能通过 canRun**，
+     * 然后都开始写同一批章 ⇒ 全撞「已有正文不覆盖」，白烧一轮。
+     *
+     * 这里把检查挪进锁内：`kv.get` 是**同步**的（SQLite 直读），
+     * 「读原始状态 → 判定 → 写 running」之间**没有 await**，
+     * 在 Node 单线程里天然原子 ⇒ 第二个请求会在这里被挡住。
+     *
+     * 为什么用**原始状态**而不是调用方传进来的 `state`：
+     *   传进来的那份可能已经被 `load()` 的僵死扫描改写过，不能作为"是否在跑"的依据。
+     * 超时阈值仍按 `RUNNING_STALE_MS` —— 真正僵死的锁允许被接管。
+     */
+    const fresh = this.kv.get<PipelineState>(NS, KEY_STATE, { projectId: this.projectId });
+    const busy = fresh?.stages?.[stage];
+    if (busy?.status === 'running' && Date.now() - (busy.runningSince ?? 0) <= RUNNING_STALE_MS) {
+      throw new Error(`「${stage}」正在跑（启动于 ${Math.round((Date.now() - (busy.runningSince ?? 0)) / 1000)} 秒前），请勿重复启动`);
+    }
+
+    const target = fresh ?? state;
+    const rec = target.stages[stage];
     rec.status = 'running';
     rec.runningSince = Date.now();
     rec.error = undefined;
     rec.startedAt = Date.now();
-    state.stage = stage;
-    await this.save(state);
+    target.stage = stage;
+    await this.save(target);
   }
 
   async save(state: PipelineState): Promise<void> {
     state.updatedAt = Date.now();
     await this.kv.set(NS, KEY_STATE, state, { projectId: this.projectId });
+  }
+
+  /**
+   * ★ 2026-10-29 新增：**心跳** —— 给正在跑的阶段续 `runningSince`。
+   *
+   * 为什么必须有（实测事故）：`RUNNING_STALE_MS` 是 20 分钟，而**一批 5 章实测要 20–60 分钟**。
+   * 于是任何在批次运行期间调用的 `load()` 都会把这个**仍在正常推进**的阶段判成
+   * 「上一次运行没有跑完（服务重启或进程被杀）」：
+   *   · `GET /pipeline` 会把 running 报成 failed（界面显示"可重试"）；
+   *   · 更糟的是 `/pipeline/start` 这类**会落盘**的路径，把 swept 状态写进库，
+   *     或者并发调用拿到 canRun=true 又起一批 ⇒ 两批同时写、全撞「已有正文不覆盖」。
+   * 实测踩到过：一批跑到一半被判定 failed，白烧一轮。
+   *
+   * 心跳**绕过 sweep**（直接从 kv 读原始状态）—— 否则 `load()` 先把状态扫成 failed，
+   * 我们再写 runningSince 也救不回来（status 已经是 failed 了）。
+   */
+  async touchRunning(stage: StageKey): Promise<void> {
+    const s = this.kv.get<PipelineState>(NS, KEY_STATE, { projectId: this.projectId });
+    if (!s?.stages?.[stage]) return;
+    if (s.stages[stage].status !== 'running') return;   // 已经结束了就别再续
+    s.stages[stage].runningSince = Date.now();
+    await this.save(s);
   }
 
   /**

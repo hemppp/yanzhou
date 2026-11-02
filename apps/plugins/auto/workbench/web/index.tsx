@@ -31,7 +31,7 @@
 
 import React from 'react';
 import {
-  Workflow, ClipboardList, Network, ShieldCheck, Wand2, BookOpenText,
+  Workflow, ClipboardList, Network, ShieldCheck, Wand2, BookOpenText, MessagesSquare,
 } from 'lucide-react';
 import type { WebPluginContext } from '@novel/core/web';
 import type { FloatingPanelDef } from '@/plugin/types';
@@ -44,36 +44,23 @@ import { useChatHistoryStore } from '../stores/chatHistoryStore';
 import { registerLocalDataCleaner } from '@novel-plugins/data-core';
 
 // ---- 懒加载（保持 chunk 分割：three.js / 图谱面板不进主包）----
-//
-// ★ 2026-10-26：懒组件与**预取入口**成对返回（`preload` 挂到 `FloatingPanelDef.preload`）。
-//   宿主 / 工作台在「悬停气泡（意图已出现、点击尚未发生）」时调它，把「点击后才开始下载
-//   chunk、先闪一下加载中」变成「点击即命中模块缓存」。两者共用同一个 import() 说明符。
-interface LazyPanelEntry<T extends React.ComponentType<any>> {
-  Component: React.LazyExoticComponent<T>;
-  preload: () => Promise<unknown>;
-}
-
-function lazyPanel<T extends React.ComponentType<any>>(
-  load: () => Promise<{ default: T }>,
-): LazyPanelEntry<T> {
-  return { Component: React.lazy(load), preload: load as () => Promise<unknown> };
-}
-
-const PipelineGraphPanel = lazyPanel(() =>
+const PipelineGraphPanel = React.lazy(() =>
   import('./pipeline/PipelineGraphPanel').then((m) => ({ default: m.PipelineGraphPanel })));
-const ChapterPlanGraphPanel = lazyPanel(() =>
+const ChapterPlanGraphPanel = React.lazy(() =>
   import('./pipeline/ChapterPlanGraphPanel').then((m) => ({ default: m.ChapterPlanGraphPanel })));
-const MemoryGraphPanel = lazyPanel(() =>
+const MemoryGraphPanel = React.lazy(() =>
   import('./memory/MemoryGraphPanel').then((m) => ({ default: m.MemoryGraphPanel })));
-const SkillLibraryPanel = lazyPanel(() =>
+const SkillLibraryPanel = React.lazy(() =>
   import('./skills/SkillLibraryPanel').then((m) => ({ default: m.SkillLibraryPanel })));
-const EntityOverviewPanel = lazyPanel(() =>
+const EntityOverviewPanel = React.lazy(() =>
   import('./entities/EntityOverviewPanel').then((m) => ({ default: m.EntityOverviewPanel })));
-const ManuscriptPanel = lazyPanel(() =>
+const ManuscriptPanel = React.lazy(() =>
   import('./manuscript/ManuscriptPanel').then((m) => ({ default: m.ManuscriptPanel })));
 
 const AutoWriteWorkbench = React.lazy(() =>
   import('./discuss/AutoWriteWorkbench').then((m) => ({ default: m.AutoWriteWorkbench })));
+const DiscussionTimelinePanel = React.lazy(() =>
+  import('./discuss/DiscussionTimelinePanel').then((m) => ({ default: m.DiscussionTimelinePanel })));
 
 export const name = 'novel.auto.workbench';
 // ★ 2026-10-13 对标：去掉 'builtinBubble'（不再注册任何 builtin 面板槽）与
@@ -83,23 +70,18 @@ export const name = 'novel.auto.workbench';
 //   auto 仍真注册 3 个 capability（见 apply() 第 3 步），故此注入项仍必需。
 export const inject = ['projectPanels', 'workbench', 'capability'];
 
-/**
- * AI 写作工作台面板定义（与原 plugin/autoBuiltin.ts 完全一致）。
- *
- * ★ 2026-10-29 新增 `section`（活动栏分区标题，见 kernel `components/shell/panelSections.ts`）。
- *   注意它与既有 `group`（AI 工作台分页区自己的 'live'/'data' 二分）**不是一回事**：
- *   `group` 是 auto 工作台内部的语义二分，`section` 是左竖栏的分区标题。
- *   两者可以不一致 —— 例如「记忆审计」在 `group` 里算 data，但它服务的是
- *   检视而非写作，故 `section` 归「工具」。
- */
+/** AI 写作工作台面板定义（与原 plugin/autoBuiltin.ts 完全一致） */
 export const AUTO_WORKBENCH_PANELS: FloatingPanelDef[] = [
-  { key: 'pipeline', label: '流水线', icon: Workflow, group: 'live', section: '写作', Component: PipelineGraphPanel.Component, preload: PipelineGraphPanel.preload, modes: ['auto'] },
-  { key: 'chapterPlan', label: '本章计划', icon: ClipboardList, group: 'live', section: '写作', Component: ChapterPlanGraphPanel.Component, preload: ChapterPlanGraphPanel.preload, modes: ['auto'] },
-  { key: 'entities', label: '实体与设定', icon: Network, group: 'data', section: '资料', Component: EntityOverviewPanel.Component, preload: EntityOverviewPanel.preload, modes: ['auto'] },
-  { key: 'memory', label: '记忆审计', icon: ShieldCheck, group: 'data', section: '工具', Component: MemoryGraphPanel.Component, preload: MemoryGraphPanel.preload, modes: ['auto'] },
-  { key: 'skills', label: '技能库', icon: Wand2, group: 'data', section: '工具', Component: SkillLibraryPanel.Component, preload: SkillLibraryPanel.preload, modes: ['auto'] },
+  { key: 'pipeline', label: '流水线', icon: Workflow, group: 'live', Component: PipelineGraphPanel, modes: ['auto'] },
+  // 讨论回看：每一段都是多智能体讨论出来的，但过程只在实时 SSE 里出现过 —— 跑完就没了。
+  // 这里把落库的发言按顺序读回来（含反驳轮与定稿官收敛），回答"这段剧情是怎么讨论出来的"。
+  { key: 'discussion', label: '讨论回看', icon: MessagesSquare, group: 'live', Component: DiscussionTimelinePanel, modes: ['auto'] },
+  { key: 'chapterPlan', label: '本章计划', icon: ClipboardList, group: 'live', Component: ChapterPlanGraphPanel, modes: ['auto'] },
+  { key: 'entities', label: '实体与设定', icon: Network, group: 'data', Component: EntityOverviewPanel, modes: ['auto'] },
+  { key: 'memory', label: '记忆审计', icon: ShieldCheck, group: 'data', Component: MemoryGraphPanel, modes: ['auto'] },
+  { key: 'skills', label: '技能库', icon: Wand2, group: 'data', Component: SkillLibraryPanel, modes: ['auto'] },
   // 正文阅读：写出来的章节得能直接在界面上读（此前只能翻库/脚本，质量问题看不见）
-  { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', section: '资料', Component: ManuscriptPanel.Component, preload: ManuscriptPanel.preload, modes: ['auto'] },
+  { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', Component: ManuscriptPanel, modes: ['auto'] },
 ];
 
 export function apply(ctx: WebPluginContext): void {
@@ -193,8 +175,9 @@ export type { ChatPanelControlProps } from './discuss/ChatPanel';
 export function preload(): void {
   // 工作台壳（auto 项目进项目后最先渲染的就是它）
   void import('./discuss/AutoWriteWorkbench').catch(() => {});
-  // 6 个停靠面板
+  // 7 个停靠面板
   void import('./pipeline/PipelineGraphPanel').catch(() => {});
+  void import('./discuss/DiscussionTimelinePanel').catch(() => {});
   void import('./pipeline/ChapterPlanGraphPanel').catch(() => {});
   void import('./entities/EntityOverviewPanel').catch(() => {});
   void import('./memory/MemoryGraphPanel').catch(() => {});

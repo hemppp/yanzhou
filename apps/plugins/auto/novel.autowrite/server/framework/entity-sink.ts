@@ -97,20 +97,6 @@ export interface SinkResult {
 
 // ---- 提示词 ----
 
-/**
- * 实体抽取的输出预算。
- *
- * ★ 2026-10-23：4096 → 8192。原值在**推理模型**下必然失败 —— 复现（见
- *   persistChapterEntities 的注释）：max_tokens=4096 时 4096 个 token 全花在思考上，
- *   `finish_reason='length'`、正文长度 0；8192 时思考 1618 + 正文 4508，正常收尾。
- * 取 8192 而不是直接拉到 16384（pipeline/sink 的结构化抽取用的是那一档）：
- * 本调用的输出是「一章的增量实体」，实测 4508 token 就够；给太大只是徒增上限。
- */
-const EXTRACT_MAX_TOKENS = 8192;
-
-/** 截断后的补救预算。只在首次解析失败时用，故可以给足（同 pipeline 的抽取档位）。 */
-const EXTRACT_RETRY_MAX_TOKENS = 16384;
-
 const EXTRACT_SYSTEM = `你是「实体沉淀」，负责把刚定稿的一章里**新出现或发生变动**的设定，整理成可入库的结构化记录。
 
 你的唯一依据是下面提供的【本章正文】与【本章结论】。**正文里没写的东西，一个字都不许补。**
@@ -313,56 +299,27 @@ export async function persistChapterEntities(
 ): Promise<SinkResult> {
   const result: SinkResult = { created: 0, updated: 0, skipped: 0, notes: [] };
 
-  const messages = [
-    { role: 'system' as const, content: EXTRACT_SYSTEM },
-    { role: 'user' as const, content: buildExtractInput({
-      order: input.order,
-      draft: input.draft,
-      conclusion: input.conclusion,
-      existingForeshadows: input.existingForeshadows,
-    }) },
-  ];
-
-  /**
-   * 抽取一次。
-   *
-   * ★ 2026-10-23 修「实体沉淀必定失败（推理模型）」：
-   *   原实现是一次调用、`maxTokens: 4096`、失败即放弃。
-   *   真机跑第 1 章时沉淀全灭，报 `Expected ',' or '}' after property value in JSON
-   *   at position 3847`。复现取值（本章正文 + 本文件同一 EXTRACT_SYSTEM）：
-   *
-   *     max_tokens=4096 → finish_reason='length'，completion=4096 **全是思考**，
-   *                        content 长 0，JSON 解析必然失败
-   *     max_tokens=8192 → finish_reason='stop'，思考 1618 + 正文 4508，解析 OK
-   *
-   *   即：推理模型的思考 token **也计入** maxTokens，4096 在「长系统提示（本文件约 20KB）+
-   *   一章正文」这一量级下会被思考吃光，正文连一个字都轮不到。
-   *   这与 `apps/server/src/plugin/host.ts` 里子代理那次的「零正文」是**同一个根因**，
-   *   故这里照它的做法办：先给足预算，解析失败再**加预算重试一次**（只在失败时多花一次钱）。
-   */
-  const tryExtract = async (maxTokens: number): Promise<RawExtraction> => {
+  try {
     const raw = await ctx.ai.complete({
-      messages,
+      messages: [
+        { role: 'system', content: EXTRACT_SYSTEM },
+        { role: 'user', content: buildExtractInput({
+          order: input.order,
+          draft: input.draft,
+          conclusion: input.conclusion,
+          existingForeshadows: input.existingForeshadows,
+        }) },
+      ],
       json: true,
       temperature: 0.1,
-      maxTokens,
+      // 显式给足输出预算：不传时由服务商默认值兜底，而推理模型的思考 token 也计入该上限，
+      // 预算不足会让 JSON 被截断（截断即解析失败 → 本章什么都沉淀不下来）。
+      // 取值与 apps/server 的 entity-extract-agent 同量级。
+      maxTokens: 4096,
       userId: input.userId,
     });
-    return parseJsonLoose<RawExtraction>(raw);
-  };
 
-  try {
-    let parsed: RawExtraction;
-    try {
-      parsed = await tryExtract(EXTRACT_MAX_TOKENS);
-    } catch (e) {
-      // 只对「疑似被截断」补救：其它错误（网络/鉴权/配额）重试也没用，原样抛给外层的 catch。
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!/maxTokens 截断|未配平/.test(msg)) throw e;
-      console.warn(`[entity-sink] 实体抽取输出疑似被截断（maxTokens=${EXTRACT_MAX_TOKENS}），`
-        + `改用 ${EXTRACT_RETRY_MAX_TOKENS} 重试一次：${msg}`);
-      parsed = await tryExtract(EXTRACT_RETRY_MAX_TOKENS);
-    }
+    const parsed = parseJsonLoose<RawExtraction>(raw);
     const db = ctx.db.project(input.projectId) as DrizzleDb;
     if (!db) {
       result.notes.push('项目库未打开，实体未沉淀');
@@ -568,44 +525,6 @@ export async function writeEntities(
     .where(eq(schema.foreshadows.projectId, projectId));
   // 精确描述匹配（trim 后全等）；模型被要求原样抄既有 description
   const fshByDesc = new Map(fshRows.map((r) => [r.description.trim(), r]));
-  /**
-   * 归一化匹配表（去空白 + 去标点 + 去引号）。
-   *
-   * ★ 2026-10-23（真机跑第 3–5 章时发现）：**只做精确匹配太脆**。
-   *   提示词要求 advance / payoff 的 `description` **原样抄**既有条目，但实测模型
-   *   会「抄个开头」或顺手改两个标点 —— 于是精确匹配落空，把**真实存在**的推进丢成
-   *   `未在库中找到同条，advance 未落库`（第 5 章两条都是这样：模型引用的其实正是
-   *   第 3/4 章种下的同一条，只是被改写/截断了）。
-   *   这里补一层归一化比对，**只接受唯一候选**——歧义时仍然拒绝，宁可不落也不乱连。
-   */
-  const normKey = (s: string) => s.replace(/[\s，。、！？：；“”‘’（）()【】《》…—·"'`]/g, '');
-  const normMap = new Map<string, typeof fshRows>();
-  for (const r of fshRows) {
-    const k = normKey(r.description.trim());
-    if (!k) continue;
-    normMap.set(k, [...(normMap.get(k) ?? []), r]);
-  }
-  /** 唯一候选才算命中（精确 → 归一化 → 单向包含） */
-  const matchForeshadow = (desc: string): { row: typeof fshRows[number]; how: 'exact' | 'normalized' | 'contained' } | undefined => {
-    const exact = fshByDesc.get(desc);
-    if (exact) return { row: exact, how: 'exact' };
-
-    const k = normKey(desc);
-    if (k) {
-      const hits = normMap.get(k);
-      if (hits?.length === 1) return { row: hits[0]!, how: 'normalized' };
-    }
-    // 单向包含：模型常「抄开头」或「抄结尾」。要求较短一方 ≥ 12 字（太短会乱命中），
-    // 且候选**唯一** —— 有两条都包含同一片段时说明判不准，交回「不落库」。
-    if (k.length >= 12) {
-      const contained = fshRows.filter((r) => {
-        const rk = normKey(r.description.trim());
-        return rk.length >= 12 && (rk.includes(k) || k.includes(rk));
-      });
-      if (contained.length === 1) return { row: contained[0]!, how: 'contained' };
-    }
-    return undefined;
-  };
 
   for (const raw of asArray(parsed.foreshadows)) {
     const action = mapForeshadowAction(raw?.action);
@@ -616,9 +535,7 @@ export async function writeEntities(
     }
 
     if (action === 'plant') {
-      // ★ 2026-10-23：去重同样走归一化匹配 —— 否则模型把既有伏笔改写几个标点再「播种」，
-      //   就会在库里种下一条语义重复的条目（原有精确匹配挡不住这种）。
-      if (matchForeshadow(desc)) {
+      if (fshByDesc.has(desc)) {
         result.skipped++; // 已存在同描述伏笔，不重复播种
         continue;
       }
@@ -640,17 +557,12 @@ export async function writeEntities(
       continue;
     }
 
-    const hit = matchForeshadow(desc);
-    if (!hit) {
+    const target = fshByDesc.get(desc);
+    if (!target) {
       // advance / payoff 找不到既有伏笔：不猜、不新建，如实记一笔
       result.skipped++;
       result.notes.push(`伏笔「${desc.slice(0, 20)}」未在库中找到同条，${action} 未落库`);
       continue;
-    }
-    const target = hit.row;
-    if (hit.how !== 'exact') {
-      // 模糊命中要留痕：事后能查「这条推进到底连到了哪一条」
-      result.notes.push(`伏笔「${desc.slice(0, 14)}」按${hit.how === 'normalized' ? '去标点' : '包含关系'}匹配到「${String(target.description).slice(0, 14)}」`);
     }
 
     if (action === 'payoff') {

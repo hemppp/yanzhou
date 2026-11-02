@@ -64,7 +64,7 @@ export function ContinueWriteModal({ visible, chapterTitle, onConfirm, onClose }
           WebkitBackdropFilter: 'blur(32px) saturate(180%)',
           border: '1px solid hsl(var(--border) / 0.5)',
           boxShadow:
-            '0 24px 80px hsl(var(--ink-deep) / 0.2), 0 8px 32px hsl(var(--ink-deep) / 0.1), inset 0 1px 0 rgb(var(--glass-highlight) / 0.6)',
+            '0 24px 80px hsl(var(--ink-deep) / 0.2), 0 8px 32px hsl(var(--ink-deep) / 0.1), inset 0 1px 0 hsl(var(--glass-highlight) / 0.6)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -123,8 +123,8 @@ export function ContinueWriteModal({ visible, chapterTitle, onConfirm, onClose }
             placeholder="输入续写方向或要求..."
           />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[10px] text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded-md text-[10px]" style={{ background: 'rgb(var(--glass-tint) / 0.3)', border: '1px solid hsl(var(--border) / 0.3)' }}>⌘Enter</kbd> 发送
+            <span className="text-[11px] text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded-md text-[11px]" style={{ background: 'rgb(var(--glass-tint) / 0.3)', border: '1px solid hsl(var(--border) / 0.3)' }}>⌘Enter</kbd> 发送
             </span>
           </div>
         </div>
@@ -142,7 +142,7 @@ export function ContinueWriteModal({ visible, chapterTitle, onConfirm, onClose }
               borderWidth: '1px',
               borderStyle: 'solid',
               borderColor: 'hsl(var(--border) / 0.4)',
-              boxShadow: 'inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
+              boxShadow: 'inset 0 1px 0 hsl(var(--glass-highlight) / 0.5)',
             }}
           >
             取消

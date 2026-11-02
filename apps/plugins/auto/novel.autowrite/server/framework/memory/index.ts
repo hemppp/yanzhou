@@ -22,12 +22,16 @@ import {
 // ★ 流水线阶段角色（策划官 / 前三章审阅 / 写作监工）也在讨论里发言，必须一并登记 ——
 //   漏登记就是 fail-closed：它们会读到**空的项目现状**（策划官就靠那份现状立世界规则）。
 import { ROLE_WORLD, ROLE_PREMIERE, ROLE_SUPERVISOR } from '../../pipeline/roles-phase.js';
+// ★ 2026-10-23：监工的两个审阅帮手也在讨论里发言，必须登记 ——
+//   漏登记就是 fail-closed：它们会读到**空的项目现状**（判"有没有跑偏"需要总纲与前情）。
+import { ROLE_PLOT_ADVANCE_REVIEW, ROLE_VOICE_DUP_REVIEW, ROLE_SUPERVISOR_GATE } from '../../pipeline/supervise-review.js';
 import { MemoryGate, type RolePolicyLookup } from './gate.js';
 import type { RoleMemoryPolicy } from './types.js';
 
 const ALL_MEMORY_ROLES = [
   ROLE_PLOT, ROLE_CHARACTER, ROLE_CONTINUITY, ROLE_CONVENER, ROLE_WRITER, ROLE_REVIEWER,
   ROLE_WORLD, ROLE_PREMIERE, ROLE_SUPERVISOR,
+  ROLE_PLOT_ADVANCE_REVIEW, ROLE_VOICE_DUP_REVIEW, ROLE_SUPERVISOR_GATE,
 ];
 
 const POLICY_TABLE: Record<string, RoleMemoryPolicy | undefined> = Object.fromEntries(

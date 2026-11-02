@@ -110,6 +110,8 @@ export interface DecisionResult {
 export type PipelineEvent =
   | { type: 'stage_start'; stage: StageKey; revision: number }
   | { type: 'stage_phase'; stage: StageKey; label: string }
+  /** ★ 2026-10-25：作者插话已生效（被某个角色的发言消费）—— 与后端 PipelineEvent 同名同义 */
+  | { type: 'interjection'; texts: string[] }
   | {
       type: 'stage_turn';
       stage: StageKey;

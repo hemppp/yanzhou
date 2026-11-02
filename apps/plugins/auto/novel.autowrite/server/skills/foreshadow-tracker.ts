@@ -8,7 +8,7 @@ export const foreshadowTracker: SkillDef = {
   contextKeys: ['foreshadows'],
   name: '伏笔追踪者',
   description: '核对伏笔回收、建议新伏笔与留白尺度',
-  color: 'hsl(0 0% 46%)',
+  color: 'hsl(290 30% 45%)',
   systemPrompt: `【已激活技能：伏笔追踪者】
 你现在同时兼任"伏笔追踪者"。在回答中请侧重：
 1. 结合注入的"伏笔列表"，核对当前章节是否触及已铺设的伏笔

@@ -19,6 +19,10 @@
 
 import {
   Users, Lightbulb, Activity, Globe, MessageSquare, Network, PenTool, BookOpen,
+  Shield, History, Gauge, Eye, TrendingUp, User, Layers, Feather,
+  // ★ 2026-11-01 补：这 5 门此前**没有图标**，界面上走 Puzzle 兜底
+  //   （注册表 21 门、图标只有 16 门 —— 后加的 5 门漏了）
+  Footprints, Repeat2, Flag, AlignLeft, Sparkles,
 } from 'lucide-react';
 import type { WebPluginContext } from '@novel/core/web';
 import { setApiFetch } from './api.js';
@@ -47,5 +51,20 @@ export function apply(ctx: WebPluginContext): void {
     'plot-architect': Network,
     'continue-writer': PenTool,
     'outline-architect': BookOpen,
+    // ★ 2026-10-31：从 ai-fiction-writer 提取的 8 门方法论技能
+    'logic-prevention': Shield,
+    'era-authenticity': History,
+    'chapter-quality-audit': Gauge,
+    'four-perspective-review': Eye,
+    'hook-emotion-curve': TrendingUp,
+    'character-craft': User,
+    'worldbuilding-layers': Layers,
+    'prose-discipline': Feather,
+    // ★ 2026-11-01 补：后加 5 门漏了图标（此前走宿主 Puzzle 兜底，21 门里显示得残缺）
+    'plot-advance-review': Footprints,
+    'voice-dup-review': Repeat2,
+    'scene-outcome': Flag,
+    'chapter-opening': AlignLeft,
+    'de-ai-prose': Sparkles,
   });
 }

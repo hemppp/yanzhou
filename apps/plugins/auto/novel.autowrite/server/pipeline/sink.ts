@@ -19,7 +19,7 @@ import { schema, eq, getProjectDb, type DrizzleDb } from '@novel/db';
 import { parseJsonLoose } from '../framework/text.js';
 import { usableName } from '../framework/entity-sink.js';
 import { STAGE_SPEAK_MAX_TOKENS } from './roles-phase.js';
-import type { SinkStats, StageKey } from './types.js';
+import { STAGE_LABEL, type SinkStats, type StageKey } from './types.js';
 
 /** 抽取上限：实体多时 JSON 会很长，给不足会被截断（截断 = 静默出错） */
 const EXTRACT_MAX_TOKENS = STAGE_SPEAK_MAX_TOKENS;
@@ -171,6 +171,17 @@ export async function extractStageArtifact(
       {
         role: 'user',
         content: [
+          /**
+           * ★ 2026-10-26：**任务行放在最前**（与 gates.ts 同一口径）。
+           *
+           * 这里的 system（`EXTRACT_SYSTEM_*`）第一句已经是"你是数据抽取器。把《…》抽成 JSON"，
+           * 任务其实不缺 —— 但 user 消息只有素材、没有一句"现在做这件事"，
+           * 模型仍可能在长文本后转入"等你指令"模式。补一行任务与 gates 保持一致，
+           * 让"任务在最前、素材在中、契约在最后"这条结构在三处统一。
+           */
+          `【本轮任务】从下面的「${STAGE_LABEL[opts.stage]}」产出里抽取结构化数据，`
+            + '只输出 JSON（按 system 里给的结构），不要评论、不要解释。',
+          '',
           opts.briefText ? `【作者的开书设定（用于判断角色定位，不要据此新增内容）】\n${opts.briefText}\n` : '',
           `【待抽取的文本】\n${opts.artifact}`,
         ].filter(Boolean).join('\n'),
@@ -267,7 +278,18 @@ async function upsertCharacters(
   rows: RawChar[],
   stats: SinkStats,
 ): Promise<void> {
-  if (rows.length === 0) return;
+  /**
+   * ★ 2026-10-29 修（审计确认）：**空结果要如实报**，不能静默"成功"。
+   *
+   * 原实现 `if (rows.length === 0) return;` —— 于是一个**合法但为空**的 JSON
+   * （模型抽到 0 条角色）会让 `sinkStats.notes` 为空 ⇒ 编排层判 `sinked = true`
+   * ⇒ 界面显示"已落库"，实际一条没写。
+   * bible 段早有这个空检查（见 upsertBible），cast/plot 漏了 —— 补齐，口径一致。
+   */
+  if (rows.length === 0) {
+    stats.notes.push('角色抽取结果为空，未写入任何角色条目');
+    return;
+  }
   const existing = await db
     .select({
       id: schema.characters.id,
@@ -449,6 +471,13 @@ async function upsertPlot(
     }];
   });
   await upsertOutlineNode(db, projectId, chapters, stats);
+
+  /**
+   * ★ 2026-10-29：剧情总纲同理 —— 幕与章都为空时如实报（口径同 bible / cast）。
+   */
+  if (acts.length === 0 && chapters.length === 0 && asArray(extracted.foreshadows).length === 0) {
+    stats.notes.push('剧情总纲抽取结果为空，未写入任何大纲条目');
+  }
 
   // 3) 伏笔
   const fsh = asArray(extracted.foreshadows);

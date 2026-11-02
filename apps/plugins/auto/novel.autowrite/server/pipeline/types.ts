@@ -19,9 +19,9 @@
  * - pilot        前三章试写 + 团队审阅      → G4（M2）
  * - production   长跑 + 监工 + 三章轨迹确认（M3）
  */
-export type StageKey = 'brief' | 'cast' | 'bible' | 'plot' | 'drift' | 'pilot' | 'production';
+export type StageKey = 'brief' | 'cast' | 'bible' | 'plot' | 'beats' | 'drift' | 'pilot' | 'production';
 
-export const STAGES: readonly StageKey[] = ['brief', 'cast', 'bible', 'plot', 'drift', 'pilot', 'production'];
+export const STAGES: readonly StageKey[] = ['brief', 'cast', 'bible', 'plot', 'beats', 'drift', 'pilot', 'production'];
 
 /** 阶段中文名（事件与 UI 共用，别在 UI 里再写一份） */
 export const STAGE_LABEL: Record<StageKey, string> = {
@@ -29,16 +29,33 @@ export const STAGE_LABEL: Record<StageKey, string> = {
   cast: '角色与节奏宪章',
   bible: '世界圣经',
   plot: '剧情总纲',
+  // ★ 2026-10-23 新增：专业流程里的「章节大纲 + 节拍卡」层。
+  //   此前 act（3 个）与 chapter（24 个）有、**beat 层是 0 个** ——
+  //   设计上本来就是 act→chapter→beat 三层树，第三层从来没生成过。
+  beats: '章节大纲与节拍卡',
   drift: '偏离核查',
   pilot: '前三章试写',
   production: '长跑与监工',
 };
 
 /** 有用户闸门的阶段（决定 UI 何时弹审批卡） */
-export const GATED_STAGES: readonly StageKey[] = ['cast', 'bible', 'plot', 'pilot'];
+export const GATED_STAGES: readonly StageKey[] = ['cast', 'bible', 'plot', 'beats', 'pilot'];
 
 /** 已实现、可真正跑的阶段；其余阶段 advance 时明确告知未实现，不假装能跑 */
-export const IMPLEMENTED_STAGES: readonly StageKey[] = ['brief', 'cast', 'bible', 'plot', 'drift', 'pilot', 'production'];
+export const IMPLEMENTED_STAGES: readonly StageKey[] = ['brief', 'cast', 'bible', 'plot', 'beats', 'drift', 'pilot', 'production'];
+
+/**
+ * 首轮节拍卡一次覆盖几章。
+ *
+ * ★ 为什么不是一次写全书：`plot` 段的总纲已经写死了 24 章的三幕结构，
+ *   而节拍卡的价值在"到那一章时还记得它该干什么"—— 一次写 24 张卡，
+ *   写到第 20 章时前面 19 张早就被压成一句话了（水车只有 3 斗）。
+ *   滚动补卡（每批 5 章）才是专业做法，也让"实际写出来的样子"能反馈给下一批。
+ */
+export const BEAT_CARDS_PER_BATCH = 5;
+
+/** 首轮先铺几张卡（够前几批用，之后每批滚动补） */
+export const BEAT_CARDS_INITIAL = 10;
 
 /** pilot 试写几章（设计 §Stage5：前三章先试水，好看清文风与弧光再长跑） */
 export const PILOT_CHAPTERS = 3;
@@ -96,7 +113,8 @@ export interface StageRecord {
   productionChapters?: Array<{ order: number; delivered: boolean; wordCount: number; warnings: string[] }>;
   /**
    * production 段专有：本轮的监工结论。
-   * `halt` 是**唯一会打断长跑**的判定（连续两次 watch 也折算成 halt，见 production.ts）。
+   * `halt` 是**唯一会打断长跑**的判定；连续 watch 只记台账、不再折算成 halt
+   * （`CONSECUTIVE_WATCH_TO_HALT = 0`，见 production.ts 的注释）。
    */
   supervisorVerdict?: {
     order: number; verdict: 'ok' | 'watch' | 'halt'; issues: number;
@@ -204,6 +222,12 @@ export interface SinkStats {
 export type PipelineEvent =
   | { type: 'stage_start'; stage: StageKey; revision: number }
   | { type: 'stage_phase'; stage: StageKey; label: string }
+  /**
+   * ★ 2026-10-25：作者插话**已生效**（被某个角色的发言消费）。
+   * 与单章讨论的 SessionEvent 同名同义 —— 两条链路的前端都用它把"我插的话"
+   * 落进同一条时间线（AgentTeams「人和 agent 同一时间线」的实质）。
+   */
+  | { type: 'interjection'; texts: string[] }
   | {
       type: 'stage_turn';
       stage: StageKey;

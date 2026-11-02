@@ -72,18 +72,6 @@ export function TabBar({
   const showPaneTabs = variant !== 'main';
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
-  /**
-   * ★ 2026-10-22（U1 修复）：溢出下拉的位置必须**自己算**。
-   *
-   * 原先它是根节点里的 `absolute; top: 34`，而根节点是 `overflow-hidden`
-   * （标签栏要裁掉横向滚动的溢出标签）。菜单落在 30px 高的标签栏**之外**，
-   * 于是被整块裁掉：DOM 里有 7 项、`getBoundingClientRect()` 也有正常尺寸，
-   * 但 `elementFromPoint` 命中不了、画面上看不见 —— 用户点 `⌄` 毫无反应。
-   * 改用 `fixed`（与同文件右键菜单同一套做法，那个实测是好的）+ 按钮实测坐标，
-   * 就绕开了祖先的裁剪（fixed 的包含块是视口，不受 overflow 影响）。
-   */
-  const [overflowPos, setOverflowPos] = useState<{ x: number; y: number } | null>(null);
-  const overflowBtnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   // 点空白/按 Esc 收起菜单与溢出下拉
@@ -139,10 +127,10 @@ export function TabBar({
           onClick={onBackToBody}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBackToBody?.(); } }}
           title={onCloseBody ? '正文 —— 主编辑器里打开的那份稿子' : '正文 —— 主编辑器里打开的那份稿子（常驻，不可关闭）'}
-          className="group flex shrink-0 cursor-pointer select-none items-center gap-1.5 border-r border-paper-line text-[11.5px]"
+          className="group flex shrink-0 cursor-pointer select-none items-center gap-1.5 border-r border-paper-line text-[12.5px]"
           style={{
             height: '100%',
-            padding: '0 var(--space-4)',
+            padding: '0 10px',
             background: bodyFocused ? EDITOR_BG : 'transparent',
             // 激活标签：顶部一条墨线（VSCode 用的就是这条，不是底部下划线）
             boxShadow: bodyFocused ? 'inset 0 1px 0 hsl(var(--paper-line-strong))' : undefined,
@@ -152,9 +140,7 @@ export function TabBar({
           <Pin size={12} aria-hidden="true" className={bodyFocused ? 'text-tone' : 'text-tone-3'} />
           <span>正文</span>
           {bodySubtitle && (
-            /* ★ 2026-10-23：`text-tone-3`（0 0% 50%）压在 72% 卡片底上实测 3.88:1，
-               低于 AA。副标题是「第几章 · 多少字」，属于要读的信息，换 tone-2（41%）→ 5.6:1。 */
-            <span className="text-2xs text-tone-2">{bodySubtitle}</span>
+            <span className="text-2xs text-tone-3">{bodySubtitle}</span>
           )}
           {onCloseBody && (
             <button
@@ -212,14 +198,14 @@ export function TabBar({
                 // VSCode 的标签：最小宽约 120、最大约 240
                 minWidth: 110,
                 maxWidth: 200,
-                padding: '0 var(--space-3) 0 var(--space-4)',
+                padding: '0 8px 0 10px',
                 background: on ? EDITOR_BG : 'transparent',
                 borderRight: '0.5px solid hsl(var(--border) / 0.45)',
                 boxShadow: on ? 'inset 0 1px 0 hsl(var(--primary))' : undefined,
                 color: on ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
                 // VSCode 的预览标签：标题斜体
                 fontStyle: isPreview ? 'italic' : 'normal',
-                fontSize: 11.5,
+                fontSize: 12.5,
               }}
             >
               {iconOf(key)}
@@ -250,18 +236,9 @@ export function TabBar({
       {showPaneTabs && tabs.length > 0 && (
         <div className="shrink-0 flex items-center" data-tab-overflow>
           <button
-            ref={overflowBtnRef}
             type="button"
             aria-label="已打开的看板"
-            aria-expanded={overflowOpen}
-            aria-haspopup="menu"
-            onClick={() => {
-              // 打开前把按钮的实测坐标记下来 —— 菜单用 fixed 定位，必须自己算锚点
-              if (overflowOpen) { setOverflowOpen(false); return; }
-              const r = overflowBtnRef.current?.getBoundingClientRect();
-              if (r) setOverflowPos({ x: r.right, y: r.bottom });
-              setOverflowOpen(true);
-            }}
+            onClick={() => setOverflowOpen((v) => !v)}
             title="已打开的看板"
             /* 原来是整段内联 style 写死背景/边框/颜色（globals.css 自己把这称反模式）。
                静态部分全部换成工具类，只留真正动态的（width/height 由布局决定）。 */
@@ -272,16 +249,8 @@ export function TabBar({
           </button>
           {overflowOpen && (
             <div
-              /* ★ fixed（不是 absolute）：根节点 overflow-hidden 会把 absolute 菜单裁掉，
-                 详见上方 overflowPos 的注释。左/上坐标都做视口夹取，防止贴边溢出。 */
-              className="mc-scroll fixed z-[60] rounded-card border border-paper-line bg-paper py-1 shadow-overlay"
-              style={{
-                left: overflowPos ? Math.max(8, Math.min(overflowPos.x - 220, window.innerWidth - 228)) : 8,
-                top: overflowPos ? Math.min(overflowPos.y + 2, window.innerHeight - 40) : 0,
-                width: 220,
-                maxHeight: Math.min(320, window.innerHeight - 60),
-                overflowY: 'auto',
-              }}
+              className="mc-scroll absolute right-0 z-50 rounded-card border border-paper-line bg-paper py-1 shadow-overlay"
+              style={{ top: 34, width: 220, maxHeight: 320, overflowY: 'auto' }}
             >
               {tabs.map((k) => (
                 <button
@@ -289,7 +258,7 @@ export function TabBar({
                   type="button"
                   data-overflow-item={k}
                   onClick={() => { onActivate(k); setOverflowOpen(false); }}
-                  className="flex h-[26px] w-full items-center gap-2 bg-transparent px-3 text-left text-[11.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
+                  className="flex h-[26px] w-full items-center gap-2 bg-transparent px-3 text-left text-[12.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
                 >
                   {iconOf(k)}
                   <span className="truncate flex-1">{labelOf(k)}</span>
@@ -301,7 +270,7 @@ export function TabBar({
                 <button
                   type="button"
                   onClick={() => { onOpenQuick(); setOverflowOpen(false); }}
-                  className="h-[26px] w-full border-0 border-t border-paper-line bg-transparent px-3 text-left text-[11.5px] text-tone-2 transition-colors duration-150 ease-out hover:bg-paper-hover hover:text-tone"
+                  className="h-[26px] w-full border-0 border-t border-paper-line bg-transparent px-3 text-left text-[12.5px] text-tone-2 transition-colors duration-150 ease-out hover:bg-paper-hover hover:text-tone"
                 >
                   显示全部看板…（Ctrl+P）
                 </button>
@@ -338,7 +307,7 @@ export function TabBar({
               type="button"
               role="menuitem"
               onClick={() => { item.run(); setMenu(null); }}
-              className="h-[26px] w-full border-0 bg-transparent px-3 text-left text-[11.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
+              className="h-[26px] w-full border-0 bg-transparent px-3 text-left text-[12.5px] text-tone transition-colors duration-150 ease-out hover:bg-paper-hover"
             >
               {item.label}
             </button>

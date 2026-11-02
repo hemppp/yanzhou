@@ -36,7 +36,7 @@ export function OutlineCheckModal({ visible, onClose, actionName }: OutlineCheck
           WebkitBackdropFilter: 'blur(32px) saturate(180%)',
           border: '1px solid hsl(var(--border) / 0.5)',
           boxShadow:
-            '0 24px 80px hsl(var(--ink-deep) / 0.2), 0 8px 32px hsl(var(--ink-deep) / 0.1), inset 0 1px 0 rgb(var(--glass-highlight) / 0.6)',
+            '0 24px 80px hsl(var(--ink-deep) / 0.2), 0 8px 32px hsl(var(--ink-deep) / 0.1), inset 0 1px 0 hsl(var(--glass-highlight) / 0.6)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -154,7 +154,7 @@ export function OutlineCheckModal({ visible, onClose, actionName }: OutlineCheck
               borderWidth: '1px',
               borderStyle: 'solid',
               borderColor: 'hsl(var(--border) / 0.4)',
-              boxShadow: 'inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
+              boxShadow: 'inset 0 1px 0 hsl(var(--glass-highlight) / 0.5)',
             }}
           >
             知道了

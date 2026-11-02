@@ -26,11 +26,12 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Send, Sparkles,
-  ChevronDown, BookOpen, BrainCircuit, ChevronUp, ArrowLeft, PenLine, Loader2,
+  ChevronDown, BookOpen, BrainCircuit, ChevronUp, ArrowLeft,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type { Project } from '@novel/shared';
 import { useChapterStore, useCharacterStore, useItemStore, useLocationStore, useForeshadowStore } from '@novel-plugins/data-core/stores';
+import { apiClient } from '@novel-plugins/data-core/api/apiClient';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import type { StageKey, StageState } from '../pipeline/WorkbenchPlan';
 // 只留类型：面板本体一律惰性加载（见 plugin/autoBuiltin.ts 的 lazy 块）
@@ -116,6 +117,13 @@ interface ChatTurn {
   /** 'conclusion' 用卡片形式呈现（本章结论） */
   kind?: 'say' | 'conclusion';
   /**
+   * ★ 2026-10-25：作者插话的两态。
+   *   'queued' —— 已投进信箱，还没被任何角色消费（界面提示"下一个角色开口前生效"）
+   *   'applied' —— 后端发来 interjection 事件，说明某个角色已经带着它发言了
+   * 只有插话（busy 时发的）才有这个字段；正常发送是"当场就进讨论"。
+   */
+  interject?: 'queued' | 'applied';
+  /**
    * 该次发言的思维链原文（推理型模型的 reasoning_content）。
    * 没有 = 模型没吐推理内容（非推理模型 / 中转站剥了字段），此时不渲染入口。
    */
@@ -137,74 +145,7 @@ function nowHHMM(): string {
 }
 
 /**
- * 实时思维链（**正在思考**的那一条）。
- *
- * ★ 2026-10-29 新增：原来实时思维链是直接铺开的（一段 `<pre>` 盖满整屏），
- *   换成推理模型后单条动辄一万三千字且是英文，把真正的发言挤到看不见。
- *   现在与「已结算」的 `ThinkingTrace` 用同一套折叠观感，默认收起：
- *   标题行只有「谁 · 思考中 · 已想 N 字」，点开才看原文。
- *
- * 为什么单独一个组件而不是复用 `ThinkingTrace`：
- *   它要比后者多一个"还在增长"的语义（转圈图标 + 字数实时变化），
- *   而且它每帧都会重渲染（流式），复用会让 `ThinkingTrace` 也带上这层依赖。
- */
-function LiveThinking({
-  name, short, color, text,
-}: { name: string; short: string; color: string; text: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="flex gap-2.5">
-      <span
-        className="shrink-0 inline-flex items-center justify-center rounded-full text-white"
-        style={{ width: 24, height: 24, background: color, fontSize: 9.5, marginTop: 'var(--space-0)', opacity: 0.85 }}
-        aria-hidden="true"
-      >
-        {short}
-      </span>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-label={open ? '收起实时思维链' : '展开实时思维链（正在推理的原文）'}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors"
-          style={{
-            color: 'hsl(var(--muted-foreground))',
-            borderWidth: '0.5px',
-            borderStyle: 'solid',
-            borderColor: 'hsl(var(--border) / 0.8)',
-            background: open ? 'hsl(var(--muted) / 0.5)' : 'transparent',
-          }}
-          title="模型正在推理的原文，不是发言内容"
-        >
-          <Loader2 size={11} className="animate-spin" aria-hidden="true" />
-          {name} 思考中
-          <span style={{ opacity: 0.7 }}>{text.length} 字</span>
-          {open ? <ChevronUp size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
-        </button>
-        {open && (
-          <pre
-            className="mt-1 whitespace-pre-wrap rounded-lg px-2.5 py-2 text-[10px] leading-[1.7]"
-            style={{
-              color: 'hsl(var(--muted-foreground))',
-              background: 'hsl(var(--muted) / 0.45)',
-              borderLeft: '2px solid hsl(var(--border))',
-              margin: 0,
-              fontFamily: 'inherit',
-              maxHeight: 260,
-              overflowY: 'auto',
-            }}
-          >
-            {text}
-          </pre>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * 思维链折叠块（**已结算**的发言）。
+ * 思维链折叠块。
  *
  * 刻意做成「次要证据」的观感：小字号、次要色、左侧细墨线 ——
  * 它是给人核对「它为什么这么说」用的，**不该抢发言正文的注意力**，所以默认收起。
@@ -218,7 +159,7 @@ function ThinkingTrace({ text, defaultOpen }: { text: string; defaultOpen?: bool
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={open ? '收起思维链' : '展开思维链（模型推理过程原文）'}
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors"
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors"
         style={{
           color: 'hsl(var(--muted-foreground))',
           borderWidth: '0.5px',
@@ -235,7 +176,7 @@ function ThinkingTrace({ text, defaultOpen }: { text: string; defaultOpen?: bool
       </button>
       {open && (
         <pre
-          className="mt-1 whitespace-pre-wrap rounded-lg px-2.5 py-2 text-[10px] leading-[1.7]"
+          className="mt-1 whitespace-pre-wrap rounded-lg px-2.5 py-2 text-[11px] leading-[1.7]"
           style={{
             color: 'hsl(var(--muted-foreground))',
             background: 'hsl(var(--muted) / 0.45)',
@@ -418,8 +359,6 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
       icon: p.icon,
       group: p.group ?? 'data',
       Component: p.Component as WorkbenchPanel['Component'],
-      // ★ 意图预取入口随定义一并带下来：气泡列悬停时预热该看板 chunk（见 BubbleRail）
-      preload: p.preload,
     }))
   ), [autoPanels]);
 
@@ -644,6 +583,20 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
           if (e.index >= e.total) setProgress(null);
         } else if (e.type === 'phase') {
           setPhase(e.label);
+        } else if (e.type === 'interjection') {
+          /**
+           * ★ 2026-10-25：插话已生效（被某个角色消费）。
+           * 把时间线里对应的「已排队」条改成「已生效」—— 让作者看见"我的话什么时候起作用的"，
+           * 而不是发出去就石沉大海。按文本匹配（同一句话连发两次时，逐条消费、逐条点亮）。
+           */
+          setTurns((prev) => {
+            const next = [...prev];
+            for (const text of e.texts) {
+              const idx = next.findIndex((t) => t.interject === 'queued' && t.text === text);
+              if (idx >= 0) next[idx] = { ...next[idx]!, interject: 'applied' };
+            }
+            return next;
+          });
         } else if (e.type === 'thinking') {
           handleThinkingDelta(e);
         } else if (e.type === 'turn') {
@@ -682,20 +635,29 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
           // 注意：校对门 passed=false **不代表没交付**（它只做一次定向修订，之后照样交付），
           // 所以 meta 里写明「不拦交付」，别让作者误以为整章废了。
           const isCheck = e.name === 'check';
+          const isFinalize = e.name === 'finalize';
           push({
             from: 'gate',
-            name: isCheck ? '校对门' : '润色门',
-            color: isCheck ? 'hsl(var(--state-blocked))' : 'hsl(var(--entity-foreshadow))',
-            short: isCheck ? '校' : '润',
-            text: !isCheck && typeof e.score === 'number' ? `${e.score}/10 · ${e.detail}` : e.detail,
-            meta: e.passed ? '通过' : (isCheck ? '有冲突（不拦交付）' : '低于通过线'),
+            name: isFinalize ? '定稿门' : (isCheck ? '校对门' : '润色门'),
+            color: isFinalize ? 'hsl(var(--entity-outline))' : (isCheck ? 'hsl(var(--state-blocked))' : 'hsl(var(--entity-foreshadow))'),
+            short: isFinalize ? '定' : (isCheck ? '校' : '润'),
+            text: typeof e.score === 'number'
+              ? `${e.score}/${isFinalize ? 100 : 10} · ${e.detail}`
+              : e.detail,
+            meta: e.passed
+              ? '通过'
+              : (isFinalize ? '未达定稿线（不拦交付）' : (isCheck ? '有冲突（不拦交付）' : '低于通过线')),
             tone: e.passed ? 'ok' : 'warn',
           });
-          // 校对门做完 → 进润色门；润色门做完 → 进交付。两道门都不阻塞流程，
+          // 校对门做完 → 进润色门；润色门做完 → 进交付。三道门都不阻塞流程，
           // 所以状态只区分「完成 / 有冲突」，不表示流程中断。
+          // ★ 定稿门（2026-10-31）**不改阶段**：它只决定章节能不能标定稿，
+          //   正文照旧交付，所以在它之后流程状态保持原样（已经由润色门推进到 deliver）。
           setStages((s) => (isCheck
             ? { ...s, check: e.passed ? 'done' : 'blocked', polish: 'running' }
-            : { ...s, polish: e.passed ? 'done' : 'blocked', deliver: 'running' }));
+            : isFinalize
+              ? s
+              : { ...s, polish: e.passed ? 'done' : 'blocked', deliver: 'running' }));
         } else if (e.type === 'delivered') {
           // warnings：交付了但需要人工复核（例如意图门打回上限用尽仍交付）——
           // 连写时不丢章，但必须让作者知道哪一章要回头看
@@ -750,10 +712,35 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
     }
   }, [pushTurn, scrollStreamToEnd, onProjectDataChanged, chapterCount, handleThinkingDelta, settleThinking]);
 
-  /** 作者发言：先落到流里，再交给编排器 */
+  /**
+   * 作者发言：先落到流里，再交给编排器。
+   *
+   * ★ 2026-10-25：**忙时不再被丢弃，而是走「插话」通道**。
+   *   此前 `if (!text || busy) return;` —— 智能体正在说话时，作者看到剧情设计师说错了
+   *   也只能干等整轮跑完（一次讨论 10+ 分钟）。现在忙时改为投进信箱：
+   *   后端在每个角色开口前读一次，把新插话注入该角色的 input（见 discuss/inbox.ts）。
+   *   粒度是"下一个角色开口前"，不打断正在跑的模型调用 —— 不浪费调用、不截断好发言。
+   */
   const send = useCallback(() => {
     const text = draft.trim();
-    if (!text || busy) return;
+    if (!text) return;
+    if (busy) {
+      // 插话：先乐观落进时间线（标 queued），投递失败再改成 warn
+      const id = nanoid();
+      setTurns((prev) => [...prev, {
+        id, from: 'user', name: '你', color: 'hsl(var(--ink))', short: '我',
+        text, time: nowHHMM(), interject: 'queued',
+      }]);
+      setDraft('');
+      scrollStreamToEnd();
+      void apiClient.post('plugins/autowrite/interject', { text })
+        .catch((e) => {
+          setTurns((prev) => prev.map((t) => (t.id === id
+            ? { ...t, tone: 'warn', meta: `插话投递失败：${e instanceof Error ? e.message : String(e)}` }
+            : t)));
+        });
+      return;
+    }
     setTurns((prev) => [...prev, {
       id: nanoid(),
       from: 'user', name: '你', color: 'hsl(var(--ink))', short: '我',
@@ -763,25 +750,6 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
     scrollStreamToEnd();
     void runAgent(text);
   }, [draft, busy, runAgent, scrollStreamToEnd]);
-
-  /**
-   * 空态主按钮：把预设指令**填进**输入框并聚焦，不自动发送。
-   *
-   * ★ 为什么不直接发：每章都会真实跑一遍完整编排（要花额度）。空态按钮是「帮我想清楚
-   *   第一句」的脚手架，最后一下必须由作者按 —— 与 U8 的建议口径一致。
-   * ★ 为什么不覆盖已有草稿：作者可能已经打了一半。只在输入框为空时填。
-   */
-  const seedDraft = useCallback((order: number) => {
-    setDraft((cur) => (cur.trim() ? cur : `写第 ${order} 章：`));
-    // 等 React 把 value 刷进 DOM 再聚焦，否则光标会落在旧文本末尾（内容被覆盖时更明显）
-    requestAnimationFrame(() => {
-      const el = taRef.current;
-      if (!el) return;
-      el.focus();
-      const end = el.value.length;
-      el.setSelectionRange(end, end);
-    });
-  }, []);
 
   /** 打断：中止当前流式请求（编排器会收到 abort） */
   const interrupt = useCallback(() => {
@@ -826,87 +794,11 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
     //   外层（PageFade → min-h-screen）是 min-height 撑出的内容高、并非确定高度，
     //   h-full 的百分比高度会退化成 auto → 工作台只占内容高，下方塌出整片空白。
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* ★ 2026-10-29：本工作台自己的样式表（空态 / 步骤列表）。
-          用组件内 <style> 而不是全局 CSS：本模块属 auto 域，
-          往 kernel 的 globals.css 里加类会让"auto 模块可整体移除"的边界变模糊；
-          而 ui-kit 是共享包，只该放跨模块复用的原子，不该装一个模块的私有版式。
-          `aw-` 前缀（auto workbench）避免与其它模块撞名。 */}
-      <style>{`
-        /* 空态：与手写台 .pi-empty-card 同形态（图标圆章 + 标题 + 一句说明 + 主按钮） */
-        .aw-empty {
-          display: flex; flex-direction: column; align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-6);
-          text-align: center;
-        }
-        .aw-empty-icon {
-          display: flex; align-items: center; justify-content: center;
-          width: 44px; height: 44px;
-          margin-bottom: var(--space-2);
-          border-radius: var(--r-pill);
-          background: hsl(var(--muted));
-          color: hsl(var(--muted-foreground));
-        }
-        .aw-empty-title {
-          font-family: 'Noto Serif SC', serif;
-          font-size: 15px; font-weight: 600;
-          letter-spacing: 0.04em;
-          color: hsl(var(--foreground));
-        }
-        .aw-empty-desc {
-          margin: 0 0 var(--space-3);
-          max-width: 26em;
-          font-size: 12px; line-height: 1.75;
-          color: hsl(var(--muted-foreground));
-        }
 
-        /* 起始步骤：三条编号句，替代原来挤在 250px 里的一整段 10px 长文 */
-        .aw-steps {
-          display: flex; flex-direction: column; gap: var(--space-3);
-          margin: 0; padding: 0; list-style: none;
-          text-align: left;
-        }
-        .aw-steps li {
-          display: flex; align-items: flex-start; gap: var(--space-2);
-        }
-        .aw-step-num {
-          flex: 0 0 auto;
-          display: inline-flex; align-items: center; justify-content: center;
-          width: 16px; height: 16px; margin-top: 1px;
-          border-radius: var(--r-pill);
-          background: hsl(var(--muted));
-          color: hsl(var(--muted-foreground));
-          font-size: 9.5px; font-weight: 600;
-          font-variant-numeric: tabular-nums;
-        }
-        .aw-step-text {
-          font-size: 11.5px; line-height: 1.7;
-          color: hsl(var(--muted-foreground));
-        }
-
-        /* 角色分工一行小字：信息量足够，又不与三步争注意力 */
-        .aw-agents-line {
-          margin: var(--space-4) 0 0;
-          font-size: 10px; line-height: 1.6;
-          letter-spacing: 0.02em;
-          color: hsl(var(--muted-foreground) / 0.85);
-        }
-      `}</style>
-
-      {/* ── 顶栏 ──
-          ★ 2026-10-29：高度 48 → 34，并加下边发丝线 + 顶栏底色。
-          原来是 48px 的**无底色无分隔**横条，与下方内容连成一片 ——
-          一屏里没有任何一条"这里是窗框"的边界，看什么都像浮在页面上。
-          高度对齐手写台 `.shell-topbar`（29px）的密度档位，取 34px
-          （本栏还要容纳项目名 + 模式徽标 + 两个开关，比手写台多一行信息）。 */}
+      {/* ── 顶栏 ── */}
       <header
-        className="shrink-0 flex items-center gap-3 relative z-40"
-        style={{
-          height: 34,
-          padding: '0 var(--space-4)',
-          background: 'hsl(var(--card))',
-          borderBottom: '1px solid hsl(var(--border))',
-        }}
+        className="shrink-0 flex items-center gap-2.5 relative z-40"
+        style={{ height: 48, padding: '0 12px' }}
       >
         {/* ★ 2026-10-13 装回适配：原 `InkBackButton`（水墨体系）随 `3e3754e` 与 shuimo 主题
             一并退役，ui-kit 不再导出（其 index.ts 导出已同步删除）。按 kernel 同款改用
@@ -922,34 +814,25 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
           <ArrowLeft size={15} aria-hidden="true" />
         </button>
         <span
-          className="text-[12px] font-semibold truncate max-w-[140px] sm:max-w-[220px]"
+          className="text-[13px] font-semibold truncate max-w-[140px] sm:max-w-[220px]"
           style={{ color: 'hsl(var(--foreground))', letterSpacing: '-0.2px' }}
         >
-          {project ? project.name : '砚舟'}
+          {project ? project.name : '听风细雨'}
         </span>
-        {/* 模式徽标：玻璃胶囊 → 描边小签。胶囊底 `rgb(glass-tint/.45)` 在白顶栏目里
-            与背景几乎同色，等于只有一个圆角轮廓；描边能看清边界，也不抢项目名。 */}
         <span
-          className="hidden sm:flex items-center gap-1.5"
-          style={{
-            color: 'hsl(var(--muted-foreground))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: 'var(--r-xs)',
-            fontSize: 10,
-            lineHeight: 1,
-            padding: '3px var(--space-2)',
-          }}
+          className="hidden sm:flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full"
+          style={{ color: 'hsl(var(--muted-foreground))', background: 'rgb(var(--glass-tint) / 0.45)' }}
         >
           <span
             className="rounded-full"
-            style={{ width: 5, height: 5, background: 'hsl(var(--primary))' }}
+            style={{ width: 5, height: 5, background: 'hsl(var(--primary) / 0.8)' }}
             aria-hidden="true"
           />
           AI 写作
         </span>
 
         <div className="ml-auto flex items-center gap-1">
-          <span className="text-[10px] hidden md:inline mr-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <span className="text-[11px] hidden md:inline mr-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
             {projChapters.length > 0 ? `共 ${projChapters.length} 章` : '尚未建章'}
           </span>
           <button
@@ -984,27 +867,17 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
               className="shrink-0 flex flex-col overflow-hidden"
               style={{
                 width: railWidth,
-                // ★ 2026-10-29：玻璃底 + backdrop-blur → 实底侧栏。
-                //   背后是纯色页底，模糊出来还是同一个颜色（零收益、每帧多一次合成）；
-                //   而且半透明侧栏与正文之间的视觉分界要靠那条 0.5px 半透明线，
-                //   实测几乎看不见 —— 于是"对话栏"与"正文"像同一块画布上的两段文字。
-                //   现在是 `--card` 实底 + 右缘 1px 实线，边界明确。
-                background: 'hsl(var(--card))',
-                borderRight: '1px solid hsl(var(--border))',
+                background: 'rgb(var(--glass-tint) / 0.34)',
+                backdropFilter: 'blur(10px) saturate(130%)',
+                WebkitBackdropFilter: 'blur(10px) saturate(130%)',
               }}
               aria-label="智能体对话"
             >
               <div
-                className="shrink-0 flex items-center gap-3"
-                style={{
-                  height: 32,
-                  padding: '0 var(--space-4)',
-                  borderBottom: '1px solid hsl(var(--border))',
-                  // 栏目标题条比内容略深一档，形成"表头"层次（与手写台面板块头同法）
-                  background: 'hsl(var(--muted) / 0.45)',
-                }}
+                className="shrink-0 flex items-center gap-2"
+                style={{ height: 34, padding: '0 12px', borderBottom: '0.5px solid hsl(var(--border) / 0.5)' }}
               >
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+                <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.06em' }}>
                   智能体对话
                 </span>
                 <span className="ml-auto flex items-center gap-1" aria-hidden="true">
@@ -1019,61 +892,24 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                 </span>
               </div>
 
-              <div ref={streamRef} className="flex-1 overflow-y-auto px-3 py-3">
+              <div ref={streamRef} className="flex-1 overflow-y-auto px-3 py-3.5">
                 {turns.length === 0 && !liveThinking ? (
-                  /* ★ 2026-10-29 重做空态：原来是一整段 10px 的居中长文（三句、90 余字）
-                     挤在 250px 宽里，每行 12 字、行高 1.75 —— 在窄栏里读起来像说明书。
-                     改成「三行编号步骤」：每步一句、左对齐、带序号，
-                     扫一眼就知道怎么开始；角色分工移到下方一行小字。
-                     主按钮改用全站主按钮类（原来的圆角/字号/色值都是内联硬写）。 */
-                  <div className="h-full flex flex-col justify-center px-1">
-                    <div style={{ maxWidth: 260, margin: '0 auto', width: '100%' }}>
-                      <div
-                        className="flex items-center gap-2"
-                        style={{ marginBottom: 'var(--space-5)' }}
-                      >
-                        <Sparkles size={15} style={{ color: 'hsl(var(--primary))' }} aria-hidden="true" />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--foreground))' }}>
-                          智能体就位
-                        </span>
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center px-2" style={{ maxWidth: 250 }}>
+                      <Sparkles size={20} className="mx-auto mb-2.5" style={{ color: 'hsl(var(--primary) / 0.65)' }} />
+                      <div className="text-[12px] mb-2" style={{ color: 'hsl(var(--ink))' }}>
+                        智能体就位
                       </div>
-
-                      <ol className="aw-steps">
-                        <li>
-                          <span className="aw-step-num">1</span>
-                          <span className="aw-step-text">
-                            在下方输入框说要写哪一章，例如「写第 2 章：陈默去公司查姐姐的行踪」。
-                          </span>
-                        </li>
-                        <li>
-                          <span className="aw-step-num">2</span>
-                          <span className="aw-step-text">
-                            四位智能体会来回讨论，定稿官收敛成结论，写作官据此落笔。
-                          </span>
-                        </li>
-                        <li>
-                          <span className="aw-step-num">3</span>
-                          <span className="aw-step-text">
-                            要连写就在输入框右下角设「连写 N 章」，每章都会走完复核与沉淀。
-                          </span>
-                        </li>
-                      </ol>
-
-                      <p className="aw-agents-line">
-                        剧情设计师 · 角色设计师 · 设定管家 · 定稿官 · 写作官
+                      <p className="text-[11px] leading-[1.75]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        说清这一章要写什么，写明章号（例如「写第 2 章：陈默去公司查姐姐的行踪」）。
+                        <br />
+                        <span style={{ color: 'hsl(var(--muted-foreground) / 0.8)' }}>
+                          剧情设计师 / 角色设计师 / 设定管家会先来回讨论，定稿官收敛成本章结论，
+                          写作官据此落笔并过三道门 —— 发言按时间展开，随时可在下方插话。
+                          <br />
+                          想连着写就在输入框右下角设「连写 N 章」：从章号起逐章写下去，每章都会完整走完复核与沉淀。
+                        </span>
                       </p>
-
-                      {/* U8：新用户从「新建 AI 项目」进来后，下一步得自己想到"在左下角打一句话"。
-                          给一个主按钮把预设指令**填进输入框并聚焦**（不自动发送 —— 避免误触触发付费额度）。 */}
-                      <button
-                        type="button"
-                        onClick={() => seedDraft(1)}
-                        className="nm-btn-apple-primary"
-                        style={{ height: 30, marginTop: 'var(--space-5)' }}
-                      >
-                        <PenLine size={12} aria-hidden="true" />
-                        写第 1 章
-                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1083,26 +919,26 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                         // 本章结论用卡片：它是契约，视觉上要能一眼认出来
                         <div
                           key={t.id}
-                          className="rounded-xl px-3 py-3"
+                          className="rounded-xl px-3.5 py-3"
                           style={{ background: 'hsl(var(--card) / 0.7)', border: '0.5px solid hsl(var(--agent-convener) / 0.5)' }}
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span
                               className="inline-flex items-center justify-center rounded-full text-white"
-                              style={{ width: 18, height: 18, background: colorOf(t.from, t.color), fontSize: 8.5 }}
+                              style={{ width: 18, height: 18, background: colorOf(t.from, t.color), fontSize: 9 }}
                               aria-hidden="true"
                             >
                               {t.short}
                             </span>
-                            <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
+                            <span className="text-[12px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
                               {t.name}
                             </span>
-                            <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                            <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground) / 0.75)' }}>
                               {t.time}
                             </span>
                           </div>
                           <pre
-                            className="text-[10px] leading-[1.75] whitespace-pre-wrap"
+                            className="text-[11px] leading-[1.75] whitespace-pre-wrap"
                             style={{ color: 'hsl(var(--ink-light))', margin: 0, fontFamily: 'inherit' }}
                           >
                             {t.text}
@@ -1112,27 +948,27 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                         <div key={t.id} className="flex gap-2.5">
                           <span
                             className="shrink-0 inline-flex items-center justify-center rounded-full text-white"
-                            style={{ width: 24, height: 24, background: colorOf(t.from, t.color), fontSize: 9.5, marginTop: 'var(--space-0)' }}
+                            style={{ width: 24, height: 24, background: colorOf(t.from, t.color), fontSize: 10, marginTop: 1 }}
                             aria-hidden="true"
                           >
                             {t.short}
                           </span>
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div className="flex items-baseline gap-2">
-                              <span className="text-[11px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
+                              <span className="text-[12px] font-medium" style={{ color: 'hsl(var(--ink))' }}>
                                 {t.name}
                               </span>
-                              <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                              <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground) / 0.75)' }}>
                                 {t.time}
                               </span>
                             </div>
 
                             <div
-                              className="text-[11px] leading-[1.7] mt-1"
+                              className="text-[12px] leading-[1.7] mt-1"
                               style={{
                                 color: 'hsl(var(--ink-light))',
                                 whiteSpace: 'pre-wrap',
-                                paddingLeft: t.tone ? 'var(--space-3)' : 0,
+                                paddingLeft: t.tone ? 8 : 0,
                                 borderLeft: t.tone
                                   ? `2px solid ${t.tone === 'warn' ? 'hsl(var(--state-blocked))' : 'hsl(var(--primary) / 0.5)'}`
                                   : undefined,
@@ -1141,8 +977,30 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                               {t.text}
                             </div>
 
+                            {/*
+                              ★ 2026-10-25：插话的两态。作者必须能看出"我这句话到底生效没有" ——
+                              只显示"已发送"而不显示"已生效"，等于把不确定性留给作者猜。
+                            */}
+                            {t.interject && (
+                              <div
+                                className="text-[10.5px] mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
+                                style={{
+                                  background: t.interject === 'applied'
+                                    ? 'hsl(var(--state-done) / 0.12)'
+                                    : 'hsl(var(--muted-foreground) / 0.12)',
+                                  color: t.interject === 'applied'
+                                    ? 'hsl(var(--state-done))'
+                                    : 'hsl(var(--muted-foreground))',
+                                }}
+                              >
+                                {t.interject === 'applied'
+                                  ? '✓ 已生效（某个角色已带着它发言）'
+                                  : '· 已排队 · 下一个角色开口前生效'}
+                              </div>
+                            )}
+
                             {t.meta && (
-                              <div className="text-[10px] mt-1.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                              <div className="text-[11px] mt-1.5" style={{ color: 'hsl(var(--muted-foreground) / 0.75)' }}>
                                 {t.meta}
                               </div>
                             )}
@@ -1155,23 +1013,43 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                     ))}
 
                     {/*
-                      实时思维链。
-                      ★ 2026-10-29 改为**默认收起**（作者口径「思维链默认收起」）。
-                        原注释写的是"正在想的时候直接铺开，藏起来等于没有" —— 那是在
-                        默认模型思维链较短（几百字中文）时的合理取舍。换成推理模型后
-                        实测单条思维链 **13356 字、且是整段英文**，铺开的结果是：
-                        中文发言之间插进一整屏英文推理，把真正的发言挤到看不见，
-                        读者要滚很久才找到"它到底说了什么"。
-                        现在默认只显示一行标题（谁在思考 + 已思考字数），点开才铺开；
-                        发言到达后仍然结算进上方的 ThinkingTrace（同样默认收起）。
+                      实时思维链：正在想的时候直接铺开（这一块的价值就在"看见它怎么想"，
+                      藏起来等于没有），发言一到达就结算进上方那条发言并消失。
                     */}
                     {liveThinking && (
-                      <LiveThinking
-                        name={liveThinking.name}
-                        short={liveThinking.short}
-                        color={colorOf(liveThinking.agent, liveThinking.color)}
-                        text={liveThinking.text}
-                      />
+                      <div className="flex gap-2.5">
+                        <span
+                          className="shrink-0 inline-flex items-center justify-center rounded-full text-white"
+                          style={{ width: 24, height: 24, background: colorOf(liveThinking.agent, liveThinking.color), fontSize: 10, marginTop: 1, opacity: 0.85 }}
+                          aria-hidden="true"
+                        >
+                          {liveThinking.short}
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-[12px] font-medium" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                              {liveThinking.name}
+                            </span>
+                            <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground) / 0.75)' }}>
+                              思考中…
+                            </span>
+                          </div>
+                          <pre
+                            className="mt-1 whitespace-pre-wrap rounded-lg px-2.5 py-2 text-[11px] leading-[1.7]"
+                            style={{
+                              color: 'hsl(var(--muted-foreground))',
+                              background: 'hsl(var(--muted) / 0.4)',
+                              borderLeft: '2px solid hsl(var(--border))',
+                              margin: 0,
+                              fontFamily: 'inherit',
+                              maxHeight: 300,
+                              overflowY: 'auto',
+                            }}
+                          >
+                            {liveThinking.text}
+                          </pre>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1179,22 +1057,14 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
 
 
               <div
-                className="shrink-0"
-                style={{
-                  padding: 'var(--space-3) var(--space-4)',
-                  borderTop: '1px solid hsl(var(--border))',
-                  background: 'hsl(var(--card))',
-                }}
+                className="shrink-0 px-2.5 py-2.5"
+                style={{ borderTop: '0.5px solid hsl(var(--border) / 0.5)' }}
               >
-                {/* 输入框：12px 大圆角玻璃底 + 0.5px 半透明描边 → 8px 实描边。
-                    聚焦时整框走 `--ring`（与全站输入框一致）。 */}
                 <div
-                  className="flex items-end gap-1.5"
+                  className="flex items-end gap-1.5 rounded-xl px-2.5 py-2"
                   style={{
-                    borderRadius: 'var(--r-sm)',
-                    padding: 'var(--space-1) var(--space-2)',
-                    background: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
+                    background: 'rgb(var(--glass-tint) / 0.55)',
+                    border: '0.5px solid hsl(var(--border) / 0.7)',
                   }}
                 >
                   <textarea
@@ -1209,47 +1079,39 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                     rows={1}
                     placeholder="插一句话打断，或补充指令…"
                     aria-label="对智能体说话"
-                    className="flex-1 resize-none bg-transparent outline-none"
-                    style={{
-                      // 11 → 12.5px：输入框是这块栏里唯一的**写作**控件，
-                      // 11px 在中文下只有"注释"的体量，手指也容易打错。
-                      fontSize: 12.5,
-                      lineHeight: 1.7,
-                      padding: '2px 0',
-                      color: 'hsl(var(--foreground))',
-                      maxHeight: 96,
-                      overflowY: 'auto',
-                    }}
+                    className="flex-1 resize-none bg-transparent outline-none text-[12px] leading-[1.65] py-0.5"
+                    style={{ color: 'hsl(var(--foreground))', maxHeight: 96, overflowY: 'auto' }}
                   />
                   <button
                     type="button"
                     onClick={send}
-                    disabled={!draft.trim() || busy}
-                    className="shrink-0 inline-flex items-center justify-center transition-opacity disabled:opacity-30"
-                    title={busy ? '智能体处理中' : '发送（Enter）'}
-                    aria-label="发送"
+                    disabled={!draft.trim()}
+                    className="shrink-0 inline-flex items-center justify-center rounded-lg transition-opacity disabled:opacity-30"
+                    title={busy ? '插话（下一个角色开口前生效）' : '发送（Enter）'}
+                    aria-label={busy ? '插话' : '发送'}
                     style={{
                       width: 26,
                       height: 26,
-                      borderRadius: 'var(--r-xs)',
                       background: 'hsl(var(--primary))',
                       color: 'hsl(var(--primary-foreground))',
-                      cursor: draft.trim() && !busy ? 'pointer' : 'default',
+                      cursor: draft.trim() ? 'pointer' : 'default',
                     }}
                   >
                     <Send size={13} />
                   </button>
                 </div>
-                <div className="flex items-center gap-2" style={{ marginTop: 'var(--space-2)' }}>
-                  <span className="text-[10px] truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                    {busy ? (phase || '智能体处理中…') : 'Enter 发送 · Shift+Enter 换行'}
+                <div className="flex items-center gap-2 mt-1.5 px-1">
+                  <span className="text-[11px] truncate" style={{ color: 'hsl(var(--muted-foreground) / 0.7)' }}>
+                    {busy
+                      ? `${phase || '智能体处理中…'} · Enter 插话（下一个角色开口前生效）`
+                      : 'Enter 发送 · Shift+Enter 换行'}
                   </span>
 
                   {/* 连写章数：>1 时后端逐章跑完整闭环（讨论 → 结论 → 三道门 → 交付 → 沉淀），
                       后续章自动「接着上一章往下写」。每章约一分钟，别在忙的时候改它 */}
                   {!busy && (
                     <label
-                      className="ml-auto flex items-center gap-1 text-[10px] shrink-0"
+                      className="ml-auto flex items-center gap-1 text-[11px] shrink-0"
                       style={{ color: 'hsl(var(--muted-foreground))' }}
                       title="连写章数：从指令里的章号开始逐章写，每章约一分钟"
                     >
@@ -1277,7 +1139,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                   )}
 
                   {progress && (
-                    <span className="text-[10px] shrink-0 ml-auto" style={{ color: 'hsl(var(--primary))' }}>
+                    <span className="text-[11px] shrink-0 ml-auto" style={{ color: 'hsl(var(--primary))' }}>
                       第 {progress.index} / {progress.total} 章
                     </span>
                   )}
@@ -1286,7 +1148,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                     <button
                       type="button"
                       onClick={interrupt}
-                      className="ml-auto text-[10px] px-2 py-0.5 rounded-md"
+                      className="ml-auto text-[11px] px-2 py-0.5 rounded-md"
                       style={{
                         color: 'hsl(var(--destructive))',
                         borderWidth: '0.5px',
@@ -1379,14 +1241,14 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
             {bodyOpen ? (
               <>
             <div
-              className="shrink-0 flex items-center gap-3"
+              className="shrink-0 flex items-center gap-2"
               // ★ 2026-09-15「让标题贴紧」：原为 height 30 + 0.5px 底边框。
               //   它与上方 35px 的标签栏叠在一起，正文顶部堆了 65px 浅色区，
               //   连成一片看着就像「标签下面挂了一条空白带」。压到 24px 并去掉底边框。
-              style={{ height: 24, padding: '0 var(--space-5)' }}
+              style={{ height: 24, padding: '0 14px' }}
             >
               {/* 编辑器头部：章节切换 + 稿件状态（IDE 这里放的是面包屑，我们放章号） */}
-              <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.06em' }}>
+              <span className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', letterSpacing: '0.06em' }}>
                 {viewChapter ? `第 ${viewChapter.order} 章` : '未建章'}
               </span>
               {/* 章节切换：AI 模式没有章节编辑器，这里就是唯一的「读已写章节」入口 */}
@@ -1397,8 +1259,8 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                     setViewOrder(Number(ev.target.value));
                     setProse(null); // 切章看库内容，不再占着本次会话的稿
                   }}
-                  className="text-[10px] bg-transparent outline-none cursor-pointer truncate"
-                  style={{ color: 'hsl(var(--muted-foreground))', maxWidth: 170, border: 'none' }}
+                  className="text-[11px] bg-transparent outline-none cursor-pointer truncate"
+                  style={{ color: 'hsl(var(--muted-foreground) / 0.85)', maxWidth: 170, border: 'none' }}
                   title="切换查看已交付的章节"
                 >
                   {projChapters.map((c) => (
@@ -1409,11 +1271,11 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                 </select>
               )}
               {prose ? (
-                <span className="ml-auto text-[10px]" style={{ color: 'hsl(var(--state-running))' }}>
+                <span className="ml-auto text-[11px]" style={{ color: 'hsl(var(--state-running))' }}>
                   {revision > 0 ? `第 ${revision} 次重写` : '本次生成'}
                 </span>
               ) : viewChapter ? (
-                <span className="ml-auto text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <span className="ml-auto text-[11px]" style={{ color: 'hsl(var(--muted-foreground) / 0.7)' }}>
                   已入库 · {viewChapter.wordCount ?? 0} 字
                 </span>
               ) : null}
@@ -1423,55 +1285,29 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
               {shownText ? (
                 <div
                   className="font-serif whitespace-pre-wrap"
-                  style={{ fontSize: 12.5, lineHeight: 1.9, color: 'hsl(var(--foreground))' }}
+                  style={{ fontSize: 13.5, lineHeight: 1.9, color: 'hsl(var(--foreground))' }}
                 >
                   {shownText}
                 </div>
               ) : (
-                /* ★ 2026-10-29 与手写台的「无章节空态」统一形态：
-                   图标圆章 + 标题 + 一句说明 + 主按钮，居中一块。
-                   原来是 10px 正文 + 内联硬写的按钮，在 1400px 宽的空画布里
-                   像一条被放大的注释。 */
                 <div className="min-h-full flex items-center justify-center">
                   {projChapters.length === 0 ? (
-                    <div className="aw-empty">
-                      <div className="aw-empty-icon" aria-hidden="true">
-                        <BookOpen size={22} />
+                    <div className="text-center px-4">
+                      <div className="font-serif mb-2" style={{ fontSize: 14, color: 'hsl(var(--ink))' }}>
+                        还没有章节
                       </div>
-                      <div className="aw-empty-title">还没有章节</div>
-                      <p className="aw-empty-desc">
+                      <p className="text-[11px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                         在左侧对智能体说明要写什么，讨论收敛后写作官会在这里落笔。
                       </p>
-                      {/* U8：正文区空态也给主按钮 —— 新用户读到这块时，正是"不知道下一步干什么"的时刻 */}
-                      <button
-                        type="button"
-                        onClick={() => seedDraft(1)}
-                        className="nm-btn-apple-primary"
-                        style={{ height: 32 }}
-                      >
-                        <PenLine size={13} aria-hidden="true" />
-                        写第 1 章
-                      </button>
                     </div>
                   ) : (
-                    <div className="aw-empty">
-                      <div className="aw-empty-icon" aria-hidden="true">
-                        <BookOpen size={22} />
+                    <div className="text-center px-4">
+                      <div className="font-serif mb-2" style={{ fontSize: 14, color: 'hsl(var(--ink))' }}>
+                        这一章还没有正文
                       </div>
-                      <div className="aw-empty-title">这一章还没有正文</div>
-                      <p className="aw-empty-desc">
+                      <p className="text-[11px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                         用上方下拉切到别的章节看看，或在左侧让智能体写这一章。
                       </p>
-                      {/* 已经有章但这一章空 → 预填的是**这一章**，不是第 1 章 */}
-                      <button
-                        type="button"
-                        onClick={() => seedDraft(viewChapter?.order ?? 1)}
-                        className="nm-btn-apple-primary"
-                        style={{ height: 32 }}
-                      >
-                        <PenLine size={13} aria-hidden="true" />
-                        写第 {viewChapter?.order ?? 1} 章
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1484,19 +1320,19 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
               <div className="flex-1 flex items-center justify-center" style={{ background: EDITOR_BG }}>
                 <div className="text-center">
                   <BookOpen size={26} className="mx-auto mb-3" style={{ color: 'hsl(var(--ink-pale))', opacity: 0.6 }} />
-                  <div className="font-serif mb-1.5" style={{ fontSize: 13, color: 'hsl(var(--ink-light))' }}>
+                  <div className="font-serif mb-1.5" style={{ fontSize: 14, color: 'hsl(var(--ink-light))' }}>
                     正文已关闭
                   </div>
-                  <p className="text-[10px] mb-4" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  <p className="text-[11px] mb-4" style={{ color: 'hsl(var(--muted-foreground))' }}>
                     稿子还在库里，随时可以重新打开
                   </p>
                   <button
                     type="button"
                     onClick={() => setBodyOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md transition-all"
                     style={{
                       fontFamily: "'Noto Serif SC', serif",
-                      fontSize: 11.5,
+                      fontSize: 12.5,
                       color: 'hsl(var(--card))',
                       background: 'hsl(var(--mountain-deep))',
                       border: 'none',
@@ -1534,14 +1370,14 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                   {C ? (
                     <Suspense
                       fallback={(
-                        <div className="h-full flex items-center justify-center text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        <div className="h-full flex items-center justify-center text-[12px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                           正在载入「{p?.label}」图谱…
                         </div>
                       )}
                     >
                       <ErrorBoundary
                         fallback={(
-                          <div className="p-4 text-[11px]" style={{ color: 'hsl(var(--destructive))' }}>
+                          <div className="p-4 text-[12px]" style={{ color: 'hsl(var(--destructive))' }}>
                             「{p?.label}」面板出错了 —— 正文与其它标签不受影响，可关闭此标签后重开。
                           </div>
                         )}
@@ -1550,7 +1386,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                       </ErrorBoundary>
                     </Suspense>
                   ) : (
-                    <div className="p-6 text-center text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                    <div className="p-6 text-center text-[12px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
                       这个看板已经下线了 —— 换个标签或关掉它。
                     </div>
                   )}
@@ -1563,17 +1399,14 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
 
       </div>
 
-      {/* ── 状态栏（IDE 的底条）：左＝花名册，右＝当前状态 ──
-          ★ 2026-10-29：玻璃底 → 比正文低一档的实底 + 1px 上边线。
-          底条常驻在窗口最下沿，用半透明底会让它随下方内容"透色"变化，
-          而它显示的是**状态**（花名册 / 章节数 / 快捷键），必须稳定可读。 */}
+      {/* ── 状态栏（IDE 的底条）：左＝花名册，右＝当前状态 ── */}
       <footer
         className="shrink-0 flex items-center gap-4 flex-wrap"
         style={{
           height: 26,
-          padding: '0 var(--space-4)',
-          borderTop: '1px solid hsl(var(--border))',
-          background: 'hsl(var(--muted) / 0.5)',
+          padding: '0 14px',
+          borderTop: '0.5px solid hsl(var(--border) / 0.6)',
+          background: 'rgb(var(--glass-tint) / 0.42)',
         }}
         aria-label="状态栏"
       >
@@ -1585,12 +1418,12 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
             >
               {a.short}
             </span>
-            <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <span className="text-[10.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
               {a.name}
             </span>
           </span>
         ))}
-        <span className="ml-auto flex items-center gap-3 text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <span className="ml-auto flex items-center gap-3 text-[10.5px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
           {pipelineView && (
             <span title="设定流水线进度">
               流水线 <span style={{ color: 'hsl(var(--foreground))' }}>

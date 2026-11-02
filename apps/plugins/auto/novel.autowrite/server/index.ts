@@ -2,7 +2,9 @@
 // 自动写作引擎插件 —— Server 面
 //
 // 写作技能框架（docs/architecture/ai-writing-architecture.md）：
-//   1. 注册 8 个聊天型技能（自核心 skills.ts 剥离，内容归插件所有）
+//   1. 注册聊天型技能（8 个自核心 skills.ts 剥离 + 5 个方法论技能 + 8 个自 ai-fiction-writer
+//      提取 —— 共 21 个；正文归插件所有）
+//   1b. 声明插件自有的 4 个智能体（宿主静态清单里没有它们，不声明技能就是孤儿）
 //   2. 状态/流水线路由（现役：/session 单章闭环 + /pipeline 多智能体流水线）
 //   3. 状态全部存插件 KV（项目隔离），零迁移依赖
 //
@@ -16,6 +18,7 @@
 
 import type { ServerPluginContext } from '@novel/core';
 import { CHAT_SKILLS } from './skills/index.js';
+import { declarePluginSkillTargets } from './framework/skill-targets.js';
 import { createAutowriteRouter } from './routes.js';
 import { isDecisionEnabled, resolveJevConfig, resolveChatDecisionModel } from './framework/gate-decision.js';
 
@@ -27,6 +30,11 @@ export function apply(ctx: ServerPluginContext): void {
   for (const def of CHAT_SKILLS) {
     ctx.effect(() => ctx.ai.skills.register(def), `autowrite: skill ${def.id}`);
   }
+
+  // ── 1b. 声明插件自有智能体（宿主静态清单里没有的那 4 个）──
+  //   不做这一步，归属于它们的技能会被判为 orphan、在「智能体 Skills」里永远看不见。
+  //   见 framework/skill-targets.ts 的说明。
+  declarePluginSkillTargets(ctx);
 
   // ── 2. 状态路由（/session 单章闭环 + /pipeline 多智能体流水线）──
   ctx.effect(

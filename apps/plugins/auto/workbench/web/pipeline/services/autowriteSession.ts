@@ -32,6 +32,12 @@ export interface SessionTurn {
 export type SessionEvent =
   | { type: 'phase'; label: string }
   /**
+   * ★ 2026-10-25：作者插话**已生效**（被某个角色的发言消费）。
+   * 前端据此把"我插的那句话"从「已排队」改成「已生效」——
+   * 让作者的话和角色发言落在同一条时间线上（AgentTeams「同一时间线」的实质）。
+   */
+  | { type: 'interjection'; texts: string[] }
+  /**
    * 思维链增量：实时逐片到达，同一次发言可能几十到上千条。
    * **非推理模型 / 中转站剥了该字段时一条都不会有**，前端要按「可能没有」处理。
    */
@@ -49,7 +55,7 @@ export type SessionEvent =
    *   polish —— 软门评分（0–10，7 为通过线），从不阻塞交付。
    */
   | {
-      type: 'gate'; name: 'check' | 'polish'; passed: boolean; detail: string; score?: number;
+      type: 'gate'; name: 'check' | 'polish' | 'finalize'; passed: boolean; detail: string; score?: number;
       /** ★ true = 这一步**根本没执行**（模型调用/解析失败），与"通过"必须区分显示 */
       skipped?: boolean;
     }
