@@ -922,9 +922,15 @@ export interface ToolStreamChunk {
     name: string;
     success: boolean;
     result: string;
+    /**
+     * 实体副作用（与 `ToolHandlerResult.entity` 同形）。
+     * ★ 必须与 registry 那边保持**逐字一致** —— 包括 `'chapter'` 与 `'propose'`：
+     *   章节正文只能以「提案」形式返回（AI 不直接写正文），少了这两个字面量
+     *   提案就到不了前端确认框。
+     */
     entity?: {
-      type: 'character' | 'foreshadow' | 'location' | 'item' | 'outline';
-      action: 'create' | 'update';
+      type: 'character' | 'foreshadow' | 'location' | 'item' | 'outline' | 'chapter';
+      action: 'create' | 'update' | 'propose';
       id?: string;
       name?: string;
       payload?: Record<string, unknown>;

@@ -27,9 +27,10 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RotateCcw, Sparkles, Trash2 } from 'lucide-react';
+import { RotateCcw, Sparkles, Trash2, Wrench } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { PromptBar, StreamingText } from '@novel-plugins/ui-kit';
+import { PromptBar, StreamingText, dispatchToastEvent } from '@novel-plugins/ui-kit';
+import { ToolChip } from '@novel-plugins/ui-kit/primitives';
 import { useChapterStore, useProjectStore } from '@novel-plugins/data-core/stores';
 import {
   getCurrentProjectId,
@@ -37,6 +38,11 @@ import {
   resolveApiUrl,
 } from '@novel-plugins/data-core/api/apiClient';
 import { readSseStream } from './sse';
+import {
+  ChapterProposalDialog,
+  readChapterProposal,
+  type ChapterProposal,
+} from './ChapterProposalDialog';
 
 /** SSE `agent` 帧（服务端最小增量下发；缺省时用 DEFAULT_AGENT 兜底） */
 export interface ChatAgentMeta {
@@ -47,18 +53,49 @@ export interface ChatAgentMeta {
   mode?: string;
 }
 
+/** 一次工具调用（`{tool_call}` + 配对的 `{tool_result}`） */
+export interface ToolEvent {
+  id: string;
+  name: string;
+  status: 'calling' | 'success' | 'error';
+  result?: string;
+  entity?: { type: string; action: string; name?: string };
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   /** 思考过程（服务端 `{thinking}` 帧；与正文分开展示，不混进消息体） */
   thinking: string;
-  /** 本轮调用过的工具名（服务端 `{tool_call}` 帧） */
-  tools: string[];
+  /** 本轮调用过的工具（服务端 `{tool_call}` / `{tool_result}` 帧） */
+  tools: ToolEvent[];
   agent: ChatAgentMeta;
   status: 'streaming' | 'done' | 'error';
   error?: string;
 }
+
+/**
+ * 工具名 → 中文动词。
+ *
+ * ★ 只映射**已经接进来的**工具（读资料 + 章节提案）。未命中时 ToolChip 会退回
+ *   显示原始工具名 —— 宁可显示 `create_faction` 这种生名，也不要编一个中文名。
+ */
+const TOOL_LABELS: Record<string, string> = {
+  list_project_assets: '盘点项目资料',
+  list_chapters: '查看章节列表',
+  read_chapter: '读取章节正文',
+  list_characters: '查看角色设定',
+  list_locations: '查看地点设定',
+  list_items: '查看物品设定',
+  list_foreshadows: '查看伏笔',
+  list_events: '查看剧情事件',
+  list_outline: '查看大纲',
+  list_reference_books: '查看参考书',
+  read_reference_book: '读取参考书',
+  list_notes: '查看笔记',
+  propose_chapter_edit: '提交正文修改提案',
+};
 
 /**
  * 兜底身份：真源是 `apps/server/src/ai/agents/skill-targets.ts` 的 `chat`
@@ -85,17 +122,50 @@ function readAgent(value: unknown): ChatAgentMeta | null {
   };
 }
 
-/** `{tool_call}` 只取名字：形状由 provider 决定（provider-factory.ts:86 的 delta），不下钻参数 */
-function readToolName(value: unknown): string | null {
+/**
+ * `{tool_call}` → `{id, name}`。
+ *
+ * 形状由 provider 决定（`provider-factory.ts` 的 delta，可能是
+ * `{id,name,arguments}` 或 `{function:{name}}`），所以两种都认。
+ * **不解析 arguments** —— 前端只用它显示「正在调用 X」，参数由服务端执行时解析。
+ */
+function readToolCall(value: unknown): { id: string; name: string } | null {
   if (!value || typeof value !== 'object') return null;
   const o = value as Record<string, unknown>;
-  if (typeof o.name === 'string' && o.name) return o.name;
-  const fn = o.function;
-  if (fn && typeof fn === 'object') {
-    const name = (fn as Record<string, unknown>).name;
-    if (typeof name === 'string' && name) return name;
+  let name = '';
+  if (typeof o.name === 'string' && o.name) name = o.name;
+  else {
+    const fn = o.function;
+    if (fn && typeof fn === 'object') {
+      const n = (fn as Record<string, unknown>).name;
+      if (typeof n === 'string' && n) name = n;
+    }
   }
-  return null;
+  if (!name) return null;
+  const id = typeof o.id === 'string' && o.id ? o.id : `tc-${name}-${Math.random().toString(36).slice(2, 8)}`;
+  return { id, name };
+}
+
+/** `{tool_result}` → 执行结果（含可选的 entity，提案就藏在 entity 里） */
+function readToolResult(value: unknown): {
+  id: string;
+  name: string;
+  success: boolean;
+  result: string;
+  entity?: unknown;
+} | null {
+  if (!value || typeof value !== 'object') return null;
+  const o = value as Record<string, unknown>;
+  const name = typeof o.name === 'string' ? o.name : '';
+  const id = typeof o.id === 'string' ? o.id : '';
+  if (!name && !id) return null;
+  return {
+    id,
+    name,
+    success: o.success === true,
+    result: typeof o.result === 'string' ? o.result : '',
+    entity: o.entity,
+  };
 }
 
 export function AiChatPanel() {
@@ -106,9 +176,22 @@ export function AiChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  /**
+   * 工具调用开关。
+   *
+   * ★ 默认**开**：手写台的 AI 对话此前完全没有工具能力，等于「看不见自己的书」——
+   *   问「这个角色之前怎么出场的」它只能靠对话里提过的内容硬答。
+   *   开了之后能查章节/角色/参考书/笔记，这是这个面板能不能用的分水岭。
+   * ★ 工具集是**只读 + 提案**（服务端白名单 READ_TOOL_NAMES + propose_chapter_edit），
+   *   不含任何直接写库的工具，所以默认开是安全的。
+   */
+  const [enableTools, setEnableTools] = useState(true);
+  /** 待确认的正文修改提案（非 null 时弹确认框） */
+  const [proposal, setProposal] = useState<ChapterProposal | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const enableToolsRef = useRef(enableTools);
 
   const currentChapter = useMemo(
     () => chapters.find((c) => c.id === currentChapterId) ?? null,
@@ -123,6 +206,9 @@ export function AiChatPanel() {
     }
     return DEFAULT_AGENT;
   }, [messages]);
+
+  // 工具开关同步进 ref：`sendText` 的 deps 里不放它，避免每次切换都重建回调
+  useEffect(() => { enableToolsRef.current = enableTools; }, [enableTools]);
 
   // 流式追加 → 自动到底（内容每帧都在变，故依赖 messages 整体）
   useEffect(() => {
@@ -150,13 +236,43 @@ export function AiChatPanel() {
       const thinking = typeof data.thinking === 'string' ? data.thinking : '';
       const chunk = typeof data.chunk === 'string' ? data.chunk : '';
       const agent = readAgent(data.agent);
-      const toolName = readToolName(data.tool_call);
+      const call = readToolCall(data.tool_call);
+      const result = readToolResult(data.tool_result);
 
       if (thinking) patchLast((m) => ({ ...m, thinking: m.thinking + thinking }));
       if (chunk) patchLast((m) => ({ ...m, content: m.content + chunk }));
-      if (toolName) {
-        patchLast((m) => (m.tools.includes(toolName) ? m : { ...m, tools: [...m.tools, toolName] }));
+
+      // 工具调用：先以 calling 入列，等 tool_result 到了再改状态
+      if (call) {
+        patchLast((m) => (
+          m.tools.some((t) => t.id === call.id)
+            ? m
+            : { ...m, tools: [...m.tools, { id: call.id, name: call.name, status: 'calling' }] }
+        ));
       }
+      if (result) {
+        // ★ 显式标注返回类型 `ToolEvent`：`status` 是字面量联合，
+        //   不标注时 TS 会把三元推成 `"error" | "success"` 宽类型而报错。
+        patchLast((m) => ({
+          ...m,
+          tools: m.tools.map((t): ToolEvent => (
+            t.id === result.id || t.name === result.name
+              ? {
+                ...t,
+                status: result.success ? 'success' : 'error',
+                result: result.result,
+                entity: result.entity as ToolEvent['entity'],
+              }
+              : t
+          )),
+        }));
+        // ★ 章节提案：**只弹确认框，不写库**。
+        //   服务端 propose_chapter_edit 的 handler 里没有任何 updateChapter 调用，
+        //   真正落库发生在这个对话框里作者点「确认」之后。
+        const p = readChapterProposal(result);
+        if (p) setProposal(p);
+      }
+
       if (agent) patchLast((m) => ({ ...m, agent }));
       if (data.error === true || typeof data.error === 'string') {
         const detail =
@@ -224,6 +340,10 @@ export function AiChatPanel() {
             ...(project?.name ? { projectName: project.name } : {}),
             ...(currentChapter?.title ? { currentChapter: currentChapter.title } : {}),
             ...(projectId ? { projectId } : {}),
+            // ★ 工具调用：服务端要 `enableTools && projectId` 两个条件同时成立才走
+            //   Branch B（runChatAgentWithTools）。只给 enableTools 不给 projectId
+            //   会静默降级成普通对话 —— 表现为「AI 说它查不到资料」。
+            ...(enableToolsRef.current && projectId ? { enableTools: true } : {}),
           }),
         });
 
@@ -316,6 +436,26 @@ export function AiChatPanel() {
           AI 对话
         </span>
         <span className="flex items-center gap-1.5">
+          {/* 工具开关：关掉后 AI 只能凭对话历史作答（看不见书里的章节/设定） */}
+          <button
+            type="button"
+            onClick={() => setEnableTools((v) => !v)}
+            title={
+              enableTools
+                ? '工具已开：AI 可查章节、角色、参考书、笔记，并能提交正文修改提案（需你确认）'
+                : '工具已关：AI 只能凭对话内容作答，看不到书里的资料'
+            }
+            aria-label={enableTools ? '关闭工具调用' : '开启工具调用'}
+            aria-pressed={enableTools}
+            className="flex items-center gap-1 rounded-chip px-1 py-0.5 text-[10px] transition-colors"
+            style={{
+              color: enableTools ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+              background: enableTools ? 'hsl(var(--primary) / 0.1)' : 'transparent',
+            }}
+          >
+            <Wrench size={11} aria-hidden="true" />
+            {enableTools ? '工具' : '工具关'}
+          </button>
           <span
             className="text-[10px] text-tone-3"
             title={`当前智能体：${activeAgent.name}（${activeAgent.id}）`}
@@ -388,6 +528,19 @@ export function AiChatPanel() {
           }
         />
       </div>
+
+      {/* 正文修改提案确认框：AI 只能提议，写入必须作者点确认 */}
+      <ChapterProposalDialog
+        proposal={proposal}
+        baseContent={proposal ? (chapters.find((c) => c.id === proposal.chapterId)?.content ?? '') : ''}
+        onClose={() => setProposal(null)}
+        onApplied={(r) => {
+          dispatchToastEvent({
+            type: 'success',
+            message: `已写入「${r.title}」（${r.wordCount} 字）`,
+          });
+        }}
+      />
     </div>
   );
 }
@@ -457,16 +610,11 @@ function AssistantBlock({
         </StreamingText>
       ) : null}
 
+      {/* 工具调用：一行一条，成功/失败/进行中有颜色区分；失败自动展开详情 */}
       {message.tools.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-0.5">
+        <div className="space-y-0.5 pt-0.5">
           {message.tools.map((t) => (
-            <span
-              key={t}
-              className="mc-num rounded-chip border px-1.5 py-0.5 text-[10px] text-tone-3"
-              style={{ borderColor: 'hsl(var(--paper-line))' }}
-            >
-              {t}
-            </span>
+            <ToolChip key={t.id} event={t} label={TOOL_LABELS[t.name] ?? t.name} />
           ))}
         </div>
       )}

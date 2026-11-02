@@ -36,7 +36,10 @@ import {
 } from '../ai/index.js';
 import { runChatAgentWithTools } from '../ai/agents/chat-agent.js';
 import { runNovelAgentStream } from '../ai/agents/sdk/agent.js';
-import { ensureToolsRegistered, ENTITY_TOOL_NAMES, PLUGIN_TOOL_NAMES, getToolDefinitions, getPluginToolNames } from '../ai/tools/index.js';
+import {
+  ensureToolsRegistered, ENTITY_TOOL_NAMES, PLUGIN_TOOL_NAMES, READ_TOOL_NAMES,
+  PROPOSE_CHAPTER_TOOL_NAME, getToolDefinitions, getPluginToolNames,
+} from '../ai/tools/index.js';
 import { requireAuth, type AuthVariables } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rate-limiter.js';
 import { safeInternal } from '../lib/safe-error.js';
@@ -966,9 +969,21 @@ aiRouter.post('/chat-stream', requireAuth, ensureConfigMiddleware, aiRateLimit, 
             //   AI 可主动调用 create_character / update_foreshadow 等工具读写实体模块
             // 确保工具已注册（幂等）
             ensureToolsRegistered();
-            // 获取实体写入工具 + 插件创建工具定义
+            // 工具集合 = 只读资料工具 + 实体写入工具 + 章节提案工具 + 插件工具
+            //
+            // ★ 只读工具（READ_TOOL_NAMES）是无条件给的：AI 能查章节/角色/参考书/
+            //   笔记，才能答得出「这本书里谁是谁」这类问题。
+            // ★ 章节提案（propose_chapter_edit）也是无条件给的：它**不写库**，
+            //   只是让 AI 把改法交到作者面前确认。真写入在前端点确认后走
+            //   `PUT /api/chapters/:id` —— 服务端这一侧没有任何正文写入路径。
             // ★ 权限过滤：create_plugin 等同服务端代码执行，仅对管理员暴露给 LLM
-            const toolDefs = getToolDefinitions([...ENTITY_TOOL_NAMES, ...getPluginToolNames(), ...(user?.isAdmin ? PLUGIN_TOOL_NAMES : [])]);
+            const toolDefs = getToolDefinitions([
+              ...READ_TOOL_NAMES,
+              ...ENTITY_TOOL_NAMES,
+              PROPOSE_CHAPTER_TOOL_NAME,
+              ...getPluginToolNames(),
+              ...(user?.isAdmin ? PLUGIN_TOOL_NAMES : []),
+            ]);
             console.log('[chat-stream] 工具模式诊断: toolDefs=' + toolDefs.length, '插件工具=' + toolDefs.map((d) => d.function.name).filter((n) => n.startsWith('autowrite')).join(','));
 
             const gen = runChatAgentWithTools(chatStream, {

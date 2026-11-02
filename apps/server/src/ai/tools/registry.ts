@@ -39,10 +39,16 @@ export interface ToolHandlerResult {
   success: boolean;
   /** 返回给 LLM 的结果文本（JSON 字符串或纯文本） */
   result: string;
-  /** 可选：创建/更新的实体信息，用于前端展示 */
+  /**
+   * 可选：创建/更新的实体信息，用于前端展示。
+   *
+   * ★ `action: 'propose'` 是「**提案**」而非「已写入」：工具**没有改任何数据**，
+   *   只是把「AI 想怎么改」交给前端，由作者点确认后才真正落库。
+   *   章节正文（`type: 'chapter'`）**只能**走这条路 —— AI 不能直接改正文。
+   */
   entity?: {
-    type: 'character' | 'foreshadow' | 'location' | 'item' | 'outline';
-    action: 'create' | 'update';
+    type: 'character' | 'foreshadow' | 'location' | 'item' | 'outline' | 'chapter';
+    action: 'create' | 'update' | 'propose';
     id?: string;
     name?: string;
     /** 大纲工具专用：携带结构化载荷供前端写入 localStorage store */
