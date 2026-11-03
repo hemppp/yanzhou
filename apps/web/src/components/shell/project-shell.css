@@ -581,6 +581,15 @@ button.shell-statusbar-item:active {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  /* ★ 2026-11-03 修「关闭按钮落在标签中间」的**真正着力点**。
+     结构是 `.shell-doctab > [button.shell-doctab-main > span.shell-doctab-label][button.shell-doctab-close]`
+     —— 标签文字包在 main 按钮里，**main 才是 .shell-doctab 的 flex 项**。
+     它原来是 `flex: 0 1 auto`（只收缩、不增长）⇒ 短标题时 main 只有文字宽（34.5px），
+     容器 110px 的剩余空间全落在 close 右边，close 就停在标签中部
+     （实测：close 距右边缘 37.5px、与中心仅差 8.5px）。
+     给 main `flex: 1 1 auto` 后由它吃掉剩余空间，close 被顶到右边缘。
+     只改 label 的 flex **无效** —— 它增长的是 main 内部的 34.5px（第一版就这么错过）。 */
+  flex: 1 1 auto;
   min-width: 0;
   height: 100%;
   padding: 0;
@@ -593,9 +602,14 @@ button.shell-statusbar-item:active {
 
 .shell-doctab-label {
   display: block;
+  /* 撑满 main（main 已设 flex: 1 1 auto，见上）；min-width: 0 让长标题能省略号收缩 */
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* 显式左对齐：label 原先**继承**了祖先的 center，盒子只有文字宽时看不出来，
+     一旦被撑开就会把文字推到中间 —— 标签文字应贴左内边距。 */
+  text-align: left;
 }
 
 /* ★ 2026-10-26 分屏栏位角标：标签条一次列出所有栏的标签，
