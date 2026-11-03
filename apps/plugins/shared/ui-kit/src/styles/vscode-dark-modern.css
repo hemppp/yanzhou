@@ -96,6 +96,16 @@ html.dark {
   --vscode-statusBarItem-activeBackground: hsl(var(--yz-hover-2));
   --vscode-statusBarItem-prominentBackground: hsl(var(--yz-azurite));
   --vscode-statusBarItem-remoteBackground: hsl(var(--yz-malachite));
+  /* ★ 2026-11-03 补：这两个前景位此前**缺失**，消费点只能继承 statusBar-foreground
+     （= --yz-ink-2，深色）⇒ 暗字压在深色块上：
+       亮档 石绿 #396f56 上 1.23:1、暗档 1.06:1，远低于 AA。
+     Background 与 Foreground 是**一对**，只映射一半必然出事 —— 这与
+     button-background/button-foreground、activityBarBadge-* 的处理一致。
+     用 --yz-on-*（跟着色块明度走）而非 --yz-ink（跟着纸面走）：
+     亮档石青/石绿是深色 ⇒ 白字（5.86–6.37:1）；
+     暗档它们是浅色 ⇒ 夜底深字（7.38–7.68:1）。 */
+  --vscode-statusBarItem-prominentForeground: hsl(var(--yz-on-azurite));
+  --vscode-statusBarItem-remoteForeground: hsl(var(--yz-on-malachite));
 
   /* ==========================================================
    * 5.3.6 标题栏（标题栏）

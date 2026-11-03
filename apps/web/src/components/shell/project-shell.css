@@ -228,12 +228,14 @@ button.shell-statusbar-item:active {
 
 .shell-statusbar-item.is-prominent {
   background-color: var(--vscode-statusBarItem-prominentBackground);
-  color: var(--vscode-statusBar-foreground);
+  /* ★ 2026-11-03：改用**配对的前景**。原为 statusBar-foreground（--yz-ink-2，深色），
+     压在石青/石绿这种深色块上只有 1.1–1.2:1，文字实际不可读（截图实测）。 */
+  color: var(--vscode-statusBarItem-prominentForeground);
 }
 
 .shell-statusbar-item.is-remote {
   background-color: var(--vscode-statusBarItem-remoteBackground);
-  color: var(--vscode-statusBar-foreground);
+  color: var(--vscode-statusBarItem-remoteForeground);
 }
 
 /* ---------- 面板菜单（功能转轮的替代入口，ADR §0.3） ---------- */
