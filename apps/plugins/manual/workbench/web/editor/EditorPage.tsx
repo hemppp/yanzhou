@@ -15,6 +15,10 @@ import { PluginEditorToolbar } from './PluginEditorToolbar';
 import { EditorPanelRail } from './EditorPanelRail';
 import { useEditorInstance } from './hooks/useEditorInstance';
 import { useAnnotationBlockBridge } from './hooks/useAnnotationBlockBridge';
+import {
+  CHAPTER_EXTERNAL_CONTENT_EVENT,
+  type ChapterExternalContentDetail,
+} from './externalContent';
 import { buildChapterMetaSegments } from './chapterMeta';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAutoEntityDetection } from '../hooks/useAutoEntityDetection';
@@ -521,6 +525,23 @@ export function EditorPage() {
   // ★ 把「本章未解决批注块数量」发布给外壳（底部细条 N 条问题）。
   //   刻意声明在章节切换 effect **之后**：切章时 setContent(injectContent, false) 不触发
   //   editor 'update'，本 effect 排在切换之后才能读到新章内容（hook 内另有下一 macrotask 补发兜底）。
+  // ★ 外部正文写入（AI 提案确认 / 流式流入）：上面那个章节 effect 只在**切章**时
+  //   setContent，外部写 store 不会自动刷新编辑器 —— 这里订阅显式事件补上这条通路。
+  //   只认**本章**（章号不匹配直接忽略），且 `setContent(..., false)` 不 emitUpdate，
+  //   避免与「编辑器 → store」的防抖写入形成回环。见 `./externalContent.ts`。
+  useEffect(() => {
+    if (!editor) return;
+    const onExternal = (event: Event) => {
+      const detail = (event as CustomEvent<ChapterExternalContentDetail>).detail;
+      if (!detail || detail.chapterId !== currentChapterId) return;
+      const next = ensureHtmlContent(detail.content);
+      if (editor.getHTML() === next) return;
+      editor.commands.setContent(next, false);
+    };
+    window.addEventListener(CHAPTER_EXTERNAL_CONTENT_EVENT, onExternal);
+    return () => window.removeEventListener(CHAPTER_EXTERNAL_CONTENT_EVENT, onExternal);
+  }, [currentChapterId, editor]);
+
   useAnnotationBlockBridge(editor, currentChapterId);
 
   // ★ 章节元信息行（标题下方）：四段全部由真实数据推导，任一段缺失即整段不渲染。
