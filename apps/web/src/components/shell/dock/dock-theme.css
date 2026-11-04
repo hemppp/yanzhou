@@ -44,9 +44,14 @@
 
   /* 分隔 / 边框（能力 7：Splitter 与组间分隔） */
   --dv-separator-border: var(--vscode-divider);
-  --dv-border-radius: 0px;            /* VS Code 直角 */
-  --dv-tab-border-radius: 0px;        /* VS Code 标签直角 */
-  --dv-sash-border-radius: 0px;
+  /* ★ 2026-11-03 圆润化：面板组 / 标签 / 分隔条 / 下拉的圆角从「VS Code 直角」
+     改为走 `--r-*` 令牌。视觉语言已从「VS Code 现代中性」转向「绢本设色」，
+     直角属于前者 —— 见 docs/design/yanzhou-visual-identity.md。
+     ⚠️ 下方拖拽落区指示器（`.dv-drop-target*`）**仍保持直角**：那是拖拽过程中的
+     瞬时反馈，直角更容易判断"落在哪一格边界内"，与静态界面的圆润无关。 */
+  --dv-border-radius: var(--r-md);        /* 面板组 */
+  --dv-tab-border-radius: var(--r-2xs);   /* 标签 */
+  --dv-sash-border-radius: var(--r-pill);
 
   /* Splitter（sash）—— 8.4.0 语义实测（styles/dockview.css L1447/L1450）：
      · 空闲态  background-color: var(--dv-sash-color, transparent)          → 中性底
@@ -80,7 +85,7 @@
   /* 上下文菜单 / 下拉（VS Code 菜单色） */
   --dv-context-menu-background-color: var(--vscode-menu-background);
   --dv-context-menu-color: var(--vscode-menu-foreground);
-  --dv-dropdown-border-radius: 0px;
+  --dv-dropdown-border-radius: var(--r-sm);
 
   /* 滚动条 */
   --dv-scrollbar-background-color: var(--vscode-scrollbarSlider-background);
@@ -285,7 +290,7 @@
   pointer-events: none;
   background-color: var(--vscode-panel-dropBackground);
   border: 2px solid var(--vscode-focusBorder);
-  border-radius: 2px;
+  border-radius: var(--r-3xs);
   /* 与 dockview 原生 drag-over 的过渡节奏对齐 */
   transition: left 90ms ease-out, right 90ms ease-out, width 90ms ease-out;
 }
@@ -382,7 +387,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   color: inherit;
   cursor: pointer;
   padding: 0;
@@ -400,7 +405,7 @@
   top: 4px;
   bottom: 4px;
   width: 2px;
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 var(--r-3xs) var(--r-3xs) 0;
   background-color: transparent;
   transition: background-color 90ms ease-out;
 }
@@ -460,7 +465,7 @@
   transform: translateY(-50%);
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--vscode-widget-border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background-color: var(--vscode-menu-background);
   color: var(--vscode-menu-foreground);
   box-shadow: 0 4px 16px var(--vscode-widget-shadow);
@@ -653,7 +658,7 @@
   height: 22px;
   padding: 0 var(--space-2);
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: transparent;
   color: var(--vscode-descriptionForeground);
   font: inherit;
@@ -681,7 +686,7 @@
 
 .dock-bottom-entry-count {
   padding: 0 var(--space-1);
-  border-radius: 8px;
+  border-radius: var(--r-pill);
   font-size: 9.5px;
   line-height: 15px;
   background: var(--vscode-badge-background);
@@ -710,7 +715,7 @@
   height: 22px;
   padding: 0 var(--space-3);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: var(--vscode-button-secondaryBackground, transparent);
   color: var(--vscode-button-secondaryForeground, inherit);
   font: inherit;
@@ -739,7 +744,7 @@
   height: 22px;
   padding: 0 var(--space-3);
   border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   font: inherit;
@@ -766,7 +771,7 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 11px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 
@@ -848,7 +853,7 @@
   color: inherit;
   cursor: pointer;
   opacity: 0;
-  border-radius: 0;
+  border-radius: var(--r-3xs);
   font-size: 13px;
   line-height: 1;
 }
@@ -915,7 +920,7 @@
   padding: var(--space-1) var(--space-4);
   font-size: 11px;
   cursor: pointer;
-  border-radius: 0;
+  border-radius: var(--r-sm);
   border: 1px solid var(--vscode-button-border);
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
@@ -946,7 +951,7 @@
   background-color: var(--vscode-editorWidget-background);
   color: var(--vscode-editorWidget-foreground);
   border: 1px solid var(--vscode-editorWidget-border);
-  border-radius: 0;
+  border-radius: var(--r-xs);
   font-size: 11px;
   padding: var(--space-2) var(--space-4);
 }

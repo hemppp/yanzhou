@@ -264,10 +264,11 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
         // 墨韵工艺层：四级圆角档位（与上面的苹果大圆角并存，迁移可分批）
-        chip: 'var(--radius-chip)',           // 6px  标签 / 徽章 / 极小控件
-        control: 'var(--radius-control)',     // 8px  按钮 / 输入 / 图标按钮
-        card: 'var(--radius-card)',           // 10px 卡片 / 面板
-        window: 'var(--radius-window)',       // 14px 窗口 / 大容器 / 输入区
+        // 2026-11-03 圆润化：值与注释同步上调一档（8 / 12 / 14 / 18）
+        chip: 'var(--radius-chip)',           // 8px  标签 / 徽章 / 极小控件
+        control: 'var(--radius-control)',     // 12px 按钮 / 输入 / 图标按钮
+        card: 'var(--radius-card)',           // 14px 卡片 / 面板
+        window: 'var(--radius-window)',       // 18px 窗口 / 大容器 / 输入区
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei UI', 'Microsoft YaHei', 'system-ui', 'sans-serif'],

@@ -199,7 +199,8 @@ html {
 .landing-preview-rail-item {
   width: 26px;
   height: 16px;
-  border-radius: 3px;
+  /* 2026-11-03 圆润化：跟着令牌走（原写死 3px） */
+  border-radius: var(--r-3xs);
   background: hsl(var(--border));
 }
 
