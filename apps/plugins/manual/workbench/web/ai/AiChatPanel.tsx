@@ -37,6 +37,11 @@ import {
   getToken,
   resolveApiUrl,
 } from '@novel-plugins/data-core/api/apiClient';
+import {
+  REWRITE_EVENT,
+  takePendingRewrite,
+  type RewriteRequest,
+} from '@/components/shell/rewriteRequest';
 import { readSseStream } from './sse';
 import {
   ChapterProposalDialog,
@@ -398,6 +403,55 @@ export function AiChatPanel() {
     },
     [applyEvent, currentChapter, messages, patchLast, project, streaming],
   );
+
+  /**
+   * ★ 顶栏「重写」→ 本面板：**真正发出一次请求**（不只是回填输入框）。
+   *
+   * 两处时序问题都在这里处理：
+   *   1. 本面板是 `React.lazy` —— 首次打开前模块都没加载，监听器不存在。
+   *      kernel 侧把请求写进待处理缓冲，下面 effect 在**挂载时补消费**一次。
+   *   2. 提示词必须**带上具体章节**：顶栏给的原文是「重写当前章节」，
+   *      对模型而言"当前"没有指向；这里从 store 补出「第 N 章「标题」」，
+   *      并要求它先读该章再给提案（避免凭空编造原文）。
+   */
+  const sendTextRef = useRef(sendText);
+  useEffect(() => {
+    sendTextRef.current = sendText;
+  }, [sendText]);
+
+  const handleRewrite = useCallback(
+    (req: RewriteRequest) => {
+      if (streaming) {
+        dispatchToastEvent({ type: 'info', message: 'AI 正在回复，等这条结束后再试「重写」' });
+        return;
+      }
+      const target = req.chapterId ? chapters.find((c) => c.id === req.chapterId) : undefined;
+      const label = target
+        ? `第 ${target.order} 章「${target.title}」`
+        : req.chapterTitle
+          ? `「${req.chapterTitle}」`
+          : '当前章节';
+      void sendTextRef.current(
+        `${req.prompt}：${label}。请先读取这一章的正文，再给出修改提案。`,
+      );
+    },
+    [chapters, streaming],
+  );
+
+  useEffect(() => {
+    // 挂载补偿：面板打开前点过的「重写」请求在这里补上
+    const pending = takePendingRewrite();
+    if (pending) handleRewrite(pending);
+
+    const onRewrite = (event: Event) => {
+      // 事件路径也清空缓冲，否则重新挂载时会重复触发同一条请求
+      takePendingRewrite();
+      const req = (event as CustomEvent<RewriteRequest>).detail;
+      if (req) handleRewrite(req);
+    };
+    window.addEventListener(REWRITE_EVENT, onRewrite);
+    return () => window.removeEventListener(REWRITE_EVENT, onRewrite);
+  }, [handleRewrite]);
 
   const handleSubmit = useCallback(() => {
     void sendText(input);

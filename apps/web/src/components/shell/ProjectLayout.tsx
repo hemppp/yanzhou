@@ -73,6 +73,7 @@ import { DockShell } from '@/components/shell/DockShell';
 import { PanelFallback } from '@/components/shell/PanelFallback';
 import type { DockPanelDef, DockShellApi } from '@/components/shell/dock/types';
 import { PanelMenu } from '@/components/shell/PanelMenu';
+import { requestRewrite } from './rewriteRequest';
 import { usePluginRegistry, useProjectMode, filterByProjectMode, entryAppliesToProjectMode } from '@/plugin/registry';
 import { getPanelNavigation, registerPanelViewOpener, registerPanelViewSync, registerPanelViewBase, usePanelOpenStore } from '@/stores/panelOpenStore';
 // ★ t4（集成接线）新增：manual 模式首屏三栏种子（chapters / ai-chat）。
@@ -343,14 +344,15 @@ export function ProjectLayout() {
    *   3) 两种情况都在状态栏给出可见反馈。
    */
   var handleRewrite = useCallback(function() {
-    window.dispatchEvent(new CustomEvent('nm:rewrite', {
-      detail: {
-        chapterId: currentChapterId,
-        chapterTitle: currentChapter ? currentChapter.title : null,
-        scope: 'chapter',
-        prompt: '重写当前章节',
-      },
-    }));
+    // ★ 走 rewriteRequest 而不是裸 dispatchEvent：AI 对话面板是 React.lazy，
+    //   首次打开前模块还没加载、监听器不存在，纯事件会静默丢失。
+    //   rewriteRequest 会同时写入待处理缓冲，面板挂载后补消费。
+    requestRewrite({
+      chapterId: currentChapterId,
+      chapterTitle: currentChapter ? currentChapter.title : null,
+      scope: 'chapter',
+      prompt: '重写当前章节',
+    });
     var hasChat = allShellPanels.some(function(p) { return p.key === 'ai-chat'; });
     if (hasChat) getPanelNavigation().open('ai-chat');
     setRewriteNotice(hasChat ? '重写请求已发送给 AI 对话' : '重写请求已发出（当前模式无 AI 对话面板）');
