@@ -24,19 +24,25 @@ interface AddBookModalProps {
   onClose: () => void;
   onSubmit: (data: AddBookFormData) => Promise<void>;
   editBook?: Project | null;
+  /**
+   * 新建时的创作模式 —— 由**书库当前所在的库**决定（2026-11-04）。
+   * 向导内不再让用户选模式：在哪个库点「新建」，建出来的就是哪种书。
+   * 编辑既有书时以 `editBook.mode` 为准，本字段不参与。
+   */
+  defaultMode?: ProjectMode;
 }
 
 /** AI 写作向导的第二步：流派选择 */
 type AiStep = 'brief' | 'genre';
 
-export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookModalProps) {
+export function AddBookModal({ isOpen, onClose, onSubmit, editBook, defaultMode }: AddBookModalProps) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
   const [targetWordCount, setTargetWordCount] = useState('');
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  /** 创作模式：新建默认「手写」，AI 写作需显式切换 */
-  const [mode, setMode] = useState<ProjectMode>('manual');
+  /** 创作模式：由调用方（书库当前的库）决定，向导内不再提供切换 */
+  const [mode, setMode] = useState<ProjectMode>(defaultMode ?? 'manual');
 
   // ---- AI 写作向导（mode === 'auto' 时才用；手写分支完全不碰这些状态） ----
   /** 当前步骤：先填设定表单，填完再选流派 */
@@ -123,7 +129,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
       setDescription(editBook.description || '');
       setTargetWordCount(editBook.targetWordCount?.toString() || '');
       setCoverPreview(editBook.coverImage || null);
-      setMode(editBook.mode ?? 'manual');
+      setMode(editBook.mode ?? defaultMode ?? 'manual');
       // 回填开书设定：老项目（向导之前建的）没有 brief，就按空表单处理
       const b = editBook.brief;
       setAiStep('brief');
@@ -141,7 +147,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
       setDescription('');
       setTargetWordCount('');
       setCoverPreview(null);
-      setMode('manual');
+      setMode(defaultMode ?? 'manual');
       setAiStep('brief');
       setOpening('');
       setWorldview('');
@@ -154,7 +160,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
     }
     setError('');
      
-  }, [editBook?.id ?? 'new', isOpen]);
+  }, [editBook?.id ?? 'new', isOpen, defaultMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -387,94 +393,6 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook }: AddBookMod
           className="addbook-form"
         >
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingRight: 'var(--space-1)' }}>
-            {/* 创作方式 —— 创建时的第一步决策：决定这个项目加载哪一套工作台（两套 UI 互斥） */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: 11,
-                fontWeight: 500,
-                color: 'hsl(var(--secondary-foreground))',
-                marginBottom: 'var(--space-2)',
-              }}>
-                创作方式
-              </label>
-              <div
-                role="radiogroup"
-                aria-label="创作方式"
-                style={{
-                  position: 'relative',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  padding: 'var(--space-1)',
-                  borderRadius: 'var(--r-pill)',
-                  background: 'rgb(var(--glass-tint) / 0.45)',
-                  border: '0.5px solid hsl(var(--border) / 0.6)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                }}
-              >
-                {/* 滑动指示块：靠 translateX 在两项之间滑，而不是重新布局 */}
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    top: 'var(--space-1)',
-                    bottom: 'var(--space-1)',
-                    left: 'var(--space-1)',
-                    width: 'calc(50% - var(--space-1))',
-                    borderRadius: 'var(--r-pill)',
-                    background: 'linear-gradient(160deg, hsl(var(--primary)), hsl(var(--primary) / 0.78))',
-                    boxShadow: '0 2px 10px hsl(var(--primary) / 0.32), inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
-                    transform: mode === 'auto' ? 'translateX(100%)' : 'translateX(0)',
-                    transition: 'transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)',
-                  }}
-                />
-                {([
-                  { key: 'manual' as ProjectMode, label: '手写' },
-                  { key: 'auto' as ProjectMode, label: 'AI 写作' },
-                ]).map((opt) => {
-                  const active = mode === opt.key;
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => {
-                        if (mode === opt.key) return;
-                        setMode(opt.key);
-                        setError('');
-                      }}
-                      style={{
-                        position: 'relative',
-                        zIndex: 1,
-                        padding: 'var(--space-3) 0',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: active ? '#fff' : 'hsl(var(--muted-foreground))',
-                        transition: 'color 0.2s',
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p style={{
-                fontSize: 10,
-                lineHeight: 1.55,
-                color: 'hsl(var(--muted-foreground))',
-                margin: 'var(--space-2) var(--space-0) 0 var(--space-0)',
-              }}>
-                {mode === 'manual'
-                  ? '自己执笔，AI 打辅助 —— 罗盘气泡 + 角色 / 地图 / 时间线等浮窗面板'
-                  : 'AI 主笔、你审稿 —— 智能体交流流 + 流式写文，手写面板不加载'}
-              </p>
-            </div>
-
             {/* ==================== 手写：保持原有卡片表单完全不变 ==================== */}
             {mode === 'manual' && (
               <>

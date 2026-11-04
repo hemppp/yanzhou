@@ -22,16 +22,20 @@ vi.mock('@/utils/gsap', () => ({
   modalExit: () => ({ kill: () => {}, then: (cb: () => void) => cb() }),
 }));
 
-function setup(editBook: Parameters<typeof AddBookModal>[0]['editBook'] = null) {
+/**
+ * 2026-11-04：模式不再是向导内的切换按钮，改由调用方传入 `defaultMode`
+ * —— 书库在哪个库点「新建」，就建哪种书。
+ */
+function setup(
+  editBook: Parameters<typeof AddBookModal>[0]['editBook'] = null,
+  defaultMode?: 'manual' | 'auto',
+) {
   const onSubmit = vi.fn().mockResolvedValue(undefined);
   const onClose = vi.fn();
-  render(<AddBookModal isOpen onClose={onClose} onSubmit={onSubmit} editBook={editBook} />);
+  render(
+    <AddBookModal isOpen onClose={onClose} onSubmit={onSubmit} editBook={editBook} defaultMode={defaultMode} />,
+  );
   return { onSubmit, onClose };
-}
-
-/** 切到 AI 写作 */
-function switchToAi() {
-  fireEvent.click(screen.getByRole('radio', { name: 'AI 写作' }));
 }
 
 /** 把第一步设定表单填满（多女主关时只有一位女主） */
@@ -62,8 +66,7 @@ describe('AddBookModal · 创作方式与 AI 写作向导', () => {
   });
 
   it('切到 AI 写作：出现开书设定表单（书名 / 开局 / 世界观 / 笔风基调 / 主角姓名 / 女主姓名）与多女主开关', () => {
-    setup();
-    switchToAi();
+    setup(null, "auto");
     expect(screen.getByText('开书设定')).toBeInTheDocument();
     expect(screen.getByText('流派选择')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('输入书名')).toBeInTheDocument();
@@ -76,8 +79,7 @@ describe('AddBookModal · 创作方式与 AI 写作向导', () => {
   });
 
   it('多女主开关：展开可增删的姓名列表，且至少保留一位', () => {
-    setup();
-    switchToAi();
+    setup(null, "auto");
     const sw = screen.getByRole('switch', { name: '是否多女主' });
     fireEvent.click(sw);
     expect(sw).toHaveAttribute('aria-checked', 'true');
@@ -94,16 +96,14 @@ describe('AddBookModal · 创作方式与 AI 写作向导', () => {
   });
 
   it('第一步必填校验：缺书名时点「下一步」不前进并给出提示', () => {
-    setup();
-    switchToAi();
+    setup(null, "auto");
     fireEvent.click(screen.getByRole('button', { name: /下一步/ }));
     expect(screen.getByText('请输入书名')).toBeInTheDocument();
     expect(screen.queryByText('末日求生')).toBeNull(); // 还在第一步
   });
 
   it('第二步流派清单：两大分类齐备，可切换并选中细分流派', () => {
-    setup();
-    switchToAi();
+    setup(null, "auto");
     fillBrief();
     fireEvent.click(screen.getByRole('button', { name: /下一步/ }));
 
@@ -128,8 +128,7 @@ describe('AddBookModal · 创作方式与 AI 写作向导', () => {
     // 解析。若第一步的按钮是 type="button"、第二步是 type="submit"，点「下一步」会连带提交表单，
     // 刚进第二步就冒「请选择一个流派」并弹回第一步（实测事件序列：click:下一步 → submit，间隔 39ms）。
     // jsdom 不会重现这个默认动作，所以这里只钉住前提：两个步骤的主按钮类型必须一致。
-    setup();
-    switchToAi();
+    setup(null, "auto");
     expect(screen.getByRole('button', { name: /下一步/ })).toHaveAttribute('type', 'submit');
     fillBrief();
     fireEvent.click(screen.getByRole('button', { name: /下一步/ }));
@@ -137,8 +136,7 @@ describe('AddBookModal · 创作方式与 AI 写作向导', () => {
   });
 
   it('走完向导提交：brief 完整（空白女主行被剔除）+ 流派展示名一并交出', async () => {
-    const { onSubmit } = setup();
-    switchToAi();
+    const { onSubmit } = setup(null, "auto");
     fillBrief();
 
     // 多女主：填三位，其中一位留空
@@ -172,8 +170,7 @@ describe('AddBookModal · 创作方式与 AI 写作向导', () => {
   });
 
   it('未选流派时不允许创建', async () => {
-    const { onSubmit } = setup();
-    switchToAi();
+    const { onSubmit } = setup(null, "auto");
     fillBrief();
     fireEvent.click(screen.getByRole('button', { name: /下一步/ }));
     fireEvent.click(screen.getByRole('button', { name: '创建' }));

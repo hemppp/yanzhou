@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, X, BookOpen, Settings, ArrowDown, ArrowUp } from 'lucide-react';
+import { Search, Plus, X, BookOpen, Settings, ArrowDown, ArrowUp, Construction } from 'lucide-react';
 import { safeConfirm } from '@/utils/safeConfirm';
 import { AddBookModal } from '@/components/ui/AddBookModal';
 import { BookCard } from '@/components/ui/BookCard';
@@ -122,11 +122,41 @@ const BookCardItem = memo(function BookCardItem({
 });
 
 
+/**
+ * 书库当前所在的库。
+ *
+ * ★ 2026-11-04：书库按创作模式拆成两个（手写书库 / AI 自动写作书库），
+ *   这个「库」是**书库页自己的视图选择**，不是全局模式状态 ——
+ *   每本书仍各自带 `mode`（`Project.mode`），打开书时由 `ProjectLayout`
+ *   按书自己的 mode 分流，那套逻辑完全不受影响。
+ *
+ * 持久化到 localStorage：从书架进书、再返回书架，仍停在上次那个库。
+ */
+const LIBRARY_KEY = 'nm:bookshelf-library';
+type LibraryMode = 'manual' | 'auto';
+
+function readStoredLibrary(): LibraryMode {
+  try {
+    return localStorage.getItem(LIBRARY_KEY) === 'auto' ? 'auto' : 'manual';
+  } catch {
+    return 'manual'; // 隐私模式等场景读不到 localStorage —— 按手写库兜底
+  }
+}
+
 export function BookshelfPage() {
   const navigate = useNavigate();
   const logout = useAuthStore(s => s.logout);
   const setCurrentProject = useProjectStore(s => s.setProject);
   const [showAddModal, setShowAddModal] = useState(false);
+  /** 当前所在的库（手写 / AI 自动写作）—— 只影响书架页看什么，不影响书的 mode */
+  const [library, setLibrary] = useState<LibraryMode>(readStoredLibrary);
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIBRARY_KEY, library);
+    } catch {
+      /* 存不进去不影响使用 */
+    }
+  }, [library]);
   const [editingBook, setEditingBook] = useState<Project | null>(null);
   const [filter, setFilter] = useState<Filter>({
     search: '',
@@ -187,7 +217,9 @@ export function BookshelfPage() {
   );
 
   const filteredBooks = useMemo(() => {
-    let result = [...books];
+    // 只列**当前库**的书。`?? 'manual'` 必须与 `projectModeOf`（plugin/registry.ts）
+    // 的兜底一致 —— 否则老书（没有 mode 字段）会在两个库里同时消失。
+    let result = books.filter((b) => (b.mode ?? 'manual') === library);
     if (filter.search) {
       const searchLower = filter.search.toLowerCase();
       result = result.filter(
@@ -215,7 +247,7 @@ export function BookshelfPage() {
       return filter.sortOrder === 'desc' ? -comparison : comparison;
     });
     return result;
-  }, [books, filter]);
+  }, [books, filter, library]);
 
   const handleSaveBook = useCallback(async (data: Partial<Project> & { title?: string; author?: string; cover?: string }) => {
     try {
@@ -341,32 +373,63 @@ export function BookshelfPage() {
               <span className="bs-brand-tag">墨香书阁</span>
             </div>
 
-            {/* Right: 搜索 + 设置 + 新建 */}
-            <div className="bs-topbar-actions">
-              {/* 搜索：**有边框的输入框**，不再是悬浮玻璃胶囊。
-                  胶囊 + 毛玻璃在顶栏里看起来像一枚标签而不是输入框，
-                  用户第一眼判断不出"这里能打字"；描边输入框是更直白的能指。
-                  聚焦反馈走 --ring（与全局焦点环同一 token）。 */}
-              <div className="bs-search">
-                <Search size={14} className="shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }} />
-                <input
-                  type="text"
-                  placeholder="搜索作品…"
-                  value={filter.search}
-                  onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
-                  className="bs-search-input"
-                  aria-label="搜索作品"
-                />
-                {filter.search && (
+            {/* 中：书库切换（手写台 / AI 自动写作）。
+                ★ 只放在书库页头 —— 项目内不放。理由：每本书各自带 `mode`，
+                  打开哪本书就走哪套工作台（`ProjectLayout` 按书分流，不受影响）；
+                  这里切换的只是「书库里看哪个库」，不是全局运行模式。
+                  形态沿用排序控件（`.bs-sort`）的语言：描边容器 + is-active 白底。 */}
+            <div className="bs-library" role="group" aria-label="书库切换">
+              {([
+                { key: 'manual' as LibraryMode, label: '手写台' },
+                { key: 'auto' as LibraryMode, label: 'AI 自动写作' },
+              ]).map((opt) => {
+                const active = library === opt.key;
+                return (
                   <button
-                    onClick={() => setFilter(f => ({ ...f, search: '' }))}
-                    className="bs-search-clear"
-                    aria-label="清除搜索"
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setLibrary(opt.key)}
+                    aria-pressed={active}
+                    className={active ? 'bs-library-btn is-active' : 'bs-library-btn'}
                   >
-                    <X size={12} />
+                    {opt.label}
                   </button>
-                )}
-              </div>
+                );
+              })}
+            </div>
+
+            {/* Right: 搜索 + 设置 + 新建（手写库才有搜索与新建） */}
+            <div className="bs-topbar-actions">
+              {/* 搜索与「新建」只在手写库出现：AI 自动写作侧目前整块未上线，
+                  没有书可搜、也没有可建的东西（见下方占位）。设置始终可见。 */}
+              {library === 'manual' && (
+                <>
+                  {/* 搜索：**有边框的输入框**，不再是悬浮玻璃胶囊。
+                      胶囊 + 毛玻璃在顶栏里看起来像一枚标签而不是输入框，
+                      用户第一眼判断不出"这里能打字"；描边输入框是更直白的能指。
+                      聚焦反馈走 --ring（与全局焦点环同一 token）。 */}
+                  <div className="bs-search">
+                    <Search size={14} className="shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }} />
+                    <input
+                      type="text"
+                      placeholder="搜索作品…"
+                      value={filter.search}
+                      onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
+                      className="bs-search-input"
+                      aria-label="搜索作品"
+                    />
+                    {filter.search && (
+                      <button
+                        onClick={() => setFilter(f => ({ ...f, search: '' }))}
+                        className="bs-search-clear"
+                        aria-label="清除搜索"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* 设置：图标按钮改成方形描边（与输入框、主按钮同一套形态语言） */}
               <button
@@ -377,20 +440,36 @@ export function BookshelfPage() {
                 <Settings size={16} strokeWidth={1.6} />
               </button>
 
-              <button
-                className="nm-btn-apple-primary"
-                style={{ height: 34 }}
-                onClick={() => setShowAddModal(true)}
-              >
-                <Plus size={14} strokeWidth={2.5} />
-                新建
-              </button>
+              {library === 'manual' && (
+                <button
+                  className="nm-btn-apple-primary"
+                  style={{ height: 34 }}
+                  onClick={() => setShowAddModal(true)}
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  新建
+                </button>
+              )}
             </div>
           </div>
         </header>
 
         {/* Main content area */}
         <main className="bs-main">
+          {library === "auto" ? (
+            /* AI 自动写作整块未上线（作者口径 2026-11-04）：不给书列表、不给新建、
+               只给一句明确的说明 —— 而不是让用户看到一个空书库、以为自己的书丢了。 */
+            <div className="bs-empty bs-unavailable" role="status" aria-label="模块还未上线">
+              <div className="bs-empty-icon">
+                <Construction size={26} strokeWidth={1.5} />
+              </div>
+              <h2 className="bs-empty-title">模块还未上线</h2>
+              <p className="bs-empty-desc">
+                AI 自动写作还在做，上线后这里会出现它自己的书库。
+              </p>
+            </div>
+          ) : (
+            <>
           {/* 工具条：左「共 N 部作品」计数，右排序分段控件。
               原来是**只有右侧一坨**的悬浮胶囊（排序项 + 一道竖线 + 方向钮挤在
               一个圆角胶囊里，还带彩色投影），左边整片空白 —— 一屏里两个水平带
@@ -488,6 +567,8 @@ export function BookshelfPage() {
               ))}
             </div>
           )}
+            </>
+          )}
         </main>
 
         {/* Footer：只留一处版权与登出。
@@ -508,6 +589,9 @@ export function BookshelfPage() {
         onClose={() => { setShowAddModal(false); setEditingBook(null); }}
         onSubmit={handleSaveBook}
         editBook={editingBook}
+        /* 新建时由**当前库**决定模式：在手写库点新建就是手写书。
+           编辑既有书时以 editBook.mode 为准（组件内部已处理）。 */
+        defaultMode={library}
       />
 
       {/* 书架页样式表。
@@ -523,12 +607,55 @@ export function BookshelfPage() {
           -webkit-backdrop-filter: blur(12px) saturate(150%);
           border-bottom: 1px solid hsl(var(--border) / 0.6);
         }
+        /* ★ 2026-11-04：三段式（品牌 / 库切换 / 操作）。
+           原来是两段 space-between，直接插第三个子元素会让三段均匀分布、
+           品牌与操作区都往中间挤 —— 用 grid 固定「两侧各占一半、中间自适应」，
+           品牌与操作区的位置完全不变。 */
         .bs-topbar-inner {
-          display: flex; align-items: center; justify-content: space-between;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
           gap: var(--space-6);
           width: 100%; max-width: 1440px;
           margin: 0 auto;
           padding: var(--space-5) var(--space-8);
+        }
+        .bs-brand { justify-self: start; }
+        .bs-topbar-actions { justify-self: end; }
+
+        /* ---- 书库切换（手写台 / AI 自动写作）----
+           形态与排序控件同源：描边容器 + is-active 白底 + 方角。 */
+        .bs-library {
+          display: flex; align-items: center; gap: var(--space-0);
+          padding: 2px;
+          border: 1px solid hsl(var(--border));
+          border-radius: var(--r-sm);
+          background: hsl(var(--muted) / 0.6);
+          white-space: nowrap;
+        }
+        .bs-library-btn {
+          height: 28px;
+          padding: 0 var(--space-5);
+          border: 0; border-radius: var(--r-xs);
+          background: transparent;
+          color: hsl(var(--muted-foreground));
+          font-family: inherit; font-size: 12px;
+          cursor: pointer;
+          transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .bs-library-btn:hover { color: hsl(var(--foreground)); }
+        .bs-library-btn.is-active {
+          background: hsl(var(--card));
+          color: hsl(var(--foreground));
+          font-weight: 600;
+          box-shadow: 0 1px 2px hsl(var(--glass-shadow) / 0.10);
+        }
+        .bs-library-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+
+        /* AI 自动写作未上线时的占位：比空态更"安静"（没有新建 CTA） */
+        .bs-unavailable .bs-empty-icon {
+          color: hsl(var(--muted-foreground));
+          opacity: 0.75;
         }
         .bs-brand { display: flex; align-items: baseline; gap: var(--space-5); min-width: 0; }
         /* 字标旁的一句说明：给品牌一个"这是什么"的注脚，也让顶栏左侧有第二段信息 */
