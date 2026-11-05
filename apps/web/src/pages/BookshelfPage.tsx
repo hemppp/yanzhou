@@ -609,11 +609,17 @@ export function BookshelfPage() {
         }
         /* ★ 2026-11-04：三段式（品牌 / 库切换 / 操作）。
            原来是两段 space-between，直接插第三个子元素会让三段均匀分布、
-           品牌与操作区都往中间挤 —— 用 grid 固定「两侧各占一半、中间自适应」，
-           品牌与操作区的位置完全不变。 */
+           品牌与操作区都往中间挤。
+           ★ 2026-11-05 修：不能用 1fr auto 1fr —— 那会把两侧压成等宽，
+             而右侧（搜索 + 设置 + 新建）实测要 326px、左侧只要 45px，
+             窄屏下右侧被挤到「新建」折成两行（实测 694px 视口复现）。
+             改为 auto 1fr auto：两侧按内容取自然宽，中间那条弹性空间里居中。
+             ⚠️ 本段位于 <style> 的**模板字符串**内部，注释中绝不能出现反引号 ——
+                会提前闭合它，表现为「页面异常 / Failed to fetch dynamically
+                imported module」（本次已踩过一次）。 */
         .bs-topbar-inner {
           display: grid;
-          grid-template-columns: 1fr auto 1fr;
+          grid-template-columns: auto 1fr auto;
           align-items: center;
           gap: var(--space-6);
           width: 100%; max-width: 1440px;
@@ -621,7 +627,10 @@ export function BookshelfPage() {
           padding: var(--space-5) var(--space-8);
         }
         .bs-brand { justify-self: start; }
+        .bs-library { justify-self: center; }
         .bs-topbar-actions { justify-self: end; }
+        /* 「新建」绝不能折行：一旦被挤就会变成两行、把顶栏撑高 */
+        .bs-topbar-actions .nm-btn-apple-primary { white-space: nowrap; flex-shrink: 0; }
 
         /* ---- 书库切换（手写台 / AI 自动写作）----
            形态与排序控件同源：描边容器 + is-active 白底 + 方角。 */

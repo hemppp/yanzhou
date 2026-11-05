@@ -323,19 +323,24 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
             fontSize: 10,
             color: coverFg('--cover-stats-fg-alpha'),
             fontFamily: "'Noto Serif SC', serif",
+            /* ★ 2026-11-05：统计项必须**整项**换行、不能把「12 字」拆成两行。
+               原来没有 nowrap，窄卡片（225px）下每个 span 都被压成单字竖排 ——
+               实测「12 字 / 1 章 / 5 分钟」全部折断。 */
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
           }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap' }}>
             <BookOpen size={10} />
             {wordCountDisplay}
           </span>
           <span style={{ opacity: 0.4 }}>·</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap' }}>
             <FileText size={10} />
             {chapterCount} 章
           </span>
           <span style={{ flex: 1 }} />
-          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', opacity: 0.8 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap', opacity: 0.8 }}>
             <Clock size={10} />
             {formatDistanceToNow(updatedAt || Date.now())}
           </span>
