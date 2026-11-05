@@ -23,18 +23,33 @@ export const LeadCharacterHighlight = Extension.create<LeadCharacterHighlightOpt
   },
 
   addProseMirrorPlugins() {
-    const names = (this.options.names ?? []).filter(Boolean).sort((a, b) => b.length - a.length);
+    /**
+     * ★ 2026-11-05 修：这里**不能**把 names 算成一个常量再闭包引用。
+     *
+     *   名单是**运行期**才有的：`useEditorInstance` 在角色数据变化后执行
+     *   `ext.options.names = leadNames` 并派发一个带 `leadCharacterHighlightUpdate`
+     *   meta 的空 transaction，指望插件重建 decoration。
+     *   而扩展是用 `configure({ names: [] })` 创建的 —— 闭包捕获的是**那一刻**的空数组，
+     *   改 `options` 对它无效 ⇒ **高亮从未生效过**
+     *   （实测：往正文注入「陈默走进雨里…」（陈默 = 主角），`.lead-character-name` 为 0）。
+     *
+     *   改为捕获 **options 对象本身**，每次重建时现读 `options.names` ——
+     *   `ext.options` 与 `this.options` 是同一个对象，所以运行期的赋值能被读到。
+     */
+    const options = this.options;
+    const currentNames = () =>
+      (options.names ?? []).filter(Boolean).sort((a, b) => b.length - a.length);
 
     return [
       new Plugin<DecorationSet>({
         key: pluginKey,
         state: {
           init(_, { doc }) {
-            return buildDecorations(doc, names);
+            return buildDecorations(doc, currentNames());
           },
           apply(tr, old) {
             if (tr.docChanged || tr.getMeta('leadCharacterHighlightUpdate')) {
-              return buildDecorations(tr.doc, names);
+              return buildDecorations(tr.doc, currentNames());
             }
             return old;
           },
