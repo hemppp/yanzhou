@@ -33,6 +33,8 @@ export {
   clearCachedChapterContent,
 } from './data/chapterLocalCache';
 export type { CachedChapter } from './data/chapterLocalCache';
+// AI 对话记录本地持久化（按「项目 + 章节」分开存；刷新不丢）
+export { loadChatHistory, saveChatHistory, clearChatHistory } from './data/chatHistoryCache';
 export { clearProjectLocalData, clearAllLocalUserData, registerLocalDataCleaner } from './data/localUserData';
 export { useSyncService } from './data/syncService';
 

@@ -32,6 +32,7 @@ import { nanoid } from 'nanoid';
 import { PromptBar, StreamingText, dispatchToastEvent } from '@novel-plugins/ui-kit';
 import { ToolChip } from '@novel-plugins/ui-kit/primitives';
 import { useChapterStore, useProjectStore } from '@novel-plugins/data-core/stores';
+import { loadChatHistory, saveChatHistory } from '@novel-plugins/data-core';
 import {
   getCurrentProjectId,
   getToken,
@@ -178,7 +179,16 @@ export function AiChatPanel() {
   const chapters = useChapterStore((s) => s.chapters);
   const currentChapterId = useChapterStore((s) => s.currentChapterId);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  /**
+   * ★ 2026-11-05：对话记录**按「项目 + 章节」持久化**到 localStorage。
+   *   原来只有 `useState([])` —— 刷新 / HMR 整页重载后记录全丢
+   *   （用户实测反馈：「AI 对话刷新一下聊天记录就没有了」）。
+   *   换章时也切到该章自己的对话，互不串台（见下方同步 effect）。
+   */
+  const chatScope = currentChapterId ?? 'project';
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => loadChatHistory<ChatMessage>(project?.id, chatScope),
+  );
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   /**
@@ -214,6 +224,17 @@ export function AiChatPanel() {
 
   // 工具开关同步进 ref：`sendText` 的 deps 里不放它，避免每次切换都重建回调
   useEffect(() => { enableToolsRef.current = enableTools; }, [enableTools]);
+
+  // 换章 / 换项目 → 载入该会话自己的历史（每个章节一份对话，互不串台）
+  useEffect(() => {
+    setMessages(loadChatHistory<ChatMessage>(project?.id, chatScope));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id, chatScope]);
+
+  // 消息变化 → 落盘（streaming 中的消息由 saveChatHistory 自动剔除）
+  useEffect(() => {
+    saveChatHistory(project?.id, chatScope, messages);
+  }, [project?.id, chatScope, messages]);
 
   // 流式追加 → 自动到底（内容每帧都在变，故依赖 messages 整体）
   useEffect(() => {
