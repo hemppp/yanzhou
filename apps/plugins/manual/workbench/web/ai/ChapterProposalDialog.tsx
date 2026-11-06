@@ -35,6 +35,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, X } from 'lucide-react';
 import { plainTextToHtml, htmlToText } from '@novel-plugins/data-core';
 import { useChapterStore } from '@novel-plugins/data-core/stores';
+import { updateChapter } from '@novel-plugins/data-core/data/databaseService';
 import { publishExternalChapterContent } from '../editor/externalContent';
 
 /** 服务端 `propose_chapter_edit` 的 payload 形状（见 registry 的 ToolHandlerResult.entity） */
@@ -161,6 +162,19 @@ export function ChapterProposalDialog({
 
     timerRef.current = null;
     setBusy(false);
+    // ★ 2026-11-05：必须**显式落库**。
+    //   `useEntitySync` 的订阅只在编辑器打开的那个章节上可靠地跑（编辑器的 flush
+    //   循环与它共用同一份 store）。实测：对**未打开**的章节走 store 更新后，
+    //   库里仍是 0 字 —— 用户在别的章上点「确认」看起来成功了，实际什么都没写进去。
+    //   而 store 此刻已经是最终值，所以这里再 PUT 一次不会与 sync 打架
+    //   （sync 看到的是同一个值，`hasMeaningfulChanges` 为假）。
+    void updateChapter(proposal.chapterId, {
+      content: nextHtml,
+      wordCount,
+      updatedAt: Date.now(),
+    }).catch((e) => {
+      console.warn('[ChapterProposalDialog] 显式落库失败（store 已更新）:', e);
+    });
     onApplied({ title: proposal.chapterTitle, wordCount });
     onClose();
   };
