@@ -525,6 +525,50 @@ export async function writeEntities(
     .where(eq(schema.foreshadows.projectId, projectId));
   // 精确描述匹配（trim 后全等）；模型被要求原样抄既有 description
   const fshByDesc = new Map(fshRows.map((r) => [r.description.trim(), r]));
+  /**
+   * 归一化匹配表（去空白 + 去标点 + 去引号）。
+   *
+   * ★ 2026-10-23（真机跑第 3–5 章时发现）：**只做精确匹配太脆**。
+   *   提示词要求 advance / payoff 的 `description` **原样抄**既有条目，但实测模型
+   *   会「抄个开头」或顺手改两个标点 —— 于是精确匹配落空，把**真实存在**的推进丢成
+   *   `未在库中找到同条，advance 未落库`（第 5 章两条都是这样：模型引用的其实正是
+   *   第 3/4 章种下的同一条，只是被改写/截断了）。
+   *   这里补一层归一化比对，**只接受唯一候选**——歧义时仍然拒绝，宁可不落也不乱连。
+   *
+   * ★ 2026-11-09 恢复：这段逻辑在 d3722da（2026-11-02「质量门禁…交付链加固」）里被
+   *   **无声删除** —— 该 commit 自述是「上一会话遗留的未提交工作，提交前只做只读核对、
+   *   未做功能验证」，提交说明里没有一个字提到伏笔匹配，显然是整文件被旧版本覆盖所致。
+   *   回归证据：entity-sink.test.ts 的「去标点」「包含关系」「歧义仍拒绝」三条自 6207fe3
+   *   起就一直在，且此后没人改过测试；实现消失后它们才转红。故按测试规格恢复。
+   */
+  const normKey = (s: string) => s.replace(/[\s，。、！？：；“”‘’（）()【】《》…—·"'`]/g, '');
+  const normMap = new Map<string, typeof fshRows>();
+  for (const r of fshRows) {
+    const k = normKey(r.description.trim());
+    if (!k) continue;
+    normMap.set(k, [...(normMap.get(k) ?? []), r]);
+  }
+  /** 唯一候选才算命中（精确 → 归一化 → 单向包含） */
+  const matchForeshadow = (desc: string): { row: typeof fshRows[number]; how: 'exact' | 'normalized' | 'contained' } | undefined => {
+    const exact = fshByDesc.get(desc);
+    if (exact) return { row: exact, how: 'exact' };
+
+    const k = normKey(desc);
+    if (k) {
+      const hits = normMap.get(k);
+      if (hits?.length === 1) return { row: hits[0]!, how: 'normalized' };
+    }
+    // 单向包含：模型常「抄开头」或「抄结尾」。要求较短一方 ≥ 12 字（太短会乱命中），
+    // 且候选**唯一** —— 有两条都包含同一片段时说明判不准，交回「不落库」。
+    if (k.length >= 12) {
+      const contained = fshRows.filter((r) => {
+        const rk = normKey(r.description.trim());
+        return rk.length >= 12 && (rk.includes(k) || k.includes(rk));
+      });
+      if (contained.length === 1) return { row: contained[0]!, how: 'contained' };
+    }
+    return undefined;
+  };
 
   for (const raw of asArray(parsed.foreshadows)) {
     const action = mapForeshadowAction(raw?.action);
@@ -535,7 +579,9 @@ export async function writeEntities(
     }
 
     if (action === 'plant') {
-      if (fshByDesc.has(desc)) {
+      // ★ 2026-10-23：去重同样走归一化匹配 —— 否则模型把既有伏笔改写几个标点再「播种」，
+      //   就会在库里种下一条语义重复的条目（原有精确匹配挡不住这种）。
+      if (matchForeshadow(desc)) {
         result.skipped++; // 已存在同描述伏笔，不重复播种
         continue;
       }
@@ -557,12 +603,17 @@ export async function writeEntities(
       continue;
     }
 
-    const target = fshByDesc.get(desc);
-    if (!target) {
+    const hit = matchForeshadow(desc);
+    if (!hit) {
       // advance / payoff 找不到既有伏笔：不猜、不新建，如实记一笔
       result.skipped++;
       result.notes.push(`伏笔「${desc.slice(0, 20)}」未在库中找到同条，${action} 未落库`);
       continue;
+    }
+    const target = hit.row;
+    if (hit.how !== 'exact') {
+      // 模糊命中要留痕：事后能查「这条推进到底连到了哪一条」
+      result.notes.push(`伏笔「${desc.slice(0, 14)}」按${hit.how === 'normalized' ? '去标点' : '包含关系'}匹配到「${String(target.description).slice(0, 14)}」`);
     }
 
     if (action === 'payoff') {

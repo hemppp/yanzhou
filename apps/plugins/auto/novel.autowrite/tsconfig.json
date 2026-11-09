@@ -8,6 +8,15 @@
     "types": ["node", "vite/client"],
     "baseUrl": ".",
     "paths": {
+      // ★ 2026-11-09：工作区包在**主仓**里靠 `apps/plugins/auto/novel.autowrite/
+      //   node_modules/@novel/*` 的 pnpm 软链解析；但 git worktree 不携带 node_modules，
+      //   测试文件又位于 apps/plugins/... —— 向上查找只到 apps/，永远碰不到
+      //   apps/server/node_modules。显式映射到 packages/*/src（均为 TS 源码入口），
+      //   使本包的类型检查与 node_modules 是否存在无关。
+      "@novel/core": ["../../../../packages/core/src/index.ts"],
+      "@novel/core/web": ["../../../../packages/core/src/web.ts"],
+      "@novel/db": ["../../../../packages/db/src/index.ts"],
+      "@novel/shared": ["../../../../packages/shared/src/index.ts"],
       "@/*": ["../../../web/src/*"],
       "@novel-plugins/ui-kit": ["../../shared/ui-kit/src/index.ts"],
       "@novel-plugins/ui-kit/*": ["../../shared/ui-kit/src/*"],
@@ -19,6 +28,9 @@
     },
     "noEmit": true,
     "strict": true,
+    // ★ 2026-11-09：开启。此前本包未开，测试里漂着 7 个未使用的 import/局部变量
+    //   （含一个恒不被调用的 `tooShort` 闭包）也无人发现。开启前已清零，不会引发无关报错。
+    "noUnusedLocals": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

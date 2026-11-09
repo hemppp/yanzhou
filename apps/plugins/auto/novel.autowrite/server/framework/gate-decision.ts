@@ -29,7 +29,11 @@
 //
 // 设计原则（为什么不做成"必须 Jev 才能用"）：
 //   · **可配置**：原生模式读 `AUTOWRITE_JEV_URL` / `AUTOWRITE_JEV_TOKEN` / `AUTOWRITE_JEV_MODEL`；
-//     chat 兜底读 `AUTOWRITE_DECISION_MODEL`。**都没配 = 决策器关闭**（不花任何模型钱）。
+//     chat 兜底读 `AUTOWRITE_DECISION_MODEL`。
+//     ★ 2026-11-09 更正（原注释写「都没配 = 决策器关闭」，与 10-27 的实现相反）：
+//       **默认是开的** —— chat 兜底未配置时取 `hy3`（见 resolveChatDecisionModel 的选型表）。
+//       原因是 Jev 被地域门挡死，而内容质量三判定是每章必跑的常规体检，不能默认关掉。
+//       要关请显式设 `AUTOWRITE_DECISION_MODEL=off`（或 `none`）。
 //   · **失败即回退**：调用失败 / 超时 / 解析不出 → 返回 null，调用方退回原来的 5 条硬规则
 //     （fail-open，绝不因为决策器挂了就不写书）。
 //   · **不生成文本**：决策器只回答"放行/重写/带警示放行"，正文仍由写作官写。
@@ -196,7 +200,15 @@ export function resolveChatDecisionModel(env: Record<string, string | undefined>
   return raw || 'hy3';
 }
 
-/** 决策器是否启用：配了原生 Jev 或配了 chat 兜底模型。**都没配 = 关闭**（不花钱）。 */
+/**
+ * 决策器是否启用：配了原生 Jev / 备用端点，或 chat 兜底**未被显式关闭**。
+ *
+ * ★ 2026-11-09 更正：原注释写「都没配 = 关闭」，与 2026-10-27 起的实现相反。
+ *   现在 `resolveChatDecisionModel` 在未配置时返回默认模型 `hy3`（不再返回 undefined），
+ *   所以「什么都不配」= **开启**；只有 `AUTOWRITE_DECISION_MODEL=off|none` 且两个
+ *   Jev 端点都为空时才关闭。判断依据见 resolveChatDecisionModel 的选型表：
+ *   Jev 被地域门挡死，而这三项内容体检是每章必跑，默认关掉等于退回词面统计。
+ */
 export function isDecisionEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return resolveJevConfig(env) !== null || resolveJevFallback(env) !== null
     || typeof resolveChatDecisionModel(env) === 'string';

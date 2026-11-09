@@ -16,7 +16,7 @@ import type { ServerPluginContext } from '@novel/core';
 import { getProjectDb } from '@novel/db';
 import type { DesignRole } from '../discuss/roles.js';
 import { takeInterjections, renderInterjections } from '../discuss/inbox.js';
-import { formatBrief, resolveSettingsDigest, type SettingsDigest } from '../framework/context-resolver.js';
+import { resolveSettingsDigest, type SettingsDigest } from '../framework/context-resolver.js';
 import { readDigestFor } from '../framework/memory/digest-gate.js';
 import { createAgentSkillResolver } from '../framework/agent-skills.js';
 import { createAgentMemory, createMemoryGate, experience, writeAudit, fingerprintOf } from '../framework/memory/index.js';

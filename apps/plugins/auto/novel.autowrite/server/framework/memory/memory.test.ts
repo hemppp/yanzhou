@@ -20,7 +20,7 @@ import { matchAny, matchPattern } from './types.js';
 import { pushChapter, renderWheel, renderWheelWithin, WHEEL_CAPACITY_DEFAULT, type WheelChapter } from './waterwheel.js';
 import { detectBatchConflicts, recordConflicts, type FactWrite } from './ingest.js';
 import { rolePolicyLookup, ORCHESTRATOR_POLICY, policyLookupWithOrchestrator, allRolePolicies } from './index.js';
-import { readDigestFor, digestFieldsFor, DIGEST_KEYS } from './digest-gate.js';
+import { readDigestFor, digestFieldsFor } from './digest-gate.js';
 import { createOwnWheel } from './wheel-store.js';
 import { fingerprintOf } from './gate.js';
 import { extractStoryTime } from '../context-resolver.js';
@@ -67,13 +67,20 @@ describe('键模式匹配（fail-closed 是底线）', () => {
 describe('水车：斗数固定 + 幂等舀入 + 出界一斗', () => {
   const ch = (n: number): WheelChapter => ({ chapterNo: n, text: `第${n}章正文`, ingestedAt: n, storyTime: `第${n}日` });
 
-  it('默认 3 斗（2026-09-13 作者拍板从 1 扩到 3）', () => {
-    expect(WHEEL_CAPACITY_DEFAULT).toBe(3);
+  /**
+   * ★ 2026-11-09 口径更正：原断言是「默认 3 斗（2026-09-13 从 1 扩到 3）」。
+   *   但 waterwheel.ts 在 **2026-10-30 按用户裁决从 3 降到 2**（「上下文压到最近 2 章
+   *   + 本章卡」；实测 3 章全文 ≈9000 字是复读最直接的燃料）。实现侧有明确日期依据，
+   *   测试停在 09-13 的旧口径 —— 是测试陈旧，不是实现回退。故按现役默认值断言。
+   */
+  it('默认 2 斗（2026-10-30 用户裁决从 3 降到 2）', () => {
+    expect(WHEEL_CAPACITY_DEFAULT).toBe(2);
     let slots: WheelChapter[] = [];
     for (const n of [1, 2, 3]) ({ slots } = pushChapter(slots, ch(n)));
+    expect(slots.map((s) => s.chapterNo)).toEqual([3, 2]);
     const r = pushChapter(slots, ch(4));
-    expect(r.slots.map((s) => s.chapterNo)).toEqual([4, 3, 2]);
-    expect(r.evicted?.chapterNo).toBe(1);
+    expect(r.slots.map((s) => s.chapterNo)).toEqual([4, 3]);
+    expect(r.evicted?.chapterNo).toBe(2);
   });
 
   it('容量 1（显式传参时）只带最近一章 —— 旧行为仍可用', () => {
@@ -458,10 +465,16 @@ describe('权限矩阵：层级一致性（I1）', () => {  it('编排层可读�
     expect(policies.find((p) => p.agentId === 'reviewer')?.policy?.readNarrative).toBe(false);
   });
 
-  it('九个角色都显式声明了 memory（新增角色漏声明会被这条逮住）', () => {
+  it('十二个角色都显式声明了 memory（新增角色漏声明会被这条逮住）', () => {
+    /**
+     * ★ 2026-11-09 口径更正：原断言是 9 个。
+     *   2026-10-23 在 `framework/memory/index.ts` 又登记了 3 个「在讨论里发言」的监工帮手
+     *   （plot-advance-review / voice-dup-review / supervisor-gate）—— 漏登记就是
+     *   fail-closed，它们会读到空的项目现状。实现有日期依据，测试停在旧口径，属测试陈旧。
+     */
     const policies = allRolePolicies();
-    // 6 个讨论角色 + 策划官（世界规则）+ 前三章审阅（跨章）+ 写作监工（长跑巡检）
-    expect(policies).toHaveLength(9);
+    // 6 个讨论角色 + 策划官 + 前三章审阅 + 写作监工 + 3 个监工帮手（2026-10-23）
+    expect(policies).toHaveLength(12);
     for (const { agentId, policy } of policies) {
       expect(policy, `${agentId} 未声明 memory（fail-closed 下它会读不到任何全局记忆）`).toBeDefined();
     }
@@ -470,6 +483,10 @@ describe('权限矩阵：层级一致性（I1）', () => {  it('编排层可读�
       const p = policies.find((x) => x.agentId === id)?.policy;
       expect(p, `${id} 未登记`).toBeDefined();
       expect(p?.readL1 ?? []).toContain('settings.brief');
+    }
+    // ★ 2026-10-23 新增的三个帮手同样必须登记
+    for (const id of ['plot-advance-reviewer', 'voice-dup-reviewer', 'supervisor-gate']) {
+      expect(policies.find((x) => x.agentId === id)?.policy, `${id} 未登记`).toBeDefined();
     }
   });
 });

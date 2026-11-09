@@ -47,7 +47,7 @@ import {
   parseHelperReport, parseSupervisorDecision, decideSupervision, renderDispatchInstruction,
   type HelperReport,
 } from '../pipeline/supervise-review.js';
-import { detectDialogue, renderDialogueHint, renderFragmentedLine, DIALOGUE_RATIO_MIN, DIALOGUE_RATIO_MAX } from '../framework/dialogue.js';
+import { detectDialogue, renderDialogueHint, DIALOGUE_RATIO_MIN, DIALOGUE_RATIO_MAX } from '../framework/dialogue.js';
 import { stripProsePreamble, countProseChars } from '../framework/text.js';
 import {
   runGateDecision, decisionToGateAction, isDecisionEnabled,
@@ -56,9 +56,9 @@ import {
 import { WRITER_MAX_TOKENS } from './roles.js';
 // 正文字数口径与意图门硬规则统一由 gate-rules.ts 提供（纯函数、可直接单测）
 import {
-  proseLength, isTooLong, isTooShort, isOutOfBand, passedHardRules,
+  proseLength, isTooLong, isOutOfBand, passedHardRules,
   pickNearestBand, isRunawayExpansion, draftPenalty, pickBestDraft,
-  detectOutlineLeak, leakTotal, leakExceeds, trimToMaxChars, LEAK_STRUCT_MAX, LEAK_WORD_MAX, type LeakHit,
+  detectOutlineLeak, leakTotal, leakExceeds, trimToMaxChars, type LeakHit,
 } from './gate-rules.js';
 import { schema, eq, and, isNull, desc, lt, getProjectDb, type DrizzleDb } from '@novel/db';
 import { randomUUID } from 'node:crypto';
@@ -1191,7 +1191,6 @@ export async function runDiscussion(
      *   和上限一样是可判定的物理事实，不能只靠提示词。
      */
     const tooLong = () => isTooLong(currentDraft);
-    const tooShort = () => isTooShort(currentDraft);
     /** 篇幅出带（超上限或欠下限）—— 确定性硬伤，详见下方 decisionToGateAction 的 nonNegotiable */
     const outOfBand = () => isOutOfBand(currentDraft);
     /**

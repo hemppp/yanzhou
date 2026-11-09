@@ -30,7 +30,6 @@ function fakeKv(): KvService {
 }
 
 const mkStore = () => new PipelineStore(fakeKv(), 'proj-1');
-const freshState = (): PipelineState => emptyState('proj-1', 'h1', '');
 /** 把某阶段推到「等确认」——测试里直接摆状态，不走模型 */
 function awaiting(state: PipelineState, stage: PipelineState['stage'], artifact = '契约文本'): PipelineState {
   state.stages[stage].status = 'awaiting_user';
@@ -225,7 +224,10 @@ describe('持久化与视图', () => {
     const store = mkStore();
     const first = await store.ensure('h1', '备注');
     expect(first.baselineMismatch).toBe(false);
-    expect(Object.keys(first.state.stages)).toHaveLength(7);
+    // ★ 2026-11-09 口径更正：原断言 7 段。2026-10-23 在 types.ts 的 STAGES 里新增了
+    //   `beats`（章节大纲与节拍卡）—— 设计上本就是 act→chapter→beat 三层树，第三层此前从未生成。
+    //   实现有日期依据，测试停在旧口径，属测试陈旧。
+    expect(Object.keys(first.state.stages)).toHaveLength(8);
 
     const again = await store.ensure('h2', '备注');
     expect(again.baselineMismatch).toBe(true);
@@ -257,8 +259,8 @@ describe('持久化与视图', () => {
     expect(view.staleStages).toEqual(['brief', 'cast']);
     expect(view.stages.find((x) => x.key === 'cast')?.gated).toBe(true);
     expect(view.stages.find((x) => x.key === 'brief')?.gated).toBe(false);
-    // 全部七段均已实现（M3 补齐 production）
-    for (const k of ['brief', 'cast', 'bible', 'plot', 'drift', 'pilot', 'production']) {
+    // 全部八段均已实现（M3 补齐 production；2026-10-23 新增 beats）
+    for (const k of ['brief', 'cast', 'bible', 'plot', 'beats', 'drift', 'pilot', 'production']) {
       expect(view.stages.find((x) => x.key === k)?.implemented, `${k} 应已实现`).toBe(true);
     }
   });
