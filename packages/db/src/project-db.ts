@@ -362,9 +362,7 @@ export async function deleteProjectDb(projectId: string): Promise<void> {
   await closeProjectDb(projectId);
 
   const fs = await import('fs');
-  const path = await import('path');
   const dbPath = await getProjectDbPath(projectId);
-  const dir = path.dirname(dbPath);
 
   const filesToDelete = [
     dbPath,
@@ -383,14 +381,18 @@ export async function deleteProjectDb(projectId: string): Promise<void> {
     }
   }
 
-  // 如果项目目录为空，删除目录
-  try {
-    if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
-      fs.rmdirSync(dir);
-    }
-  } catch {
-    /* ignore */
-  }
+  /**
+   * ★ 2026-11-09 删掉「目录空了就 rmdir」那步。
+   *
+   * 原来它删的是 `path.dirname(dbPath)` —— 而项目库都是**平铺**在
+   * `<root>/data/projects/<projectId>.db`，所以这个 `dir` 永远是**共享的 projects 根目录**，
+   * 不是某个项目自己的目录。两个并行测试进程同时用一个共享根时就会撞车：
+   *   A 先 mkdir(projects)；B 恰在 A 建好文件前删完自己的库、看到目录已空 → rmdir(projects)；
+   *   A 紧接着 `new Database(projects/x.db)` → SQLITE_CANTOPEN「directory does not exist」。
+   * 实测 novel.autowrite 的 entity-sink / memory 两个测试文件在 `pool: 'forks'` 下并行时
+   * 会间歇触发（约 1/5 的概率整文件 48 例被跳成 beforeAll 失败）。
+   * 目录留着无害（initProjectDb 本来就会 mkdir），删掉共享目录才是错的。
+   */
 
   console.log(`[ProjectDB] 已删除项目库文件: ${projectId}`);
 }
