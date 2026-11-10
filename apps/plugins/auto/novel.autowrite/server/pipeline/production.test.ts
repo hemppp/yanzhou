@@ -10,9 +10,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  planProductionChapterOrders, productionMessage,
-  renderSuperviseInput, parseSuperviseReport, superviseShouldHalt, renderSuperviseReport, CONSECUTIVE_WATCH_TO_HALT,
-  renderTrackInput, parseTrackReview, renderTrackReport,
+  planProductionChapterOrders, productionMessageWithCard,
+  renderSuperviseInput, parseSuperviseReport, superviseShouldHalt, CONSECUTIVE_WATCH_TO_HALT,
+  renderTrackInput, parseTrackReview,
   renderProductionReport, productionSinkNotes,
   type SuperviseResult,
 } from './production.js';
@@ -37,18 +37,25 @@ describe('长跑章号规划（断点续跑的核心）', () => {
 });
 
 describe('长跑单章指令', () => {
-  it('全书第 1 章按总纲起笔', () => {
-    expect(productionMessage(1, false)).toContain('按《剧情总纲》');
+  // 2026-11-03：旧版 `productionMessage(order, hasPrevious)` 已删（运行期 0 调用），
+  // 单章指令一律走 `productionMessageWithCard`。此处按现役入口断言。
+  it('无节拍卡：明说"这不是你要处理的事"，并禁止把卡/工作笔记写进正文', () => {
+    // 守的是 2026-10-30 的实测灾难 —— 旧文案叫模型"先去补卡"，
+    // 它便在**正文里**补了一张卡，连同自我指令一起被当正文交付。
+    const m = productionMessageWithCard(4, true, null);
+    expect(m).toContain('第 4 章');
+    expect(m).toContain('暂时没有节拍卡');
+    expect(m).toContain('不要写节拍卡');
   });
 
   it('非首章要求"接着上一章"，不照抄作者最初那句指令', () => {
-    const m = productionMessage(9, true);
+    const m = productionMessageWithCard(9, true, null);
     expect(m).toContain('接着上一章');
     expect(m).toContain('第 9 章');
   });
 
   it('带作者补充时附在末尾', () => {
-    expect(productionMessage(3, true, '节奏放慢')).toContain('节奏放慢');
+    expect(productionMessageWithCard(3, true, null, '节奏放慢')).toContain('节奏放慢');
   });
 });
 
@@ -141,17 +148,6 @@ describe('监工 halt 判定', () => {
   });
 });
 
-describe('监工报告渲染', () => {
-  it('判定与问题都写进去', () => {
-    const s = renderSuperviseReport({
-      order: 9, verdict: 'watch', parsed: true, trend: '略拖',
-      issues: [{ kind: 'filler', detail: '这段注水', evidence: '……' }],
-    });
-    expect(s).toContain('第 9 章');
-    expect(s).toContain('注水');
-  });
-});
-
 describe('轨迹确认输入组装', () => {
   it('总纲作为判断基准进输入', () => {
     const s = renderTrackInput({
@@ -203,19 +199,6 @@ describe('轨迹确认解析', () => {
     const r = parseTrackReview(wrap({ verdict: '???', note: '' }));
     expect(r.verdict).toBe('on_track');
     expect(r.parsed).toBe(true);
-  });
-});
-
-describe('轨迹确认报告渲染', () => {
-  it('minor_drift 把补丁写进报告', () => {
-    const s = renderTrackReport(4, 6, { verdict: 'minor_drift', note: '略偏', patch: '补一场对峙', parsed: true });
-    expect(s).toContain('修正补丁');
-    expect(s).toContain('对峙');
-  });
-
-  it('major_drift 明说流水线已暂停', () => {
-    const s = renderTrackReport(7, 9, { verdict: 'major_drift', note: '跑偏', patch: '', parsed: true });
-    expect(s).toContain('暂停');
   });
 });
 

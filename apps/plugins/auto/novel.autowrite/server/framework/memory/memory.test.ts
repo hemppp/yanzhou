@@ -17,7 +17,7 @@ import type { ServerPluginContext } from '@novel/core';
 import { MemoryGate } from './gate.js';
 import { createAgentMemory, assertSameAgent, factRef } from './agent-memory.js';
 import { matchAny, matchPattern } from './types.js';
-import { pushChapter, renderWheel, renderWheelWithin, WHEEL_CAPACITY_DEFAULT, type WheelChapter } from './waterwheel.js';
+import { pushChapter, renderWheelWithin, WHEEL_CAPACITY_DEFAULT, type WheelChapter } from './waterwheel.js';
 import { detectBatchConflicts, recordConflicts, type FactWrite } from './ingest.js';
 import { rolePolicyLookup, ORCHESTRATOR_POLICY, policyLookupWithOrchestrator, allRolePolicies } from './index.js';
 import { readDigestFor, digestFieldsFor } from './digest-gate.js';
@@ -108,7 +108,9 @@ describe('水车：斗数固定 + 幂等舀入 + 出界一斗', () => {
   });
 
   it('渲染带章号与故事内时间（斗 1 最新）', () => {
-    const txt = renderWheel([ch(5), ch(4)]);
+    // 2026-11-03：旧版 `renderWheel` 已删（运行期一律走带预算的 renderWheelWithin）。
+    // 头部格式两版共用，故本条按现役入口断言 —— 预算给足，不触发省略分支。
+    const txt = renderWheelWithin([ch(5), ch(4)], 10_000).text;
     expect(txt).toContain('斗1｜第 5 章');
     expect(txt).toContain('故事内：第5日');
     expect(txt.indexOf('斗1')).toBeLessThan(txt.indexOf('斗2'));
