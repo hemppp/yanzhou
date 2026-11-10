@@ -709,6 +709,55 @@ D7.2 只判「`version.json` 是否存在」，于是**在同一个版本号下�
 ### D8.4 开发环境复原（硬性操作纪律）
 桌面打包会把仓库 `node_modules/better-sqlite3` 就地改成 ABI 149（F27）⇒ 打包后必须 `pnpm install`（或 `pnpm rebuild better-sqlite3`）恢复 ABI 137，否则 `pnpm dev` / `pnpm test` 全部失败。
 
+### D8.5 `@electron/rebuild` 空转 —— **2026-11-09 补充（取代 D8.2 的隐含前提）**
+
+**实测事实**：D8.2 假定"声明在 `apps/desktop` 的 dependencies 里 ⇒ electron-builder 自动驱动重建"。
+但本仓库 pnpm 用 `nodeLinker: hoisted`（依赖全铺在**仓库根** node_modules），
+`apps/desktop/node_modules` **根本不存在** ⇒ `@electron/rebuild` 在应用目录里
+找不到任何可重建目标，**空转**；随后依赖遍历从仓库根取走**未重建**的 Node ABI 二进制。
+它照旧打印 `completed installing native dependencies` —— **看不出来**。
+
+**后果**：不是崩溃，而是**静默降级** —— Electron 里加载不了 Node ABI 模块，运行期回退
+sql.js（内存库，仅显式 `saveToDisk` 落盘），对写作软件是掉数据的风险。
+
+**冻结修法**（`apps/desktop/scripts/native-abi.mjs`，2026-11-09）：
+| 步骤 | 内容 |
+|---|---|
+| `stage`（打包前） | 把 `better-sqlite3`（排除 `build/`）、`bindings`、`file-uri-to-path` **实体铺进** `apps/desktop/node_modules`（该目录已在 `apps/desktop/.gitignore:6` 忽略）。**不碰仓库根模块** ⇒ 开发环境零影响、无需事后还原、**打包不必停 dev server**（根模块被 dev server 加载锁定，就地重编会 EBUSY）。 |
+| 重建 | 交给 electron-builder 的 `@electron/rebuild`（即 D8.2 的原意，现在真的会跑）。 |
+| `verify`（打包后） | **实测产物**：用构建期 Node `require` 包内 `.node` —— 加载失败且 ABI 不匹配 ⇒ Electron ABI（通过）；**加载成功 ⇒ 就是 Node ABI，构建失败**。另检查 `bindings` / `file-uri-to-path` 是否在 `app.asar.unpacked` 内。 |
+
+★ **`bindings` 必须一起铺**：只铺 better-sqlite3 时，依赖遍历不再走到仓库根，
+`bindings` 不进包 ⇒ 运行时定位不到 `.node`，**照样降级**（2026-11-09 实测，由 `verify` 逮到）。
+★ **不得只靠构建日志判定成功**：本条偏差最初就是"日志全绿、产物降级"。
+
+### D8.6 `build.publish` 必须显式为 `null` —— **2026-11-09 补充**
+
+构建环境若存在 `GH_TOKEN` / `GITHUB_TOKEN` 等令牌，electron-builder 会自动推断
+github provider 去生成更新信息，而本仓库无 `repository` 字段 ⇒ 解析出 `null` ⇒
+**打包最后一步**崩在 `Cannot read properties of null (reading 'provider')`
+（安装器其实已产出，只是退出码为 1）。本工程不做 electron-updater（D 段"不做"清单），
+故两处配置均显式 `publish: null` 跳过。
+
+### D8.7 构建机前提（**2026-11-09 实测记录于本机**）
+
+D8.5/D8.6 是**代码层**的修法，与本机无关。本节记的是**本机特有的两条前提** ——
+它们不是产品需求，换到正常构建机就都不需要。`apps/desktop/scripts/dist-local.mjs`
+把这两条自动化了（`npm run dist:local`）。
+
+| # | 现象 | 根因（实测） | 自动处理 |
+|---|---|---|---|
+| 1 | electron-builder 在 `@electron/rebuild` 处失败：node-gyp 报 `Could not find any Visual Studio installation to use` | 本机 VS BuildTools **装在盘上但未注册** —— `vswhere -all -products *` 返回 `[]`、`%ProgramData%\Microsoft\VisualStudio\Packages\_Instances\` 为空；而工具链实体齐全（MSVC 14.44.35207 的 `cl.exe`、Windows SDK 10.0.26100.0）。node-gyp 在 [find-visualstudio.js:47](node_modules/node-gyp/lib/find-visualstudio.js) 另有 `VCINSTALLDIR` 通路（正是它此前抱怨的 `not running in VS Command Prompt`） | 未注册时自动 `call` 该盘的 `VC/Auxiliary/Build/vcvars64.bat` 再跑打包 |
+| 2 | electron-builder 下载 `nsis-*` / `winCodeSign-*` 时 `Timeout awaiting 'request' for 600000ms` | 本机对 GitHub **通但慢**（`github.com` 约 8.3s 响应），Electron 本体能下下来，但数十 MB 的 release 资产必超时。本机有 Clash 在跑，但无系统代理（`netsh winhttp` = 直接访问） | 设 `ELECTRON_BUILDER_MIRROR_CN=1` 时改用 npmmirror（三个资产实测 206，electron-builder 对它们有 SHA 校验） |
+
+**为什么不用 `@electron/rebuild` 手工补工具链**：D3.4 已裁定禁止（静默空转）。
+本节的自动化只做两件事 —— **让 node-gyp 找得到工具链**、**让下载走镜像** ——
+原生模块的重建仍然交给 electron-builder（D8.5 的 `stage` 负责让它有目标可建）。
+
+**若换到正常构建机**：两条都不触发（vswhere 有结果、GitHub 够快），`npm run dist` 直接可用。
+镜像默认**不启用**（第三方源属供应链选择，不做隐式默认），仅在显式设
+`ELECTRON_BUILDER_MIRROR_CN=1` 时生效。
+
 ---
 
 ## D9 · sql.js / `sql-wasm.wasm` 投递 —— **已冻结**

@@ -13,9 +13,10 @@
     "dev": "node scripts/bundle-shell.mjs && electron .",
     "build": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs",
     "type-check": "tsc --noEmit",
-    "dist:dir": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs && electron-builder --win dir --x64",
-    "dist": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs && electron-builder --win nsis --x64",
-    "dist:zip": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs && electron-builder --win --x64 --dir && node scripts/package-portable-zip.mjs"
+    "dist:dir": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs && node scripts/native-abi.mjs stage && electron-builder --win dir --x64 && node scripts/native-abi.mjs verify",
+    "dist": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs && node scripts/native-abi.mjs stage && electron-builder --win nsis --x64 && node scripts/native-abi.mjs verify",
+    "dist:zip": "node scripts/build-server-payload.mjs && node scripts/bundle-shell.mjs && node scripts/native-abi.mjs stage && electron-builder --win --x64 --dir && node scripts/native-abi.mjs verify && node scripts/package-portable-zip.mjs",
+    "dist:local": "node scripts/dist-local.mjs dist"
   },
   "dependencies": {
     "better-sqlite3": "12.11.1",
@@ -30,6 +31,7 @@
   },
   "build": {
     "appId": "com.novelmuse.desktop",
+    "publish": null,
     "productName": "砚舟",
     "copyright": "Copyright © 2026 砚舟",
     "directories": {
