@@ -10,6 +10,8 @@ import {
   type SimulationNodeDatum3D,
 } from 'd3-force-3d';
 import type { Node, Edge } from '@xyflow/react';
+// 主题/字体偏好真源（ui-kit）。本文件只在画布路径上用它 —— 见下方 labelFont。
+import { useThemeStore } from '@novel-plugins/ui-kit';
 
 // ============================================================
 // Graph3D — 知识图谱 3D 浏览模式
@@ -64,8 +66,32 @@ interface SimLink3D {
   labelSprite: THREE.Sprite;
 }
 
-const NODE_LABEL_FONT =
-  '600 14px "Noto Serif SC","Source Han Serif SC","PingFang SC","Microsoft YaHei",sans-serif';
+/* ★ 2026-11-09 字体 token 化（本文件是**两个例外**之一）
+ *
+ * 为什么不能写 `ctx.font = '600 14px var(--yz-font-display)'`：
+ *   canvas 的 ctx.font 是**字符串解析**，不参与 CSS 变量替换 —— var() 会被当字面量，
+ *   浏览器静默丢弃整条 font 赋值，标签回落到默认 10px sans（看上去"字变小了"，
+ *   且不报错）。所以这里改从 <html> 的计算样式里把**解析后的真值**读出来。
+ *
+ * 兜底常量只服务于无 document 的环境（SSR / 单测）；正常运行时读到的总是 token 值。
+ * 主题或字体偏好一变，调用方会用新的栈重建 sprite（见下方 labelFont 与 effect deps）。 */
+const FALLBACK_LABEL_STACK = '"Noto Serif SC","Source Han Serif SC","PingFang SC","Microsoft YaHei",serif';
+const FALLBACK_UI_STACK = '"PingFang SC","Microsoft YaHei",system-ui,sans-serif';
+
+function readFontVar(varName: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return v || fallback;
+}
+
+/** 节点标签（实体名）：走 display 字族，跟书名/标题同一套字 */
+function nodeLabelFont(stack: string): string {
+  return `600 14px ${stack}`;
+}
+/** 关系标签（小字）：走 UI 字族 —— 它是界面标注，不是文学文本 */
+function edgeLabelFont(stack: string): string {
+  return `500 11px ${stack}`;
+}
 
 function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
@@ -78,21 +104,21 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
 }
 
 /** 生成节点中文标签纹理（白底圆角 + 节点色文字） */
-function makeLabelTexture(text: string, color: string): THREE.CanvasTexture {
+function makeLabelTexture(text: string, color: string, fontStack: string): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     // 极端兜底：返回 1x1 透明纹理
     return new THREE.CanvasTexture(document.createElement('canvas'));
   }
-  ctx.font = NODE_LABEL_FONT;
+  ctx.font = nodeLabelFont(fontStack);
   const textWidth = ctx.measureText(text).width;
   const width = Math.max(32, Math.ceil(textWidth + 18));
   const height = 28;
   canvas.width = width;
   canvas.height = height;
 
-  ctx.font = NODE_LABEL_FONT;
+  ctx.font = nodeLabelFont(fontStack);
   roundRectPath(ctx, 0, 0, width, height, 9);
   ctx.fillStyle = 'rgba(255,255,255,0.88)';
   ctx.fill();
@@ -128,19 +154,19 @@ function makeHaloTexture(): THREE.CanvasTexture {
 }
 
 /** 生成关系标签纹理（小圆角底 + 关系色文字） */
-function makeEdgeLabelTexture(text: string, color: string): THREE.CanvasTexture {
+function makeEdgeLabelTexture(text: string, color: string, fontStack: string): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     return new THREE.CanvasTexture(document.createElement('canvas'));
   }
-  ctx.font = '500 11px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.font = edgeLabelFont(fontStack);
   const textWidth = ctx.measureText(text).width;
   const width = Math.max(24, Math.ceil(textWidth + 14));
   const height = 20;
   canvas.width = width;
   canvas.height = height;
-  ctx.font = '500 11px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.font = edgeLabelFont(fontStack);
   roundRectPath(ctx, 0, 0, width, height, 8);
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.fill();
@@ -193,6 +219,22 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
 
   const hoverIdRef = useRef<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
+
+  // 画布标签字体：从 <html> 的计算样式读**解析后**的字族（canvas 不认 var()，见文件上方注）。
+  // 依赖主题与字体偏好 —— 任一变化都让下面的 useEffect 重建 sprite（sprite 的
+  // 文字是**画进纹理**的，不重建就还是旧字体，屏幕上看不出任何报错）。
+  // 读的时机是 render 期：applyTheme / applyFonts 都在 set() 之前**同步**写好了
+  // <html> 的 class / data-theme / 行内属性，故这里拿到的一定是新值。
+  const themeId = useThemeStore((s) => s.theme);
+  const fontPrefs = useThemeStore((s) => s.fonts);
+  const labelFont = useMemo(
+    () => readFontVar('--yz-font-display', FALLBACK_LABEL_STACK),
+    [themeId, fontPrefs],
+  );
+  const edgeFont = useMemo(
+    () => readFontVar('--yz-font-ui', FALLBACK_UI_STACK),
+    [themeId, fontPrefs],
+  );
 
   // 暴露导出能力
   useImperativeHandle(ref, () => ({
@@ -304,7 +346,7 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
       });
 
       // 中文标签
-      const labelTexture = makeLabelTexture(label, color);
+      const labelTexture = makeLabelTexture(label, color, labelFont);
       const spriteMat = new THREE.SpriteMaterial({ map: labelTexture, transparent: true, depthWrite: false });
       const sprite = new THREE.Sprite(spriteMat);
       const tw = labelTexture.image.width;
@@ -360,7 +402,7 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
       scene.add(line);
 
       // 关系标签（默认隐藏，hover 节点时显示）
-      const edgeLabelTexture = makeEdgeLabelTexture(label || '关系', color);
+      const edgeLabelTexture = makeEdgeLabelTexture(label || '关系', color, edgeFont);
       const edgeLabelMat = new THREE.SpriteMaterial({ map: edgeLabelTexture, transparent: true, depthWrite: false, opacity: 0.95 });
       const edgeLabel = new THREE.Sprite(edgeLabelMat);
       const ew = edgeLabelTexture.image.width;
@@ -594,7 +636,7 @@ export function Graph3D({ nodes, edges, getNodeColor, onNodeClick, onNodeHover, 
       selectedIdRef.current = null;
     };
     // 仅在结构变化时重建（位置变化不触发）
-  }, [buildKey, getNodeColor, onNodeClick, onNodeHover, onBackgroundClick]);
+  }, [buildKey, getNodeColor, onNodeClick, onNodeHover, onBackgroundClick, labelFont, edgeFont]);
 
   // 切换自动旋转（由顶栏按钮或内部控制条触发）
   const toggleAutoRotate = () => {

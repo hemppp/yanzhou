@@ -5,16 +5,24 @@ import App from './App';
 //   下面所有 token 层（--vscode-* / --background / --ink* …）都写成它的别名。
 //   契约：docs/design/yanzhou-visual-identity.md §5
 import '@novel-plugins/ui-kit/styles/identity.css';
+// ★ 主题档（宣纸 / 青瓷 / 素笺 / 夜航）：以 `html[data-theme='x']` 覆盖 --yz-* 锚点。
+//   ⚠️ 必须**紧跟 identity.css**、且在 vscode-dark-modern.css 之前 ——
+//   它与 identity 的 `html.dark`(0,1,1) 特异性打平，胜负靠源序；挪走会静默错色
+//   （暗色模式下渲染主题的亮档）。详见 themes.css 文件头。
+import '@novel-plugins/ui-kit/styles/themes.css';
 // ★ VS Code Dark Modern token 层：定义 :root / html.dark 的全量 --vscode-* 变量，
 //   并把旧 shadcn/daisyUI 变量位映射到它们之上。
 //   定义在 :root 意味着**任何插件包无需 import 本文件**即可消费（ADR 约定 C-1）。
 import '@novel-plugins/ui-kit/styles/vscode-dark-modern.css';
 import './styles/globals.css';
 import { registerProjectIdGetter, resolveApiUrl } from './services/api/apiClient';
-import { applyStoredTheme } from './stores/themeStore';
+import { applyStoredTheme, applyStoredFonts } from './stores/themeStore';
 
 // ★ 首屏渲染前同步应用本地主题，否则会先闪一下默认配色再切换
 applyStoredTheme();
+// ★ 字体偏好同理，且必须**在主题之后**：它写的是 <html> 上的**行内**自定义属性，
+//   行内恒胜样式表 —— 后写才能压过主题档的默认字体。
+applyStoredFonts();
 import { useProjectStore } from './stores';
 import { mountWebPlugin, type WebPluginEntry } from './plugin/host';
 import type { WebPluginModule } from './plugin/types';

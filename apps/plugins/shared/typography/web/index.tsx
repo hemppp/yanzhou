@@ -289,7 +289,7 @@ function TypographyPanel() {
         }}
       >
         <div className="text-xs mb-1" style={{ color: 'hsl(var(--ink-light))' }}>实时预览</div>
-        <div style={{ fontWeight: settings.weight, color: settings.color ?? 'hsl(var(--ink))', fontFamily: "'Noto Serif SC', serif", lineHeight: 1.9 }}>
+        <div style={{ fontWeight: settings.weight, color: settings.color ?? 'hsl(var(--ink))', fontFamily: 'var(--yz-font-reading)', lineHeight: 1.9 }}>
           墨色的风掠过书页，故事在灯火里悄然生长。
         </div>
       </div>

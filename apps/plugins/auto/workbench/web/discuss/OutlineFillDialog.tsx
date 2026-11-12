@@ -367,7 +367,7 @@ export function OutlineFillDialog({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="nm-modal-textarea"
-              style={{ minHeight: '160px', fontFamily: '"Songti SC", "Source Han Serif", "Noto Serif CJK SC", Georgia, serif' }}
+              style={{ minHeight: '160px', fontFamily: 'var(--yz-font-reading)' }}
               placeholder="AI 生成的内容将显示在这里，你可以编辑后再填入……"
               spellCheck={false}
             />

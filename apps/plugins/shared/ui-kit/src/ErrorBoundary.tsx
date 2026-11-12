@@ -84,7 +84,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
             <span
               className="text-3xl"
               style={{
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-display)',
                 color: isFatal ? 'hsl(var(--destructive))' : 'hsl(0 0% 45%)',
                 fontWeight: 600,
               }}
@@ -99,7 +99,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
         <h2
           className="mb-3 text-base tracking-wide"
           style={{
-            fontFamily: "'Noto Serif SC', serif",
+            fontFamily: 'var(--yz-font-display)',
             color: isFatal ? 'hsl(var(--destructive))' : 'hsl(0 0% 45%)',
             fontWeight: 600,
           }}
@@ -128,7 +128,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
               <p
                 className="mb-2 text-sm break-all"
                 style={{
-                  fontFamily: "'Noto Serif SC', serif",
+                  fontFamily: 'var(--yz-font-display)',
                   color: 'hsl(var(--foreground))',
                   lineHeight: 1.6,
                 }}
@@ -141,7 +141,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
                 <summary
                   className="cursor-pointer text-xs transition-colors hover:opacity-70"
                   style={{
-                    fontFamily: "'Noto Serif SC', serif",
+                    fontFamily: 'var(--yz-font-display)',
                     color: 'hsl(var(--muted-foreground))',
                   }}
                 >
@@ -161,7 +161,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
                   <code
                     style={{
                       color: 'hsl(var(--muted-foreground))',
-                      fontFamily: "'Inter', monospace",
+                      fontFamily: 'var(--yz-font-ui)',
                     }}
                   >
                     {error.stack || error.message}
@@ -174,7 +174,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
             <p
               className="text-sm leading-relaxed"
               style={{
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-display)',
                 color: 'hsl(var(--foreground))',
                 lineHeight: 1.7,
               }}
@@ -189,7 +189,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
           <p
             className="mb-4 text-xs"
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               color: 'hsl(var(--muted-foreground))',
             }}
           >
@@ -205,7 +205,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
               onClick={onRetry}
               className="px-6 py-3 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
               style={{
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-display)',
                 borderRadius: 'var(--r-sm)',
                 background: 'hsl(var(--primary))',
                 color: 'hsl(var(--primary-foreground))',
@@ -225,7 +225,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
             onClick={onGoHome}
             className="px-6 py-3 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               borderRadius: 'var(--r-sm)',
               background: 'rgb(var(--glass-tint) / 0.6)',
               backdropFilter: 'blur(20px) saturate(180%)',
@@ -249,7 +249,7 @@ function ErrorFallback({ error, retryCount, onRetry, onGoHome }: ErrorFallbackPr
             onClick={() => window.location.reload()}
             className="px-4 py-3 text-xs transition-all hover:opacity-90 active:scale-[0.98]"
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               borderRadius: 'var(--r-sm)',
               background: 'rgb(var(--glass-tint) / 0.4)',
               backdropFilter: 'blur(20px) saturate(180%)',

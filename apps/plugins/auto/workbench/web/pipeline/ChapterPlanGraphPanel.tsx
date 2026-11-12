@@ -402,7 +402,7 @@ export function ChapterPlanGraphPanel({
     <>
       {selectedStage ? (
         <div className="space-y-2">
-          <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 13, fontWeight: 600, color: 'hsl(var(--ink))' }}>
+          <div style={{ fontFamily: 'var(--yz-font-display)', fontSize: 13, fontWeight: 600, color: 'hsl(var(--ink))' }}>
             {selectedStage.label}
           </div>
           <p className="text-[11px] leading-[1.8]" style={{ color: 'hsl(var(--muted-foreground))' }}>

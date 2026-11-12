@@ -220,7 +220,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
       <p
         className="flex-1 text-xs leading-relaxed"
         style={{
-          fontFamily: "'Noto Serif SC', serif",
+          fontFamily: 'var(--yz-font-display)',
           color: 'hsl(var(--foreground))',
           fontSize: '12px',
           lineHeight: '1.55',

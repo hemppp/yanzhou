@@ -59,7 +59,7 @@ export function OutlineCheckModal({ visible, onClose, actionName }: OutlineCheck
           >
             <ListChecks size={22} className="text-primary" />
           </div>
-          <h2 className="text-base font-semibold mb-1" style={{ fontFamily: "'Noto Serif SC', serif" }}>
+          <h2 className="text-base font-semibold mb-1" style={{ fontFamily: 'var(--yz-font-display)' }}>
             尚未填写大纲
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">

@@ -147,7 +147,7 @@ export const ProjectIndexPage: React.FC = () => {
           <BookOpen size={28} style={{ color: 'hsl(var(--ink-light))' }} className="mb-3" />
           <h2
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               fontSize: 16.5,
               fontWeight: 600,
               color: 'hsl(var(--ink))',
@@ -158,7 +158,7 @@ export const ProjectIndexPage: React.FC = () => {
           </h2>
           <p
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               fontSize: 12,
               color: 'hsl(var(--ink-light))',
               margin: '0 0 var(--space-7)',
@@ -171,7 +171,7 @@ export const ProjectIndexPage: React.FC = () => {
             onClick={() => navigate(PATHS.bookshelf)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-md transition-all"
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               fontSize: 12,
               color: 'hsl(var(--card))',
               background: 'hsl(var(--mountain-deep))',
@@ -191,7 +191,7 @@ export const ProjectIndexPage: React.FC = () => {
             <div className="w-full" style={{ marginTop: 'var(--space-8)' }}>
               <div className="flex items-center gap-2" style={{ color: 'hsl(var(--ink-pale))', marginBottom: 'var(--space-4)' }}>
                 <span style={{ flex: 1, height: 1, background: 'hsl(var(--border) / 0.6)' }} />
-                <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 10, letterSpacing: '0.1em' }}>
+                <span style={{ fontFamily: 'var(--yz-font-display)', fontSize: 10, letterSpacing: '0.1em' }}>
                   书架里的书
                 </span>
                 <span style={{ flex: 1, height: 1, background: 'hsl(var(--border) / 0.6)' }} />
@@ -205,7 +205,7 @@ export const ProjectIndexPage: React.FC = () => {
                     // ★ 导航项（打开某本书），不是动作按钮 → nm-nav-item 显式豁免笔触
                     className="nm-nav-item w-full px-3 py-2 rounded-md transition-all text-left truncate"
                     style={{
-                      fontFamily: "'Noto Serif SC', serif",
+                      fontFamily: 'var(--yz-font-display)',
                       fontSize: 12,
                       color: 'hsl(var(--ink))',
                       background: 'hsl(var(--card) / 0.6)',
@@ -238,7 +238,7 @@ export const ProjectIndexPage: React.FC = () => {
       >
         <div
           className="flex items-center gap-2"
-          style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 12 }}
+          style={{ fontFamily: 'var(--yz-font-display)', fontSize: 12 }}
         >
           <Sparkles size={14} style={{ color: 'hsl(var(--mountain-deep))' }} />
           正在打开《{currentProject.name}》的编辑器…

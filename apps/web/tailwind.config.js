@@ -271,9 +271,14 @@ export default {
         window: 'var(--radius-window)',       // 18px 窗口 / 大容器 / 输入区
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei UI', 'Microsoft YaHei', 'system-ui', 'sans-serif'],
-        serif: ['Noto Serif SC', 'Source Han Serif SC', 'serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        // ★ 2026-11-09：字体栈全部改指 --yz-font-* 真源（identity.css §4.1）。
+        //   原来这里写死的三串字面栈**不跟随主题**：换成宣纸/素笺后，
+        //   凡是用 font-serif / font-mono 工具类的地方都会掉回默认宋体/等宽。
+        //   ⚠️ 只放一个 var()，**不给兜底**（规范 §7 反模式 #12）：
+        //      --yz-font-* 由 identity.css 无条件定义，不存在"取不到"的情形。
+        sans: ['var(--yz-font-ui)'],
+        serif: ['var(--yz-font-display)'],
+        mono: ['var(--yz-font-mono)'],
       },
       backdropBlur: {
         xs: '2px',

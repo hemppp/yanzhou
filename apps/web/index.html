@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <!--
-  ★ 首屏初始 data-theme 写 vscode-dark-modern：
-    与 themeStore 的默认主题（DEFAULT_THEME）保持一致，避免"先按错误主题画一帧
-    再被 JS 改掉"的闪烁。该主题即 :root 本身（ADR §6.1），所以即便本属性缺失，
-    首屏也会直接落到 VS Code Modern 的 token 上。
-  ★ color-scheme 决定亮/暗档：token 真源里每个颜色都是 light-dark(浅, 深)，
-    按本元素的 color-scheme 解析。静态写 light 与 DEFAULT_MODE 一致（首屏白底）；
-    ⚠️ 若用户在 localStorage 里选了别的值，applyStoredTheme() 会覆盖 class 与
-    本行内联 color-scheme，无需改这里。
+  ★ 首屏初始 data-theme 写 vscode-dark-modern（= DEFAULT_THEME）：
+    它是 :root 本身，所以即便下面那段预置脚本被 CSP 拦掉、本属性保持原样，
+    首屏也会直接落到默认档的 token 上，不会「无主题」。
+  ★ 页头里那段内联脚本负责**首帧之前**把用户存的主题/明暗贴上去 ——
+    官方路径（themeStore.applyStoredTheme）要等 bundle 加载完才跑，
+    对「夜航」这种深底主题来说就是先闪一帧白，比亮/暗切换的闪烁明显得多。
+  ⚠️ 注释里**不要**出现尖括号包着的标签名（head / html / body 等字面量）：
+    Vite 的 transformIndexHtml 用文本匹配找注入点，会把脚本插进注释里 ——
+    结果是 react-refresh preamble 变成注释内容、整个应用起不来
+    （报错是 "plugin-react can't detect preamble"，看起来像插件坏了，很难查）。
+    本行文字就是踩过之后补的说明。
 -->
 <html lang="zh-CN" data-theme="vscode-dark-modern" style="color-scheme: light">
   <head>
@@ -16,7 +19,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>砚舟 - 伴写小说工具</title>
 
-    <!-- 主题 = VS Code Modern 单档；亮/暗两档由「夜间」按钮或设置页切换 -->
+    <!-- 主题档：默认 VS Code Modern，另有宣纸 / 青瓷 / 素笺 / 夜航（设置 → 外观） -->
+    <!-- ★ 预置脚本：只做「把存着的值贴到根元素」这一件事，**不含任何配色/字体知识** ——
+         它读的就是 themeStore 写下去的那对值，故不存在第二份真源。
+         themeStore.applyStoredTheme() 稍后会用同一套结果覆盖它（幂等）。
+         字体不在这里预置：那需要把字体栈复制一份到这里，得不偿失；
+         字体只在默认栈与主题栈之间切换，闪动远小于整屏底色反白。 -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('novelmuse:theme');
+          if (!raw) return;
+          var p = JSON.parse(raw) || {};
+          if (typeof p.theme !== 'string' || (p.mode !== 'light' && p.mode !== 'dark')) return;
+          var el = document.documentElement;
+          el.setAttribute('data-theme', p.theme);
+          el.classList.toggle('dark', p.mode === 'dark');
+          el.style.colorScheme = p.mode;
+        } catch (e) {
+          /* 存储不可读 / JSON 损坏：保持静态默认，交给 themeStore 兜底 */
+        }
+      })();
+    </script>
 
     <!-- Noto Serif SC — 中文衬线主字体（文人气质） -->
     <!-- 使用 local() 引用系统字体，避免 Google Fonts 被墙的问题 -->

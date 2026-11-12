@@ -22,8 +22,9 @@
   --landing-card-bg: transparent;           /* 由玻璃 backdrop-filter 接管 */
   --landing-card-border: hsl(var(--border, 0 0% 82%) / 0.5);
   --landing-card-hover-border: hsl(var(--ink) / 0.35);
-  --landing-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
-  --landing-serif: "Noto Serif SC", "Source Han Serif SC", serif;
+  /* ★ 2026-11-09：改指 --yz-font-* 真源 —— 落地页也跟着主题换字。 */
+  --landing-sans: var(--yz-font-ui);
+  --landing-serif: var(--yz-font-display);
 }
 
 /* ===== 全局滚动行为 ===== */

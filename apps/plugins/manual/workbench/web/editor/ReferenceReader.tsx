@@ -244,7 +244,7 @@ export function ReferenceReader() {
               style={{
                 fontSize: fontSizeRef.current,
                 color: isDark ? '#e8e6e3' : '#37352f',
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-reading)',
                 lineHeight: 1.9,
                 whiteSpace: 'pre-wrap',
                 wordWrap: 'break-word',

@@ -14,8 +14,15 @@
  *   收敛为一层后，上面四层全部变成别名，消费点零改动（1144 处不动）。
  *
  * ## 引入要求（main.tsx）
- *   **必须最先引入**，早于 vscode-dark-modern.css 与 globals.css ——
- *   否则那两层解析 var(--yz-*) 时本文件尚未定义，会整体失效。
+ *   **必须最先引入**，早于 themes.css / vscode-dark-modern.css 与 globals.css ——
+ *   否则那几层解析 var(--yz-*) 时本文件尚未定义，会整体失效。
+ *
+ * ## 主题档（styles/themes.css）
+ *   本文件给的是**默认档**（VS Code Modern）的锚点值。其余主题档在 themes.css 里
+ *   以 `html[data-theme='<id>']` 覆盖同名锚点 —— 所以 themes.css 必须**紧跟本文件
+ *   之后**引入：两者在 `html.dark`(0,1,1) 上特异性打平，胜负担在**源序**上。
+ *   ⚠️ themes.css 必须是**无层**（unlayered）样式：包进任何 @layer 都会被本文件
+ *      的无层 :root 整体压掉，主题静默失效（同 vscode-dark-modern.css 头注那条规则）。
  *
  * ## 命名
  *   --yz-<材料>[-<档位>]   yz = 砚舟。材料名取自文房：ground(绢) / ink(墨) /
@@ -145,6 +152,23 @@
     rgba(14, 20, 26, 0.38) 0%,
     rgba(14, 20, 26, 0) 100%
   );
+
+  /* ---------- 字体角色（§4.1 落地） ----------
+     ⚠️ 这四个是**完整字体栈**，不是色值 —— 消费点直接 `font-family: var(--yz-font-x)`，
+        **绝不能**包 hsl()。与上面那批三元组是不同的东西，别混。
+
+     为什么拆三个字族而不是一个：素笺要「正文无衬线 + 标题衬线」，
+     单一个 reading 表达不了。display 与 reading 对其余主题取值相同。
+
+     ⚠️ 字体**不随亮暗档切换**（无「夜间换字」这回事），故只在 :root 定义一次；
+        主题档若在 .dark 块里再写一遍是冗余，只在 .dark 写则是 bug（亮档会失配）。
+
+     改字体只有一个地方：这里给默认值，themes.css 的 `html[data-theme='x']` 覆盖，
+     外观页的字体选择器再以**行内自定义属性**覆盖主题档（行内恒胜样式表）。 */
+  --yz-font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  --yz-font-reading: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
+  --yz-font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
+  --yz-font-mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
 /* ============================================================
@@ -195,7 +219,11 @@ html.dark {
 }
 
 /*
- * 待落地（本次 P0 不含）：
+ * 待落地：
  *   · §4.2 字号阶梯  --yz-text-2xs … --yz-text-3xl（P2）
  *   · §4.2 正文专用  --yz-manuscript-size / -leading / -measure（P2）
+ *
+ * 已落地：
+ *   · §4.1 字体角色 —— --yz-font-ui / -reading / -display / -mono，见上方 :root 末段。
+ *     主题档（themes.css）覆盖这三个字族，外观页的字体选择器再以行内自定义属性覆盖主题档。
  */

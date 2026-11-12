@@ -100,7 +100,7 @@ function CharacterCard({
             justifyContent: 'center',
             fontSize: 52,
             fontWeight: 700,
-            fontFamily: "'Noto Serif SC', serif",
+            fontFamily: 'var(--yz-font-display)',
             color: 'rgba(255,255,255,0.92)',
             textShadow: '0 2px 12px rgba(0,0,0,0.25)',
           }}
@@ -185,7 +185,7 @@ function CharacterCard({
           style={{
             fontSize: 14,
             fontWeight: 600,
-            fontFamily: "'Noto Serif SC', serif",
+            fontFamily: 'var(--yz-font-display)',
             color: 'rgba(255,255,255,0.98)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',

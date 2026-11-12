@@ -433,7 +433,7 @@ function TemplateSection({
                 minHeight: '90px',
                 background: 'hsl(var(--foreground) / 0.03)',
                 border: '1px solid hsl(var(--border) / 0.5)',
-                fontFamily: '"Songti SC", "Source Han Serif", "Noto Serif CJK SC", Georgia, serif',
+                fontFamily: 'var(--yz-font-reading)',
               }}
               spellCheck={false}
             />
@@ -532,7 +532,7 @@ function TemplateSection({
                               minHeight: '80px',
                               background: 'rgba(15,15,15,0.015)',
                               border: '1px solid rgba(15,15,15,0.05)',
-                              fontFamily: '"Songti SC", "Source Han Serif", "Noto Serif CJK SC", Georgia, serif',
+                              fontFamily: 'var(--yz-font-reading)',
                             }}
                             spellCheck={false}
                           />
@@ -646,7 +646,7 @@ function SectionCard({
           className="w-full bg-transparent outline-none resize-y text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50"
           style={{
             minHeight: '110px',
-            fontFamily: '"Songti SC", "Source Han Serif", "Noto Serif CJK SC", Georgia, serif',
+            fontFamily: 'var(--yz-font-reading)',
           }}
           spellCheck={false}
         />

@@ -89,7 +89,7 @@ export function ContinueWriteModal({ visible, chapterTitle, onConfirm, onClose }
               <PenTool size={18} className="text-primary" />
             </div>
             <div>
-              <h2 className="text-base font-semibold" style={{ fontFamily: "'Noto Serif SC', serif" }}>
+              <h2 className="text-base font-semibold" style={{ fontFamily: 'var(--yz-font-display)' }}>
                 智能续写
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">

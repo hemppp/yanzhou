@@ -204,7 +204,7 @@ export function ManuscriptPanel({ projectId: projectIdProp }: { projectId?: stri
           {selected ? (
             <div className="mx-auto px-6 py-5" style={{ maxWidth: READING_MAX_WIDTH }}>
               <h2 className="text-[13px] font-semibold"
-                style={{ color: 'hsl(var(--foreground))', fontFamily: "'Noto Serif SC', serif" }}>
+                style={{ color: 'hsl(var(--foreground))', fontFamily: 'var(--yz-font-display)' }}>
                 {chapterLabel(selected.order)}　{selected.title || '（无标题）'}
               </h2>
               <div className="mt-1 text-[10.5px] text-muted-foreground" data-selected-words>

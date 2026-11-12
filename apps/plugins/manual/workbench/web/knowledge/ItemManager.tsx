@@ -164,8 +164,8 @@ export function ItemManager() {
           ) : (
             <>
               <Coins size={14} style={{ color: 'hsl(var(--ochre))' }} />
-              积分账本
-              <span className="text-[10px] font-normal text-muted-foreground">系统文</span>
+              系统账本
+              <span className="text-[10px] font-normal text-muted-foreground">积分 / 赠予</span>
             </>
           )}
         </h2>
@@ -186,7 +186,7 @@ export function ItemManager() {
             }`}
           >
             <Coins size={11} />
-            积分账本
+            系统账本
           </button>
         </div>
       </div>

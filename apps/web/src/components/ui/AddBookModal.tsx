@@ -330,7 +330,7 @@ export function AddBookModal({ isOpen, onClose, onSubmit, editBook, defaultMode 
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 'var(--r-lg)',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+          fontFamily: 'var(--yz-font-ui)',
           overflow: 'hidden',
           transition: 'max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}

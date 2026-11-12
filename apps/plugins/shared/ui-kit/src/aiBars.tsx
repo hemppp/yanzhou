@@ -168,7 +168,7 @@ export function QuickPromptsBar({ onPick, disabled, embedded, variant }: { onPic
     boxShadow:
       '0 4px 12px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
     color: 'hsl(var(--ink))',
-    fontFamily: "'Noto Serif SC', serif",
+    fontFamily: 'var(--yz-font-display)',
   });
 
   // embedded：供贴附气泡的弹出层渲染（跳过折叠头部，直接展开全部分组）
@@ -357,7 +357,7 @@ export function SkillsBar({
       ? `0 0 0 2px ${color}40, 0 4px 16px ${color}30, inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)`
       : '0 4px 12px hsl(var(--glass-shadow) / 0.08), inset 0 1px 0 rgb(var(--glass-highlight) / 0.5)',
     color: 'hsl(var(--ink))',
-    fontFamily: "'Noto Serif SC', serif",
+    fontFamily: 'var(--yz-font-display)',
   });
 
   const emptyHint = skills.length === 0 ? (

@@ -215,17 +215,80 @@ globals.css              2580 行 / 104 KB
 >
 > 教训：**`XBackground` 与 `XForeground` 是一对**。改其中一个时，先确认另一个存在且已配对。
 
+### 3.6 主题档（2026-11-09 新增 4 档）
+
+> 真源：`apps/plugins/shared/ui-kit/src/styles/themes.css`（唯一一处写这四档的字面值）。
+> 每档两组 HSL 三元组：`html[data-theme='<id>']`（亮）与 `html[data-theme='<id>'].dark`（暗）。
+> `--yz-glass-tint` 是唯一例外，**RGB 三元组**（消费点写 `rgb(var(--glass-tint) / α)`）。
+>
+> **只覆盖锚点**，不碰推导位（`--yz-*-tint` / `--yz-sel-bg` / `--yz-scrollbar*` / `--yz-scrim*`）
+> —— 它们由 `color-mix(锚点, 纸面)` 算出，锚点一换自动跟随。
+> 语义色（朱砂 / 石绿 / 赭石）**四档都沿用默认值**，只有「夜航」显式重写以让它的块自足
+> —— 语义色是跨档稳定的语言，跟着纸色走会让「红=危险」在各档间漂移。
+
+| 档 | 立场 | 结构色 | 底 / 墨 | 正文–底 对比 |
+|---|---|---|---|---|
+| VS Code Modern（默认） | 极简中性 | 石青 196 | `#f2f4f1` / `#1c211e` | 14.77 |
+| **宣纸** | 暖白纸感 · 书卷气 | **靛青 228** | `#f8f6f1` / `#372c21` | 12.90 |
+| **青瓷** | 青瓷釉冷调 · 清冷安静 | **青碧 185** | `#edf2f1` / `#333a3d` | 10.68 |
+| **素笺** | 冷白高对比 · 干净白纸 | 靛蓝 215 | `#fcfcfd` / `#181e25` | 16.37 |
+| **夜航** | 深夜写作 · 锁定暗色 | **琥珀 38** | `#11151d` / `#f1ede4` | 15.65 |
+
+**「夜航」的两处非常规，都是刻意的**：
+1. **琥珀占据结构色位**（`--yz-azurite*`）。该位就是「主按钮 / 链接 / 选中 / 分区结构」的位置，
+   默认档在这里放蓝，本档放琥珀 —— token 名是历史遗留，不是「必须是蓝色」的契约。
+2. **`--yz-cinnabar` 保持红**。它还兼任「危险 / 错误」；把危险色也改成琥珀，
+   错误态就会读成警告态。**改强调色的档，必须回头确认语义色没被一起带走。**
+
+**「宣纸」与反模式 #7 的关系（必须写清楚，否则会被评审打回）**：
+§7 #7 禁的是「暖奶油底 + 衬线 + 赤陶色」这个**三件套**。宣纸**只取其中两件、且都不是强调色**：
+底色是**纸白 L96%**（不是奶油 L92%）、结构色用**靛青**而非赤陶（暖色只出现在纸面与墨上），
+且它是**可选档**、默认档仍是冷调绢本。故不落入该反模式。
+
+**对比度**（实测 WCAG 2.1，正文门槛 4.5:1）：四档正文最差 10.68（青瓷亮），全部达标。
+`--yz-ink-3` 在宣纸/青瓷亮档为 3.67 / 3.37 —— 与默认档的 3.44 同类，属 §3.4 的**刻意**设计
+（不得单独承载信息），不要「修」。
+
 ---
 
 ## 4. 字体与字号阶梯
 
 ### 4.1 字体角色
 
-| 角色 | 字体 | 用在哪 | 禁止用在哪 |
+> ★ **2026-11-09 落地为 token**（`--yz-font-*`，定义在 `identity.css` 的 `:root`）。
+> 原文的「现有系统栈」是**默认档**的取值；主题档可覆盖，外观页的字体选择器可再覆盖。
+> 消费点一律 `font-family: var(--yz-font-x)`，**不得**再写字体栈字面量
+> （唯一例外见下方「两个例外」）。改字体只有三个入口：identity（默认）→ themes（按档）
+> → 外观页（用户行内覆盖，恒胜前两者）。
+
+| 角色 | token | 默认档取值 | 用在哪 | 禁止用在哪 |
+|---|---|---|---|---|
+| **界面 sans** | `--yz-font-ui` | `-apple-system` → `PingFang SC` → `MiSans` → `HarmonyOS Sans SC` | 一切 UI 骨架（顶栏/面板/按钮/状态栏/菜单） | — |
+| **文学 serif（正文）** | `--yz-font-reading` | `Noto Serif SC` / `Source Han Serif SC` | **编辑器正文**（`.ProseMirror`）、参考阅读窗、大纲输入 | UI 骨架、按钮、表格 |
+| **文学 serif（标题）** | `--yz-font-display` | 同 `reading` | 书名、章标题、卷首、封面文字、图鉴节点名 | UI 骨架、按钮、表格 |
+| **等宽 mono** | `--yz-font-mono` | `ui-monospace` → `JetBrains Mono` | 数据对齐、代码 | ⚠️ **禁止用于眉标/标签**（见 §7） |
+
+**为什么 reading 与 display 要分开**（默认档两者同值，看着像冗余）：给「素笺」用。
+那一档的诉求是**正文无衬线、标题仍是宋体**——正文求清晰、标题求气质。
+单一个 serif token 表达不了这个组合。其余各档两者同值。
+
+**各档的字体搭配**（`themes.css`）：
+
+| 档 | 正文 | 标题 | 界面 |
 |---|---|---|---|
-| **界面 sans** | 现有系统栈（`-apple-system` → `PingFang SC` → `MiSans` → `HarmonyOS Sans SC`） | 一切 UI 骨架 | — |
-| **文学 serif** | `Noto Serif SC` / `Source Han Serif SC` | 书名、章标题、卷首、封面文字、**编辑器正文** | UI 骨架、按钮、表格 |
-| **等宽 mono** | `JetBrains Mono` | 数据对齐、代码 | ⚠️ **禁止用于眉标/标签**（见 §7） |
+| VS Code Modern（默认） | 思源宋体 | 思源宋体 | 系统无衬线 |
+| 宣纸 | **楷体** | **楷体** | 系统无衬线 |
+| 青瓷 | 宋体 | 宋体 | 系统无衬线 |
+| 素笺 | **黑体** | 宋体 | 系统无衬线 |
+| 夜航 | 系统无衬线 | 宋体 | 系统无衬线 |
+
+**两个例外**（`var()` 在这两处**不生效**，必须读计算值）：
+1. **画布**：`ui-graph/src/Graph3D.tsx` 把字体栈交给 `ctx.font` —— canvas 是**字符串解析**，
+   不参与 CSS 变量替换，写 `var(--...)` 会被静默丢弃、字体回落默认。故用
+   `readFontVar('--yz-font-display')` 从 `<html>` 的计算样式取真值，并把它列入重建 sprite
+   的 effect 依赖（sprite 的字是**画进纹理**的，不重建就还是旧字体）。
+2. **导出**：`exportService.ts` 产出的 HTML / DOCX 是**独立文档**，用户拿到应用外打开，
+   那里没有本应用的 CSS 变量。故在导出那一刻把解析出的栈**内联成字面字符串**。
 
 > 系统栈是**优点**，保留：零 webfont 请求、原生渲染、中文在各平台都是本机最优字形。
 > 不必为了「设计感」引 web font。
@@ -313,10 +376,22 @@ globals.css              2580 行 / 104 KB
 ### 5.3 真源落位
 
 ```
-新增  apps/plugins/shared/ui-kit/src/styles/identity.css   ← --yz-* 唯一真源
+新增  apps/plugins/shared/ui-kit/src/styles/identity.css   ← --yz-* 唯一真源（默认档 + --yz-font-* 默认值）
+新增  apps/plugins/shared/ui-kit/src/styles/themes.css     ← 其余四档：html[data-theme='<id>'] 覆盖 --yz-*（2026-11-09）
 改     vscode-dark-modern.css                              ← 118 个 --vscode-* 全部改指 --yz-*
 改     apps/web/src/styles/globals.css                     ← 四层旧值全部改指 --yz-*
 ```
+
+**引入顺序（`main.tsx`，硬要求）**：
+
+```
+identity.css → themes.css → vscode-dark-modern.css → globals.css
+```
+
+`themes.css` **必须紧跟 identity.css**：两者在 `html.dark`(0,1,1) 上特异性打平，胜负靠源序。
+它与 `vscode-dark-modern.css` 的先后无所谓（属性名不相交），挨着只为可读。
+⚠️ `themes.css` 必须是**无层**样式 —— 进任何 `@layer` 都会被 identity 的无层 `:root` 整体压掉，
+主题静默失效（与 `vscode-dark-modern.css` 头注、`globals.css` 里 daisyUI 那段记的是同一条规则）。
 
 `identity.css` 在 `main.tsx` 里**最先**引入（早于 `vscode-dark-modern.css` 与 `globals.css`）。
 
@@ -462,7 +537,7 @@ globals.css              2580 行 / 104 KB
 | 4 | **非序列内容上的 `01 / 02 / 03`** | 编号是**结构信息**，只用于真正的序列 |
 | 5 | **一页内多于一个朱砂** | 强调色只有一个。多了就没有强调 |
 | 6 | **`#0B0B0B` / `#111` 类中性近黑** | 用 `--yz-ink`（偏绿墨黑） |
-| 7 | **暖奶油底 + 衬线 + 赤陶色** | 生成式设计最集中聚集的组合 |
+| 7 | **暖奶油底 + 衬线 + 赤陶色** | 生成式设计最集中聚集的组合。⚠️ **「宣纸」档的豁免口径见 §3.6**：它取「暖纸底 + 衬线」，但结构色用靛青不用赤陶、底是纸白 L96% 不是奶油 L92%，且为可选档 —— 三件套只占两件、强调色不暖，故不构成该反模式 |
 | 8 | **6 类实体配 6 种色相** | 走向彩虹，与「全灰」是同一个病的两面 |
 | 9 | **新增字面色值**（`#xxxxxx` / `rgb()`） | 违反 ADR §5.4 C-2。锚点除外，且只在 `identity.css` |
 | 10 | **装饰性循环动画**（float / pulse-glow / gradient-flow） | 见 §6.3 |
@@ -494,6 +569,11 @@ globals.css              2580 行 / 104 KB
 4. **对比度**：§3.4 全部达标（正文 ≥ 4.5:1）
 5. **动效**：`prefers-reduced-motion` 覆盖所有新增动效
 6. **视觉验收**：登录 / 书架 / 工作台 / 落地页 四屏截图对比
+7. **主题档**：①`node scripts/verify/verify-theme-single-source.mjs` 零非 release 违规
+   （该脚本**不在** `verify-all.mjs` 里，须显式跑）；②五档 × 亮暗逐一确认
+   `getComputedStyle(html).getPropertyValue('--yz-ground')` 与 themes.css 一致 ——
+   **暗色模式下必须取到该档的暗值**（取到亮值即说明漏了 `.dark` 块）；
+   ③字体：切到素笺，`.ProseMirror` 变无衬线而书封/章标题仍为宋体
 
 ---
 

@@ -50,7 +50,7 @@ const DROPDOWN_ITEM_BASE: React.CSSProperties = {  display: 'flex',
   cursor: 'pointer',
   textAlign: 'left',
   transition: 'background 0.15s',
-  fontFamily: "'Noto Serif SC', serif",
+  fontFamily: 'var(--yz-font-display)',
 };
 
 const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapterCount = 0, index: _index = 0, className, onIntent }: BookCardProps) {
@@ -214,7 +214,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
             fontSize: 10,
             fontWeight: 500,
             color: coverFg('--cover-chip-fg-alpha'),
-            fontFamily: "'Noto Serif SC', serif",
+            fontFamily: 'var(--yz-font-display)',
             maxWidth: '70%',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -276,7 +276,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
             color: coverFg('--cover-title-alpha'),
             margin: 0,
             lineHeight: 1.3,
-            fontFamily: "'Noto Serif SC', 'Source Han Serif SC', serif",
+            fontFamily: 'var(--yz-font-display)',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -296,7 +296,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
               fontSize: 11,
               color: coverFg('--cover-meta-alpha'),
               margin: 'var(--space-1) 0 0 0',
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               letterSpacing: '0.06em',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -322,7 +322,7 @@ const BookCard = memo(function BookCard({ book, onClick, onEdit, onDelete, chapt
             border: '0.5px solid ' + coverFg('--cover-stats-border-alpha'),
             fontSize: 10,
             color: coverFg('--cover-stats-fg-alpha'),
-            fontFamily: "'Noto Serif SC', serif",
+            fontFamily: 'var(--yz-font-display)',
             /* ★ 2026-11-05：统计项必须**整项**换行、不能把「12 字」拆成两行。
                原来没有 nowrap，窄卡片（225px）下每个 span 都被压成单字竖排 ——
                实测「12 字 / 1 章 / 5 分钟」全部折断。 */

@@ -1,0 +1,367 @@
+/* ============================================================
+ * themes.css · 主题档（4 档 + 默认档）
+ *
+ * 契约：docs/design/yanzhou-visual-identity.md §3.6 / §5.3
+ *
+ * ## 这一层是什么
+ *   只覆盖 `--yz-*` **锚点**（以及 §4.1 的三个字族）。默认档 = VS Code Modern，
+ *   它的值就在 identity.css 的 `:root` / `.dark, html.dark` 里 —— 本文件**不重写**
+ *   默认档，只给「其余四档」加覆盖块。
+ *
+ * ## 绝不能做的事（三条，都会静默出错）
+ *   1. **不得定义任何 `--vscode-*`**。机检 `scripts/verify/verify-theme-single-source.mjs`
+ *      的白名单只有 vscode-dark-modern.css 与 dock-tokens.css，且真源内 token 名唯一。
+ *      想改外壳颜色就改 `--yz-*` —— `--vscode-*` 全是它的别名，自动跟随。
+ *   2. **不得包进 @layer**。identity.css 的定义是**无层**的，而无层恒胜有层
+ *      （见 vscode-dark-modern.css / globals.css 两处头注记的同一条规则）——
+ *      一旦本文件进层，主题会被整体压掉，界面回到默认配色且控制台一个字不报。
+ *   3. **不得重定义推导位**（`--yz-*-tint` / `--yz-sel-bg` / `--yz-drop-bg` /
+ *      `--yz-scrollbar*` / `--yz-widget-shadow` / `--yz-scrim*`）。它们是
+ *      color-mix(锚点, 纸面) 算出来的，锚点一换就自动跟随 —— 重定义等于放弃这份自动性。
+ *
+ * ## 为什么每档必须写**两个**块
+ *   与 identity.css 打擂台时的特异性：
+ *       identity  :root              (0,1,0)  默认亮
+ *       identity  .dark              (0,1,0)  默认暗
+ *       identity  html.dark          (0,1,1)  默认暗
+ *       本文件    html[data-theme=x] (0,1,1)  主题亮
+ *       本文件    html[data-theme=x].dark (0,2,1) 主题暗  ← 恒胜
+ *   `html class="dark" data-theme="xuanzhi"` 时，(0,2,1) 一票胜出 ⇒ 拿到**主题的暗档**。
+ *   ⚠️ 只写亮块会**静默错色**：它与 identity 的 `html.dark`(0,1,1) 打平，
+ *      胜负交给源序 —— 于是暗色模式下渲染的是**主题的亮档**（亮纸配深字，全站反白）。
+ *
+ * ## 引入顺序（main.tsx）
+ *   identity.css → **themes.css** → vscode-dark-modern.css → globals.css
+ *   本文件与 identity.css 相邻是硬要求（上面那条打平靠源序）；
+ *   与 vscode-dark-modern.css 的先后无所谓（属性名不相交），挨着只为可读。
+ *
+ * ## 取值形态
+ *   颜色一律 **HSL 三元组**（`h s% l%`，消费点写 `hsl(var(--x))`）——
+ *   唯一例外是 `--yz-glass-tint`：它是 **RGB 三元组**，因为消费点写
+ *   `rgb(var(--glass-tint) / α)`（globals.css / ToastProvider / ErrorBoundary / aiBars 等
+ *   20+ 处）。写成 HSL 会让所有毛玻璃面板变成怪色，且不报错。
+ *   字体是**完整字体栈**，不包 hsl()。
+ *
+ * ## 对比度（实测 WCAG 2.1，正文门槛 4.5:1）
+ *   主题/档            墨:底   次:底   弱:底   结构色:底  色块上前景
+ *   默认 VS Code 亮    14.77   6.53    3.44    5.76       ~7
+ *   宣纸 亮            12.90   6.68    3.67    8.95       9.64
+ *   宣纸 暗            14.44   8.59    5.24    6.75       6.88
+ *   青瓷 亮            10.68   5.61    3.37    5.75       6.50
+ *   青瓷 暗            14.00   8.37    5.15    9.19       9.48
+ *   素笺 亮            16.37   7.96    4.29    6.96       7.13
+ *   素笺 暗            16.15   9.50    5.64    7.15       7.03
+ *   夜航 暗            15.65   9.72    6.11    9.25       9.08
+ *   `--yz-ink-3` 在宣纸/青瓷亮档低于 AA（3.67 / 3.37），与默认档的 3.44 同类 ——
+ *   这是**刻意**的（§3.4：它不得单独承载信息），不要「修」它。
+ * ============================================================ */
+
+/* ============================================================
+ * 宣纸 · 暖白纸底 + 深褐墨 + 靛青结构色
+ *
+ * 立场：写作产品的经典纸感。刻意**避开**规范 §7 反模式 #7
+ *   「暖奶油底 + 衬线 + 赤陶色」——本档暖色只出现在**纸面与墨**上，
+ *   结构色用**靛青**（hue 228）而非赤陶，且底色是**纸白 L96%** 不是奶油 L92%。
+ *   三样里只占两样，且都不是强调色，故不落入那条反模式。
+ * 字体：正文与标题走**楷体**（书卷气），界面仍是系统无衬线。
+ * ============================================================ */
+html[data-theme='xuanzhi'] {
+  /* 载体本色 #F8F6F1 */
+  --yz-ground: 38 34% 96%;
+  --yz-surface: 40 38% 98%;
+  --yz-sunken: 36 26% 92%;
+  --yz-ink: 25 25% 17%;            /* 深褐墨 #372C21 */
+  --yz-ink-2: 25 16% 34%;
+  --yz-ink-3: 25 10% 50%;
+  --yz-line: 36 22% 86%;
+  --yz-line-strong: 34 20% 70%;
+
+  --yz-hover: 36 22% 92%;
+  --yz-hover-2: 36 22% 87%;
+
+  /* 靛青：靛蓝的「靛」，与纸的暖色互为补色倾向 */
+  --yz-azurite-700: 228 44% 26%;
+  --yz-azurite: 228 42% 34%;
+  --yz-azurite-500: 228 40% 42%;
+  --yz-azurite-400: 228 38% 50%;
+  --yz-azurite-hover: 228 42% 40%;
+  /* 亮档靛青是深色 ⇒ 色块上压白字 */
+  --yz-on-azurite: 0 0% 100%;
+
+  /* 章节弧段：靛青(228) → 青绿(158)，与结构色同族 */
+  --yz-chapter-1: 228 40% 30%;
+  --yz-chapter-2: 224 38% 36%;
+  --yz-chapter-3: 212 36% 42%;
+  --yz-chapter-4: 198 36% 46%;
+  --yz-chapter-5: 182 34% 49%;
+  --yz-chapter-6: 170 32% 54%;
+  --yz-chapter-7: 162 30% 60%;
+  --yz-chapter-8: 158 28% 66%;
+
+  /* RGB 三元组（见文件头） */
+  --yz-glass-tint: 248 246 241;
+
+  /* 字体：正文 / 标题 = 楷体，界面 = 系统无衬线 */
+  --yz-font-reading: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "Noto Serif SC", serif;
+  --yz-font-display: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "Noto Serif SC", serif;
+}
+
+html[data-theme='xuanzhi'].dark {
+  /* 夜宣 #1D1916 */
+  --yz-ground: 25 12% 10%;
+  --yz-surface: 25 12% 13%;
+  --yz-sunken: 25 14% 8%;
+  --yz-ink: 38 22% 91%;
+  --yz-ink-2: 38 14% 70%;
+  --yz-ink-3: 38 8% 54%;
+  --yz-line: 25 10% 22%;
+  --yz-line-strong: 25 12% 34%;
+
+  --yz-hover: 25 12% 18%;
+  --yz-hover-2: 25 12% 24%;
+
+  --yz-azurite-700: 228 62% 62%;
+  --yz-azurite: 228 60% 72%;
+  --yz-azurite-500: 228 58% 78%;
+  --yz-azurite-400: 228 56% 82%;
+  --yz-azurite-hover: 228 60% 80%;
+  /* 暗档靛青是浅色 ⇒ 色块上压**夜底**，不是白（写死白会得到 2:1） */
+  --yz-on-azurite: 25 12% 10%;
+  --yz-on-cinnabar: 25 12% 10%;
+  --yz-on-malachite: 25 12% 10%;
+
+  --yz-chapter-1: 228 40% 46%;
+  --yz-chapter-2: 224 38% 52%;
+  --yz-chapter-3: 212 36% 58%;
+  --yz-chapter-4: 198 36% 62%;
+  --yz-chapter-5: 182 34% 66%;
+  --yz-chapter-6: 170 32% 70%;
+  --yz-chapter-7: 162 30% 74%;
+  --yz-chapter-8: 158 28% 78%;
+
+  --yz-glass-tint: 29 25 22;
+  /* 字体与亮档同值，不随明暗切换；此处不重复声明（见文件头）。 */
+}
+
+/* ============================================================
+ * 青瓷 · 青瓷冷底 + 铁灰墨 + 青碧结构色
+ *
+ * 立场：延续「绢本设色」的冷调。底色是青瓷釉的淡青，墨走中性铁灰
+ *   （不带绿 —— 带绿会和底色糊在一起），结构色是青碧（hue 185）。
+ * 字体：正文与标题 = 宋体（清冷挺拔），界面 = 系统无衬线。
+ * ============================================================ */
+html[data-theme='qingci'] {
+  /* 青瓷釉 #EDF2F1 */
+  --yz-ground: 160 18% 94%;
+  --yz-surface: 160 22% 96.5%;
+  --yz-sunken: 160 14% 89%;
+  --yz-ink: 200 9% 21%;
+  --yz-ink-2: 200 7% 37%;
+  --yz-ink-3: 200 5% 51%;
+  --yz-line: 165 12% 84%;
+  --yz-line-strong: 165 14% 67%;
+
+  --yz-hover: 160 14% 90%;
+  --yz-hover-2: 160 14% 85%;
+
+  --yz-azurite-700: 185 42% 23%;
+  --yz-azurite: 185 40% 30%;
+  --yz-azurite-500: 185 38% 38%;
+  --yz-azurite-400: 185 36% 46%;
+  --yz-azurite-hover: 185 40% 36%;
+  --yz-on-azurite: 0 0% 100%;
+
+  /* 章节弧段：青碧(185) → 松绿(160) */
+  --yz-chapter-1: 185 38% 28%;
+  --yz-chapter-2: 183 36% 34%;
+  --yz-chapter-3: 180 34% 40%;
+  --yz-chapter-4: 176 32% 45%;
+  --yz-chapter-5: 172 30% 49%;
+  --yz-chapter-6: 168 28% 54%;
+  --yz-chapter-7: 164 26% 60%;
+  --yz-chapter-8: 160 24% 66%;
+
+  --yz-glass-tint: 237 242 241;
+
+  --yz-font-reading: "Songti SC", "SimSun", "宋体", "Noto Serif SC", serif;
+  --yz-font-display: "Songti SC", "SimSun", "宋体", "Noto Serif SC", serif;
+}
+
+html[data-theme='qingci'].dark {
+  /* 窑变夜青 #161C1D */
+  --yz-ground: 190 14% 10%;
+  --yz-surface: 190 12% 13%;
+  --yz-sunken: 190 16% 8%;
+  --yz-ink: 170 14% 90%;
+  --yz-ink-2: 170 10% 69%;
+  --yz-ink-3: 170 7% 53%;
+  --yz-line: 190 12% 22%;
+  --yz-line-strong: 190 14% 33%;
+
+  --yz-hover: 190 12% 17%;
+  --yz-hover-2: 190 12% 23%;
+
+  --yz-azurite-700: 185 48% 56%;
+  --yz-azurite: 185 45% 66%;
+  --yz-azurite-500: 185 42% 72%;
+  --yz-azurite-400: 185 40% 77%;
+  --yz-azurite-hover: 185 45% 74%;
+  --yz-on-azurite: 190 14% 10%;
+  --yz-on-cinnabar: 190 14% 10%;
+  --yz-on-malachite: 190 14% 10%;
+
+  --yz-chapter-1: 185 38% 46%;
+  --yz-chapter-2: 183 36% 52%;
+  --yz-chapter-3: 180 34% 58%;
+  --yz-chapter-4: 176 32% 62%;
+  --yz-chapter-5: 172 30% 66%;
+  --yz-chapter-6: 168 28% 70%;
+  --yz-chapter-7: 164 26% 74%;
+  --yz-chapter-8: 160 24% 78%;
+
+  --yz-glass-tint: 22 28 29;
+}
+
+/* ============================================================
+ * 素笺 · 冷白高对比 + 无衬线正文
+ *
+ * 立场：给「不喜欢宋体排版」的写作者。纸是冷白（比默认档更白、更中性），
+ *   墨压得更深（L12%），版面像一张干净的白纸。
+ *   **本档是唯一 reading 与 display 分家的档**：正文黑体，标题仍是宋体 ——
+ *   正文求清晰，标题求气质。这个背离是刻意的，别「统一」掉。
+ * 字体：正文 = 黑体，标题 = 宋体，界面 = 系统无衬线。
+ * ============================================================ */
+html[data-theme='sujian'] {
+  /* 素笺白 #FCFCFD */
+  --yz-ground: 210 20% 99%;
+  --yz-surface: 210 30% 100%;
+  --yz-sunken: 210 16% 95%;
+  --yz-ink: 215 20% 12%;
+  --yz-ink-2: 215 12% 32%;
+  --yz-ink-3: 215 8% 48%;
+  --yz-line: 215 14% 89%;
+  --yz-line-strong: 215 14% 72%;
+
+  --yz-hover: 210 16% 96%;
+  --yz-hover-2: 210 16% 92%;
+
+  --yz-azurite-700: 215 58% 30%;
+  --yz-azurite: 215 55% 38%;
+  --yz-azurite-500: 215 52% 45%;
+  --yz-azurite-400: 215 50% 52%;
+  --yz-azurite-hover: 215 55% 45%;
+  --yz-on-azurite: 0 0% 100%;
+
+  /* 章节弧段：靛蓝(215) → 湖蓝(170) */
+  --yz-chapter-1: 215 50% 30%;
+  --yz-chapter-2: 210 45% 36%;
+  --yz-chapter-3: 205 40% 42%;
+  --yz-chapter-4: 200 37% 46%;
+  --yz-chapter-5: 194 34% 49%;
+  --yz-chapter-6: 187 31% 54%;
+  --yz-chapter-7: 179 29% 60%;
+  --yz-chapter-8: 170 27% 66%;
+
+  --yz-glass-tint: 252 252 253;
+
+  --yz-font-reading: "PingFang SC", "Microsoft YaHei", "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif;
+  /* display 未声明 ⇒ 沿用 identity.css 的宋体栈（本档刻意分家，见上） */
+}
+
+html[data-theme='sujian'].dark {
+  /* 深笺 #14161A */
+  --yz-ground: 220 12% 9%;
+  --yz-surface: 220 12% 12%;
+  --yz-sunken: 220 14% 7%;
+  --yz-ink: 210 20% 95%;
+  --yz-ink-2: 210 14% 74%;
+  --yz-ink-3: 210 10% 57%;
+  --yz-line: 220 12% 21%;
+  --yz-line-strong: 220 14% 32%;
+
+  --yz-hover: 220 12% 16%;
+  --yz-hover-2: 220 12% 22%;
+
+  --yz-azurite-700: 215 62% 58%;
+  --yz-azurite: 215 60% 68%;
+  --yz-azurite-500: 215 58% 74%;
+  --yz-azurite-400: 215 56% 79%;
+  --yz-azurite-hover: 215 60% 76%;
+  --yz-on-azurite: 220 12% 9%;
+  --yz-on-cinnabar: 220 12% 9%;
+  --yz-on-malachite: 220 12% 9%;
+
+  --yz-chapter-1: 215 50% 46%;
+  --yz-chapter-2: 210 45% 52%;
+  --yz-chapter-3: 205 40% 58%;
+  --yz-chapter-4: 200 37% 62%;
+  --yz-chapter-5: 194 34% 66%;
+  --yz-chapter-6: 187 31% 70%;
+  --yz-chapter-7: 179 29% 74%;
+  --yz-chapter-8: 170 27% 78%;
+
+  --yz-glass-tint: 20 22 26;
+}
+
+/* ============================================================
+ * 夜航 · 深蓝黑 + 暖白字 + 琥珀强调（**锁定暗色**）
+ *
+ * 立场：深夜长时间写作。底是深蓝黑（不是中性黑 —— 蓝黑在暗环境里更柔和），
+ *   字是暖白（40° 的米白，比纯白少刺眼），强调色是琥珀。
+ *
+ * ⚠️ 结构色位（--yz-azurite*）在本档放的是**琥珀**。这是刻意的：
+ *   该位就是「主按钮 / 链接 / 选中 / 分区结构」的位置，默认档在这里放蓝，
+ *   本档放琥珀。token 名是历史遗留，不是「必须是蓝色」的契约。
+ *   ⚠️ 但 `--yz-cinnabar` **保持红**：它还兼任「危险 / 错误」，
+ *      把危险色改成琥珀，错误态就会读成警告态。
+ *
+ * ⚠️ 本档 lockedMode='dark'（见 themeStore），故**没有亮档**。
+ *   下面第一个块直接写暗档值 —— 这样即使 `.dark` 类因任何原因缺席，
+ *   界面也仍然是可读的深色，而不是「深底 + 默认档的深字」的不可读组合。
+ *   第二个块与它逐值相同，只为让「每档两个块」的形状统一（机检与惯例都按这个形状读）。
+ * 字体：正文 = 系统无衬线（夜间屏幕阅读更省力），标题 = 宋体，界面 = 系统无衬线。
+ * ============================================================ */
+html[data-theme='yehang'],
+html[data-theme='yehang'].dark {
+  /* 夜航蓝黑 #11151D */
+  --yz-ground: 220 25% 9%;
+  --yz-surface: 220 22% 12%;
+  --yz-sunken: 220 26% 7%;
+  --yz-ink: 40 30% 92%;
+  --yz-ink-2: 40 20% 72%;
+  --yz-ink-3: 40 14% 56%;
+  --yz-line: 220 18% 22%;
+  --yz-line-strong: 220 20% 34%;
+
+  --yz-hover: 220 20% 16%;
+  --yz-hover-2: 220 20% 21%;
+
+  /* 琥珀占据结构色位（见上注） */
+  --yz-azurite-700: 38 88% 48%;
+  --yz-azurite: 38 85% 58%;
+  --yz-azurite-500: 38 82% 64%;
+  --yz-azurite-400: 38 80% 70%;
+  --yz-azurite-hover: 38 85% 66%;
+  --yz-on-azurite: 220 30% 10%;
+
+  /* 语义色：与默认暗档同值，此处显式写出以让本块自足（见上注） */
+  --yz-cinnabar: 9 62% 62%;
+  --yz-malachite: 152 32% 60%;
+  --yz-ochre: 32 45% 64%;
+  --yz-on-cinnabar: 220 30% 10%;
+  --yz-on-malachite: 220 30% 10%;
+
+  /* 章节：单一琥珀色相的明度阶梯（不做彩虹，规范 §5.4） */
+  --yz-chapter-1: 38 70% 46%;
+  --yz-chapter-2: 38 68% 50%;
+  --yz-chapter-3: 38 66% 54%;
+  --yz-chapter-4: 38 64% 58%;
+  --yz-chapter-5: 38 62% 62%;
+  --yz-chapter-6: 38 60% 66%;
+  --yz-chapter-7: 38 58% 70%;
+  --yz-chapter-8: 38 56% 74%;
+
+  --yz-glass-tint: 17 21 29;
+
+  --yz-font-reading: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+}

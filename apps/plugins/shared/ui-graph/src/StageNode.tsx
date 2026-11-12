@@ -164,7 +164,7 @@ export const StageNode = memo(function StageNode({ data }: NodeProps) {
             <span
               className="truncate"
               style={{
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-display)',
                 fontSize: 12,
                 fontWeight: 600,
                 letterSpacing: '0.02em',

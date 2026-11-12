@@ -240,8 +240,11 @@ html.dark {
   --vscode-editorWidget-background: hsl(var(--yz-surface));
   --vscode-editorWidget-border: hsl(var(--yz-line));
   --vscode-editorWidget-foreground: hsl(var(--yz-ink));
-  --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
-  --vscode-font-family-mono: 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+  /* ★ 2026-11-09：字体栈改为引用 --yz-font-* 真源（同色值一样，只改值不删名）。
+     这样主题档与外观页的字体选择器只要覆盖 --yz-font-*，外壳（顶栏 / 面板 / 状态栏）
+     就一起换字 —— 消费点仍写 var(--vscode-font-family)，一行不动。 */
+  --vscode-font-family: var(--yz-font-ui);
+  --vscode-font-family-mono: var(--yz-font-mono);
   --vscode-font-size: 13px;
   --vscode-menu-background: hsl(var(--yz-surface));
   --vscode-menu-foreground: hsl(var(--yz-ink));

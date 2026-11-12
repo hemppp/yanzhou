@@ -90,7 +90,7 @@ export const EntityNode = memo(function EntityNode({ data }: NodeProps) {
         >
           <span
             style={{
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
               fontSize: d.label.length > 4 ? 10 : 12,
               fontWeight: 600,
               color: ink,
@@ -134,7 +134,7 @@ export const EntityNode = memo(function EntityNode({ data }: NodeProps) {
             <div
               className="truncate"
               style={{
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-display)',
                 fontSize: 11,
                 fontWeight: 600,
                 color: 'hsl(var(--ink))',

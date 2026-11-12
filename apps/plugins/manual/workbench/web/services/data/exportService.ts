@@ -6,6 +6,22 @@
 import DOMPurify from 'dompurify';
 import { stripAnnotationBlocks } from '../../editor/annotationBlocks';
 
+/* ★ 2026-11-09 导出的字体（本文件是**两个例外**之一）
+ *
+ * 导出的 HTML / DOCX 是**独立文档**，用户会把它拿到应用之外打开（浏览器、Word、
+ * 阅读器）—— 那些环境里没有本应用的 CSS 变量，写 `var(--yz-font-reading)` 只会
+ * 得到非法值、字体回落系统默认。所以必须在**导出这一刻**把解析后的字体栈读出来，
+ * 作为字面字符串**内联**进产物。
+ *
+ * 兜底栈保留完整中文回退链：读者机器上可能既没装 Noto Serif SC 也没装思源宋体。 */
+const FALLBACK_READING_STACK = '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif';
+
+function resolvedReadingFont(): string {
+  if (typeof document === 'undefined') return FALLBACK_READING_STACK;
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--yz-font-reading').trim();
+  return v || FALLBACK_READING_STACK;
+}
+
 function toText(html: string): string {
   // XSS 防护：先净化 HTML 再提取纯文本
   const sanitized = DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
@@ -95,7 +111,7 @@ function exportHTML(options: ExportOptions): string {
   <meta charset="UTF-8">
   <title>${options.title}</title>
   <style>
-    body { font-family: "Noto Serif SC", serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.8; }
+    body { font-family: ${resolvedReadingFont()}; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.8; }
     h1 { text-align: center; margin-bottom: 40px; }
     h2 { margin-top: 2em; border-bottom: 1px solid #ccc; padding-bottom: 0.5em; }
     .chapter { margin-bottom: 3em; }
@@ -168,7 +184,7 @@ function exportDOCX(options: ExportOptions) {
   </xml>
   <![endif]-->
   <style>
-    body { font-family: "SimSun", serif; font-size: 12pt; line-height: 1.5; }
+    body { font-family: ${resolvedReadingFont()}; font-size: 12pt; line-height: 1.5; }
     h1 { font-size: 22pt; text-align: center; }
     h2 { font-size: 16pt; margin-top: 24pt; }
     p { text-indent: 2em; }

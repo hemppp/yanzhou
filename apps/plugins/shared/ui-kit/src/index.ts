@@ -55,8 +55,12 @@ export {
   applyTheme,
   applyStoredTheme,
   useThemeStore,
+  FONTS,
+  applyFonts,
+  applyStoredFonts,
+  readStoredFonts,
 } from './themeStore';
-export type { ThemeId, ColorMode, ThemeMeta } from './themeStore';
+export type { ThemeId, ColorMode, ThemeMeta, FontId, FontKind, FontOption, FontPrefs } from './themeStore';
 
 // ---- AI 原语（无业务状态，kernel 与 auto 共用）----
 export * from './primitives';

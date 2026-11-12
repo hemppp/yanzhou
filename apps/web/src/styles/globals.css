@@ -573,7 +573,7 @@
     background-color: transparent;
     color: hsl(var(--foreground));
     /* 玻璃 HUD：UI 一律系统无衬线（macOS SF / Windows 雅黑优先），中文回退链完整 */
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    font-family: var(--yz-font-ui);
     font-feature-settings: "rlig" 1, "calt" 1, "lnum" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -982,7 +982,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   border: 0.5px solid transparent;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Helvetica Neue", Inter, system-ui, sans-serif;
+  font-family: var(--yz-font-ui);
   -webkit-font-smoothing: antialiased;
   user-select: none;
   outline: none;
@@ -1214,20 +1214,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 
 /* ════ 编辑器正文排版（全局常驻，所有视图共享同一套样式） ════ */
-/* ★ 2026-10-29 正文改版（作者拍板，撤销 2026-09-16 的 E2/E3 定稿）：
-   原设计是「正文居中 + 每段一条信纸横线 + 字重 600」。作者本轮口径为
-   「左对齐、去掉横线、字重常规」，理由：
-     · 居中长文在中文字排版里没有先例 —— 每行起止位置逐行浮动，
-       读者找不到左基线，回行时眼睛要重新找位置；
-     · 每行一条横线（repeating-linear-gradient）在满页文字下会与文字
-       争视觉重量，屏幕上的「稿纸」并不像纸；
-     · 600（半粗）是**标题级**字重，整章正文用它会让版面发黑、笔画糊在一起。
-   现在：左对齐 + 行宽 34em + 字重 400（常规）。行宽与字号不动 ——
-   那是 E2 算过的结论（34 字/行），只撤对齐与装饰。
-   ⚠️ 字重的**可调**能力没有取消：设置页 / 「字体排版」面板仍能改，
-      这里只改「默认值」（见 typography/web/index.tsx 的 DEFAULT_SETTINGS）。 */
+/* ★ 2026-10-29 曾撤掉「居中 + 信纸横线 + 字重 600」三件；2026-11-09 **横线恢复**：
+   作者口径「就是信纸格式」。本次只恢复横线（以及与之配套的段间距），
+   另两件仍按 10-29 的决定保持：**左对齐**、字重 **400**
+   （理由当时已写明：居中长文每行起止浮动、读者找不到左基线；
+    600 是标题级字重，整章正文用它笔画会糊）。要一起恢复只需改下面两行。
+   ⚠️ 字重的**可调**能力一直都在：设置页 / 「字体排版」面板能改，
+      这里只是**默认值**（见 typography/web/index.tsx 的 DEFAULT_SETTINGS）。 */
 .ProseMirror {
-  font-family: 'Noto Serif SC', serif !important;
+  font-family: var(--yz-font-reading) !important;
   font-size: clamp(15px, 1.6vw, 17px) !important;
   font-weight: 400 !important;
   line-height: 1.9 !important;
@@ -1239,11 +1234,38 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   min-height: 100%;
 }
 .ProseMirror p {
-  /* 段间距：原 6px（--space-1）在 1.9 行高下几乎看不出分段，段落会连成一片。
-     提到 --space-4（14px ≈ 0.8 行）—— 中文长文的常规段落呼吸量。 */
-  margin: 0 0 var(--space-4) 0;
+  /* 段间距：**4px**，与信纸横线配套（2026-11-09 随横线一起恢复）。
+     原为 14px（--space-4）——那是「去掉横线」时的补偿：没有横线时 4px 让段落连成
+     一片、分不出段。横线回来之后，分段的视觉职责已由线本身承担，段间再留 14px
+     反倒把信纸切成一截一截的断线（每段的线要重新找起点），不像纸。
+     ⚠️ 4px 是**故意小于行距**的：横线按 1.9em 铺，段与段之间只断一小口，
+        整页读起来仍是一张连续的纸。 */
+  margin: 0 0 4px 0;
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+/* ── 书信纸横线（2026-09-16 E2/E3 定稿的原始实现，2026-11-09 恢复）──
+   每行文字「坐」在一条横线上：横线按 1.9em（= 上面那行 line-height）在段落自身
+   重复铺开，故**随字号响应式缩放**，字号/行高改了线也跟着走，不会错位。
+
+   为什么画在 `p` 上而不是整块背景上（原实现的原话）：
+     em 基准取的是**该段落**的字号，与正文的 clamp 字号逐一对应；
+     画在外层容器上会以宿主 13px 为基准，与 17px 正文的 1.9 行高差 ~25%（实测错位）。
+
+   ⚠️ 取色走 `--ink-pale`（= --yz-ink-3），故**跟随主题**：亮档是淡墨、暗档自动转浅。
+   ⚠️ 0.30 是原定稿的浓度。它比正文淡一个数量级，是**纸的纹理**不是分隔线 ——
+      调浓会与文字争视觉重量（这正是 10-29 撤掉它的理由），要调请小步走。
+   ⚠️ 空段落也画线，否则敲回车换段时信纸会断开一截。 */
+.ProseMirror p,
+.ProseMirror .is-empty {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1.9em - 1px),
+    hsl(var(--ink-pale) / 0.3) calc(1.9em - 1px),
+    hsl(var(--ink-pale) / 0.3) 1.9em
+  );
 }
 /* 行宽收窄（E2，2026-09-16 定稿，本轮保留）：原实测 1210px ÷ 17px = 71 字/行，
    远超中文正文舒适区（25–40 字），收到 34em（≈34 字）。
@@ -1689,7 +1711,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 
 .pi-empty-title {
   margin: 0 0 var(--space-2);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--yz-font-display);
   font-size: 16px;
   font-weight: 600;
   color: hsl(var(--foreground));
@@ -1731,7 +1753,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Noto Serif SC", "Source Han Serif SC", serif;
+  font-family: var(--yz-font-display);
   font-weight: 700;
   font-size: 21px;
   color: hsl(var(--primary-foreground));
@@ -1742,7 +1764,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 /* 品牌字标：32px/700 → 22px/700。32px 的字标比卡片标题（18.5px）大一倍，
    头重脚轻；收到 22px 后它仍是页面最大字号，但不再压住表单。 */
 .nm-hero-title {
-  font-family: "Noto Serif SC", "Source Han Serif SC", serif;
+  font-family: var(--yz-font-display);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -1753,7 +1775,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 /* 品牌下的一句：保留两侧短横线（那是个恰当的装饰），
    只把颜色从 `--mountain-deep`（遗留近黑色）换成中性次级色。 */
 .nm-hero-quote {
-  font-family: "Noto Serif SC", "Source Han Serif SC", serif;
+  font-family: var(--yz-font-display);
   font-size: 12px;
   font-weight: 400;
   color: hsl(var(--muted-foreground));
@@ -2376,7 +2398,7 @@ body {
 /* —— 2. 排版纪律 —— */
 /* 眉标：等宽小字，用于面板小标题 / 元信息标签（该库的签名手法） */
 .mc-eyebrow {
-  font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--yz-font-mono);
   font-size: 10px;
   line-height: 1.4;
   font-weight: 500;

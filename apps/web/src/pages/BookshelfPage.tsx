@@ -65,7 +65,7 @@ function CalligraphyTitle() {
     <h1
       className="select-none"
       style={{
-        fontFamily: "'Noto Serif SC', 'Source Han Serif SC', 'STKaiti', 'KaiTi', serif",
+        fontFamily: 'var(--yz-font-display)',
         fontSize: 'clamp(20px, 2.4vw, 26px)',
         fontWeight: 700,
         color: 'hsl(var(--foreground))',
@@ -669,7 +669,7 @@ export function BookshelfPage() {
         .bs-brand { display: flex; align-items: baseline; gap: var(--space-5); min-width: 0; }
         /* 字标旁的一句说明：给品牌一个"这是什么"的注脚，也让顶栏左侧有第二段信息 */
         .bs-brand-tag {
-          font-family: 'Noto Serif SC', serif;
+          font-family: var(--yz-font-display);
           font-size: 11px; letter-spacing: 0.16em;
           color: hsl(var(--muted-foreground));
           white-space: nowrap;
@@ -805,7 +805,7 @@ export function BookshelfPage() {
         }
         .bs-empty-title {
           margin: 0;
-          font-family: 'Noto Serif SC', serif;
+          font-family: var(--yz-font-display);
           font-size: 17px; font-weight: 600;
           letter-spacing: 0.04em;
           color: hsl(var(--foreground));

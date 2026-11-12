@@ -157,7 +157,7 @@ export function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ fontFamily: "'Noto Serif SC', serif" }}>
+    <div className="min-h-screen" style={{ fontFamily: 'var(--yz-font-display)' }}>
       {/* 顶栏 */}
       <header
         className="sticky top-0 z-10 backdrop-blur-xl"
