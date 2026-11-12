@@ -192,7 +192,7 @@ export function LandingPage() {
                 </div>
               </div>
               <div className="landing-preview-page">
-                <div className="landing-preview-h1">第一章　夜雨</div>
+                <div className="landing-preview-h1">第一章 夜雨</div>
                 <div className="landing-preview-meta">1,284 字 · 已保存 · 本章 D1</div>
                 <div className="landing-preview-prose">
                   <p>雨是入夜后开始的。起初只是窗玻璃上一层薄雾，后来连成线，把整条巷子洗成一片发亮的黑。</p>
