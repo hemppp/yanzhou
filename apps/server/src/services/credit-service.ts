@@ -42,7 +42,8 @@ export async function createCreditTransaction(
     characterId: data.characterId ?? '',
     chapter: data.chapter ?? 1,
     type: data.type,
-    amount: data.amount,
+    // 赠予只记录物品/奖励，不参与积分结算
+    amount: data.type === 'gift' ? 0 : data.amount,
     tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
@@ -64,7 +65,9 @@ export async function updateCreditTransaction(
   data: Partial<Omit<CreditTransaction, 'id' | 'createdAt'>>,
   projectId: string,
 ): Promise<void> {
-  await service.update(id, { ...data, updatedAt: Date.now() }, projectId);
+  // 改成赠予时强制归零，避免残留旧积分数额影响结余
+  const normalized = data.type === 'gift' ? { ...data, amount: 0 } : data;
+  await service.update(id, { ...normalized, updatedAt: Date.now() }, projectId);
 }
 
 export async function deleteCreditTransaction(id: string, projectId: string): Promise<void> {

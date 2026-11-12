@@ -185,17 +185,30 @@ export function deriveCurrentHolders(holders: ItemHolder[] = []): string[] {
 
 // ---- 系统积分（系统文：积分使用结余追踪） ----
 
-export type CreditTransactionType = 'gain' | 'spend';  // 获得 | 消耗
+/**
+ * 流水类型：
+ * - gain  获得积分（任务奖励 / 击杀 / 签到 ...）
+ * - spend 消耗积分（商城兑换 / 购买 ...）
+ * - gift  系统赠予（不涉及积分，记录赠予的物品或奖励内容）
+ */
+export type CreditTransactionType = 'gain' | 'spend' | 'gift';
 
 export interface CreditTransaction extends BaseEntity {
   projectId: string;
   characterId: string;          // 积分持有者（绑定系统者）
   chapter: number;              // 发生章节
   type: CreditTransactionType;
-  amount: number;               // 数额（恒为正数，方向由 type 决定）
-  reason?: string;              // 事由（任务奖励 / 击杀 / 兑换 ...）
-  relatedItemId?: string;       // 关联物品（消耗兑换所得 / 获得之物）
+  amount: number;               // 积分数额（gain/spend 恒为正；gift 恒为 0）
+  reason?: string;              // 事由（任务奖励 / 击杀 / 兑换 / 赠予内容 ...）
+  relatedItemId?: string;       // 关联物品（消耗兑换所得 / 获得之物 / 系统赠予之物）
   tags: string[];
+}
+
+/** 单笔流水对积分结余的影响：赠予不改变积分 */
+export function creditTransactionDelta(t: Pick<CreditTransaction, 'type' | 'amount'>): number {
+  if (t.type === 'gain') return t.amount;
+  if (t.type === 'spend') return -t.amount;
+  return 0; // gift
 }
 
 /**
@@ -212,7 +225,7 @@ export function deriveCreditBalance(
   for (const t of transactions) {
     if (t.characterId !== characterId) continue;
     if (upToChapter !== undefined && t.chapter > upToChapter) continue;
-    balance += t.type === 'gain' ? t.amount : -t.amount;
+    balance += creditTransactionDelta(t);
   }
   return balance;
 }
@@ -221,7 +234,7 @@ export function deriveCreditBalance(
 export function deriveCreditBalances(transactions: CreditTransaction[] = []): Map<string, number> {
   const balances = new Map<string, number>();
   for (const t of transactions) {
-    const delta = t.type === 'gain' ? t.amount : -t.amount;
+    const delta = creditTransactionDelta(t);
     balances.set(t.characterId, (balances.get(t.characterId) ?? 0) + delta);
   }
   return balances;
@@ -230,6 +243,7 @@ export function deriveCreditBalances(transactions: CreditTransaction[] = []): Ma
 /**
  * 派生：按章节升序的流水列表，附每笔后的结余（以该角色全部流水为基准重放）。
  * 用于账本视图逐笔展示"变动后结余"，负结余即为追踪告警点。
+ * 赠予流水也会出现在列表里，但结余保持不变。
  */
 export function replayCreditLedger(
   transactions: CreditTransaction[] = [],
@@ -240,7 +254,7 @@ export function replayCreditLedger(
     .sort((a, b) => a.chapter - b.chapter || a.createdAt - b.createdAt);
   let balance = 0;
   return sorted.map((t) => {
-    balance += t.type === 'gain' ? t.amount : -t.amount;
+    balance += creditTransactionDelta(t);
     return { ...t, balanceAfter: balance };
   });
 }

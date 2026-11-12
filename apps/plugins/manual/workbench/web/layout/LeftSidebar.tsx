@@ -108,7 +108,7 @@ const ChapterListItem = memo(function ChapterListItem({
           justifyContent: 'center',
           fontSize: 10,
           fontWeight: 700,
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: 'var(--yz-font-ui)',
           color: 'hsl(var(--tone-2))',
           // ★ 原为 `hsl(${order*37} 55% 70%)` 的**色相递增彩虹渐变** ——
           //   整个水墨体系里最后一处「按序号生成彩色 hue」的地方（2026-09-18 走查发现）。
@@ -148,7 +148,7 @@ const ChapterListItem = memo(function ChapterListItem({
               border: '1px solid hsl(var(--paper-line-strong))',
               background: 'hsl(var(--paper-field))',
               color: 'hsl(var(--foreground))',
-              fontFamily: "'Noto Serif SC', serif",
+              fontFamily: 'var(--yz-font-display)',
             }}
           />
         ) : (
@@ -159,7 +159,7 @@ const ChapterListItem = memo(function ChapterListItem({
                 minWidth: 0,
                 fontSize: 12,
                 fontWeight: 500,
-                fontFamily: "'Noto Serif SC', serif",
+                fontFamily: 'var(--yz-font-display)',
                 color: isActive ? 'hsl(var(--foreground))' : 'hsl(var(--foreground) / 0.88)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
