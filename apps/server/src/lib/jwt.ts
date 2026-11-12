@@ -97,7 +97,11 @@ function resolveJwtSecret(): string | undefined {
 }
 
 const JWT_SECRET = resolveJwtSecret();
-const DEFAULT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '3h';
+// ★ 2026-11-12：默认有效期 3h → 30d（用户要求「登录状态保存一个月」）。
+//   配合 apps/web 的 sessionKeepalive 滑动续期：活跃期间每 10 分钟换发新令牌，
+//   因此 30d 是「**连续 30 天没有任何操作**才退出」，而不是活跃 30 天后强制掉线。
+//   Cookie 的 maxAge 读同一个变量（lib/cookies.ts），两者不会各自漂移。
+const DEFAULT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 const BCRYPT_SALT_ROUNDS = 10;
 
 if (!JWT_SECRET) {
@@ -132,7 +136,7 @@ setInterval(cleanupExpiredRevokedTokens, CLEANUP_INTERVAL_MS).unref();
 /**
  * 签发 JWT Token
  * @param payload - 用户载荷数据（userId, username）
- * @param expiresIn - 过期时间，默认 7 天
+ * @param expiresIn - 过期时间，默认取 JWT_EXPIRES_IN（缺省 30 天）
  * @returns 签发的 JWT 字符串
  */
 export function signToken(payload: JwtPayload, expiresIn?: string): string {

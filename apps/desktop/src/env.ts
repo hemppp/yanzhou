@@ -41,7 +41,7 @@ const DEFAULT_NO_PROXY = 'localhost,127.0.0.1,::1';
  *   - `ADMIN_USERNAME` / `ADMIN_PASSWORD`：保留「随机初始密码 + 用户自行修改」
  *     的安全语义（D6.2 末段）。注入 ADMIN_PASSWORD 会使 server 每次启动
  *     同步密码（`index.ts:90-96`）。
- *   - `JWT_EXPIRES_IN`：server 默认 `'3h'`。
+ *   - `JWT_EXPIRES_IN`：server 默认 `'30d'`。
  *   - `COOKIE_SECURE`：本机 HTTP ⇒ 必须保持未设/false。
  *   - `NOVELMUSE_DB_ENGINE`：默认走 better-sqlite3，失败自动回退 sql.js（D8.3）。
  *   - AI 供应商变量：由用户在应用内配置，落 DB。

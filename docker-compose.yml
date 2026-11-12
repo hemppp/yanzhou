@@ -45,7 +45,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # JWT 密钥（生产必填：不设置则容器拒绝启动。生成：openssl rand -hex 32）
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (generate with: openssl rand -hex 32)}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      # 会话有效期（活跃期间前端每 10 分钟滑动续期；此值≈停止使用后多久退出登录）
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-30d}
       # ---- 安全开关（C4/C8/C10）----
       # 会话 Cookie：仅 HTTPS 反向代理场景设为 true
       COOKIE_SECURE: ${COOKIE_SECURE:-false}

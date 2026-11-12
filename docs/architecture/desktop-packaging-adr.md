@@ -505,7 +505,7 @@ stderr 行正则：  ^\[Server\] Cordis 基座已就绪 → http://localhost:(\d
 | `DISABLE_PROXY_DETECT` | 常量 `'1'`（**只跳过「自动探测」，不影响 `HTTPS_PROXY` 等环境变量**，见 D6.3） | 无 | — | 否 |
 | `HOST_MODE` | 常量 `'all'` | 无 | — | 是（`/api/health.hostMode`） |
 | `ELECTRON_RUN_AS_NODE` | 常量 `'1'`（**必须显式设置**，使 `process.execPath` 以 Node 身份运行 tsx） | 无 | — | 否 |
-| `JWT_EXPIRES_IN` | **不注入**（server 默认 `'3h'`） | 无 | — | 否 |
+| `JWT_EXPIRES_IN` | **不注入**（server 默认 `'30d'`） | 无 | — | 否 |
 | `COOKIE_SECURE` | **不注入**（本机 HTTP ⇒ 必须保持未设/false） | 无 | — | 否 |
 | `NOVELMUSE_DB_ENGINE` | **不注入**（默认走 better-sqlite3，失败自动回退 sql.js） | 无 | — | 是（启动日志 `[DB] …`） |
 | AI 供应商变量（`AI_PROVIDER` / `OPENAI_*` / `OLLAMA_*` / `CUSTOM_AI_*`） | **不注入**（由用户在应用内配置，落 DB） | DB | — | 是 |

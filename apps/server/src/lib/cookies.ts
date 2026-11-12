@@ -18,19 +18,22 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 export const AUTH_COOKIE_NAME = 'novelmuse_token';
 
 /**
- * 与 JWT 有效期对齐（jwt.ts 的 DEFAULT_EXPIRES_IN，默认 3h）。
- * 读取同一个 JWT_EXPIRES_IN 环境变量，支持 '3h'/'30m'/'2d'/'90s'/纯秒数，
+ * 与 JWT 有效期对齐（jwt.ts 的 DEFAULT_EXPIRES_IN，默认 30d）。
+ * 读取同一个 JWT_EXPIRES_IN 环境变量，支持 '3h'/'30m'/'2d'/'30d'/'90s'/纯秒数，
  * 保证「Cookie 寿命 = 令牌寿命」，两者不会各自漂移。
+ *
+ * ★ 2026-11-12：默认 3h → 30d。注意这里的单位是**秒**（Hono 的 maxAge 会直接
+ *   写成 Max-Age 属性），所以 30d 是 2,592,000。
  */
 function resolveAuthCookieMaxAge(): number {
-  const raw = (process.env.JWT_EXPIRES_IN || '3h').trim();
+  const raw = (process.env.JWT_EXPIRES_IN || '30d').trim();
   const m = raw.match(/^(\d+)([smhd])?$/i);
-  if (!m) return 3 * 60 * 60;
+  if (!m) return 30 * 24 * 60 * 60;
   const multipliers: Record<string, number> = { s: 1, m: 60, h: 60 * 60, d: 24 * 60 * 60 };
   return parseInt(m[1], 10) * (multipliers[(m[2] || 's').toLowerCase()] ?? 1);
 }
 
-/** 与 JWT 有效期对齐（默认 3h）；到期后 401 → 前端清除会话要求重新登录 */
+/** 与 JWT 有效期对齐（默认 30d）；到期后 401 → 前端清除会话要求重新登录 */
 const AUTH_COOKIE_MAX_AGE = resolveAuthCookieMaxAge();
 
 /** 读取认证 Cookie（无则返回 undefined） */
