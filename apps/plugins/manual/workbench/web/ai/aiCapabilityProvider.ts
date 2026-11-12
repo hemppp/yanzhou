@@ -35,12 +35,17 @@ import {
   resolveApiUrl,
   apiClient,
 } from '@novel-plugins/data-core/api/apiClient';
-import { useChapterStore, useProjectStore } from '@novel-plugins/data-core/stores';
+import {
+  useChapterStore,
+  useCharacterStore,
+  useProjectStore,
+} from '@novel-plugins/data-core/stores';
 import { readSseStream } from './sse';
 import {
   ScanSkippedError,
   type AIScanCapability,
   type StreamAliasMatch,
+  type StreamCreditTransaction,
   type StreamEntity,
   type StreamItemTransfer,
   type StreamTimelineEvent,
@@ -130,6 +135,7 @@ async function scanTimelineStream(
   onAliasMatch?: (aliasMatch: StreamAliasMatch) => void,
   signal?: AbortSignal,
   projectId?: string,
+  onCreditTransaction?: (credit: StreamCreditTransaction) => void,
 ): Promise<StreamTimelineEvent[]> {
   const pid = projectId ?? getCurrentProjectId() ?? null;
   // 签名只给 content/order；chapterTitle/projectName 由服务端 schema 必填，
@@ -172,6 +178,10 @@ async function scanTimelineStream(
       onAliasMatch?.(data as unknown as StreamAliasMatch);
       continue;
     }
+    if (data.creditType === 'credit_transaction') {
+      onCreditTransaction?.(data as unknown as StreamCreditTransaction);
+      continue;
+    }
     if (typeof data.entityType === 'string') {
       onEntity?.(data as unknown as StreamEntity);
       continue;
@@ -187,6 +197,37 @@ async function scanTimelineStream(
 // ai.timelineExtract（以及 ai.scan 的同一方法）—— 按关键词提取事件
 // ------------------------------------------------------------------
 
+/**
+ * 找出关键词在人物设定中的其他称呼（全名/别名/简称）。
+ * 例如用户输入「星儿」，陈星的 name+aliases 会被一并送给模型，
+ * 避免模型因为原文只写「陈星」而漏掉相关事件。
+ */
+function resolveKeywordAliases(projectId: string, keyword: string): string[] {
+  const chars = useCharacterStore
+    .getState()
+    .characters.filter((c) => c.projectId === projectId);
+  const names = new Set<string>();
+
+  for (const c of chars) {
+    const aliases = c.aliases ?? [];
+    const matched =
+      c.name === keyword ||
+      aliases.includes(keyword) ||
+      (keyword.length >= 2 &&
+        (c.name.includes(keyword) ||
+          keyword.includes(c.name) ||
+          aliases.some((a) => a.includes(keyword) || keyword.includes(a))));
+    if (!matched) continue;
+
+    if (c.name && c.name !== keyword) names.add(c.name);
+    for (const a of aliases) {
+      if (a && a !== keyword) names.add(a);
+    }
+  }
+
+  return Array.from(names).slice(0, 10);
+}
+
 async function extractEventsByKeyword(
   content: string,
   title: string,
@@ -199,6 +240,8 @@ async function extractEventsByKeyword(
   const pid = projectId ?? getCurrentProjectId() ?? null;
   if (!pid) throw new Error('缺少项目上下文（projectId）');
 
+  const keywordAliases = resolveKeywordAliases(pid, keyword);
+
   const res = await fetch(resolveApiUrl('/ai/extract-events-stream'), {
     method: 'POST',
     headers: authHeaders(pid),
@@ -209,6 +252,7 @@ async function extractEventsByKeyword(
       chapterTitle: title,
       chapterOrder: order,
       keyword,
+      ...(keywordAliases.length > 0 ? { keywordAliases } : {}),
       projectId: pid,
     }),
   });
