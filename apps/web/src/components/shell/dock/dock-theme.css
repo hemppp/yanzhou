@@ -593,17 +593,6 @@
   color: var(--vscode-descriptionForeground);
 }
 
-.dock-bottom-issues {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dock-bottom-kbd {
-  font-family: var(--vscode-font-family);
-  font-size: 10px;
-  opacity: 0.75;
-}
-
 .dock-bottom-body {
   flex: 1 1 auto;
   min-height: 0;

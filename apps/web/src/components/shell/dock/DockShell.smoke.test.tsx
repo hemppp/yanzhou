@@ -60,9 +60,10 @@ describe('DockShell 外壳骨架', () => {
     expect(container.querySelector('.dock-activity-bar')).toBeTruthy();
     expect(container.querySelector('.dock-main')).toBeTruthy();
     expect(container.querySelector('.dock-bottom-area')).toBeTruthy();
-    // ★ t1：底部细条 = 可点击的「底部面板」开关 + 右侧「N 条问题 Ctrl+J」
+    // ★ 2026-11-06：右端「N 条问题 / Ctrl+J」提示已移除，细条只剩开合开关
     expect(container.querySelector('.dock-bottom-toggle')).toBeTruthy();
-    expect(container.querySelector('.dock-bottom-kbd')?.textContent).toContain('Ctrl+J');
+    expect(container.querySelector('.dock-bottom-issues')).toBeNull();
+    expect(container.querySelector('.dock-bottom-kbd')).toBeNull();
     // ★ t1：内核自带的第二根状态栏与两个占位侧栏已删除（截图只有一根通栏状态栏）
     expect(container.querySelector('.dock-status-bar')).toBeNull();
     expect(container.querySelector('.dock-side-bar')).toBeNull();
@@ -104,21 +105,19 @@ describe('DockShell 外壳骨架', () => {
     expect(container.querySelector('.dock-bottom-toggle')).toBeTruthy();
   });
 
-  // ★ t1：底部细条的数据契约 —— 条数由调用方传入（内核只管机制），
-  //   Ctrl+J 展开/收起由内核处理；展开区渲染调用方给的 children。
-  it('底部细条：条数来自 props、Ctrl+J 展开/收起、展开区渲染 children', () => {
+  // ★ t1：底部细条只负责机制 —— Ctrl+J 展开/收起由内核处理；展开区渲染调用方给的 children。
+  it('底部细条：Ctrl+J 展开/收起、展开区渲染 children', () => {
     const { container } = render(
       <DockShell
         panels={PANELS}
         centerDefault={<div />}
-        bottomPanel={{ issueCount: 3, children: <div data-testid="bl">problems</div> }}
+        bottomPanel={{ children: <div data-testid="bl">problems</div> }}
       />,
     );
     const area = container.querySelector('.dock-bottom-area') as HTMLElement;
     expect(area).toBeTruthy();
     // 折叠态：细条常驻、展开区不渲染
     expect(area.getAttribute('data-open')).toBe('false');
-    expect(container.querySelector('.dock-bottom-issues')?.textContent).toContain('3 条问题');
     expect(container.querySelector('[data-testid="bl"]')).toBeNull();
 
     // Ctrl+J → 展开

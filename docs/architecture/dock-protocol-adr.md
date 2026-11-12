@@ -476,6 +476,13 @@ html.dark            { /* 与 :root 相同的全量 token（重复声明，保�
 ```
 
 - ✅ **必须定义在 `:root` / `html.dark`**，**不得**定义在 `.some-component { --x: … }` 里 —— 否则插件（`apps/plugins/*`）无法继承。
+
+> ★ **修订（2026-11-09）：另两个允许的定义位置。**
+>   · `--vscode-*` 的**值**现在可以引用 `--yz-font-*`（`--vscode-font-family: var(--yz-font-ui)`），
+>     名字与数量不变（仍 117 基线），只是字体这两条从字面栈改成了别名。
+>   · 主题档（`styles/themes.css`）用 `html[data-theme='<id>']` / `html[data-theme='<id>'].dark`
+>     覆盖 `--yz-*` —— 机检的选择器白名单早已含 `html[data-theme=`（verify-theme-single-source.mjs），
+>     但**主题文件里不得出现任何 `--vscode-*` 定义**（白名单只有真源与副本转发层）。
 - ✅ 插件包**只通过 CSS 变量消费颜色**，不新增硬编码颜色常量（t2/t5/t10 共同验收）。
 - ✅ 变量统一用 **`hsl(...)` 可直接消费的三元组**（`H S% L%`）还是**完整颜色**？
 
@@ -724,9 +731,22 @@ dockview 自带 `--dv-*` 变量。**决策：不覆盖 `--dv-*`，改为在 `Doc
 
 ### 6.1 决策
 
-> **默认主题 = `vscode-dark-modern`（唯一档），并且是 `:root` 本身。**
+> **默认主题 = `vscode-dark-modern`，并且是 `:root` 本身。**
 > `ThemeId` 从 `'ink' | 'shuimo' | 'soot'` 收缩为 **`'vscode-dark-modern'`**（单值字面量联合）。
-> `THEMES` 数组保留**恰好一项**（设置页「外观」需要它渲染色卡，且保留未来加档的扩展位）。
+> `THEMES` 数组保留（设置页「外观」需要它渲染色卡）。
+
+> ★ **修订（2026-11-09）：扩展位已启用 —— 现有 5 档。**
+> `ThemeId = 'vscode-dark-modern' | 'xuanzhi' | 'qingci' | 'sujian' | 'yehang'`。
+> **默认档不变**（`DEFAULT_THEME` 仍是 `vscode-dark-modern`，仍是 `:root` 本身）；
+> 新增四档（宣纸 / 青瓷 / 素笺 / 夜航）**只覆盖 `--yz-*` 锚点**，定义在
+> `apps/plugins/shared/ui-kit/src/styles/themes.css`，选择器 `html[data-theme='<id>']`
+> 与 `html[data-theme='<id>'].dark`。于是 §6.3 末行那句「该选择器仅作显式覆盖层备用」
+> **作废** —— 它现在是新档位的**主入口**。
+> 三条硬约束（破坏任一条都会**静默**出错，详见 themes.css 文件头）：
+>   ① 主题文件不得定义任何 `--vscode-*`（机检白名单只允许真源与副本转发层）；
+>   ② 主题文件必须**无层**（进 `@layer` 会被 identity.css 的无层 `:root` 整体压掉）；
+>   ③ 每档必须写**两个**块（只写亮块 ⇒ 暗色模式渲染出该档的**亮档**，因为
+>      `html[data-theme=x]`(0,1,1) 与 identity 的 `html.dark`(0,1,1) 打平、胜负交给源序）。
 
 ### 6.2 老用户 localStorage 处理（冻结）
 
@@ -736,6 +756,7 @@ dockview 自带 `--dv-*` 变量。**决策：不覆盖 `--dv-*`，改为在 `Doc
 | `{"theme":"ink"}` / `"shuimo"` / `"soot"` | **静默回落到默认**（不抛错、不提示、不写迁移标记） |
 | 任意其他 / 损坏 JSON / 隐私模式不可读 | 静默回落到默认 |
 | `"novelmuse:theme:default-migrated-to-shuimo"`（`MIGRATION_KEY`） | **删除该常量**；已存在的旧键**不做清理**（清理属无收益的写操作）；**必须保证它的存在不再影响任何读取路径** |
+| **`novelmuse:fonts`**（2026-11-09 新增，独立键） | 字体偏好。缺键 / 损坏 JSON / 未注册的字体 id / **该字族不允许的字体**（如「楷体」不能当界面字体）一律**丢该项**，回落「跟随主题档」。同 §6.2 纪律：读时**不写回**、不抛错、不做迁移 |
 
 **实现（冻结，t2 照做）**：`readStored()` 收缩为「读 → JSON.parse → 在 `THEMES` 里找 → 找到就用，找不到就 fallback」，**删除 MIGRATION_KEY 的整个分支**。
 
@@ -747,12 +768,20 @@ const meta = THEMES.find(x => x.id === p.theme);
 return meta ? { theme: meta.id, mode: meta.lockedMode ?? normalizeMode(p.mode) } : fallback;
 ```
 
-### 6.3 默认明暗（冻结）
+### 6.3 默认明暗
 
-| 项 | 决策 | 理由 |
+> ★ **本表已被实现修订（以代码为准）**：M1/t1 外壳改造后，默认 `mode` = **`'light'`**、
+> 默认档**不带** `lockedMode`（亮/暗两档由 `:root` 与 `html.dark` 各给一套三元组承载）。
+> 下表的 `'dark'` 一行保留为历史决策记录。
+> **`lockedMode` 机制在本次（2026-11-09）被重新启用**，用于「夜航」档（值 `'dark'`）——
+> 机制本身自 t1 起一直健在（`readStored` / `setTheme` 走 `meta.lockedMode ?? …`，
+> `setMode` 提前 return），只是这段时间没有档位用它。顶栏「夜间」按钮另读了锁定态并
+> `disabled`（`ProjectLayout.tsx`），否则会变成一个点了没反应的死按钮。
+
+| 项 | 决策（历史） | 理由 |
 |---|---|---|
-| 默认 `mode` | **`'dark'`** | VS Code Dark Modern 是暗色主题；默认 light 会得到一个「看着像 VS Code 但字是黑的」的四不像 |
-| `lockedMode` | **`'dark'`** | 该主题无浅色变体，锁定后「明暗切换」开关自动失效（复用既有 `lockedMode` 机制，`themeStore.setMode` 已有分支） |
+| 默认 `mode` | ~~**`'dark'`**~~ → 现为 `'light'` | 见上方修订 |
+| `lockedMode` | ~~**`'dark'`**~~ → 默认档不用；现由「夜航」档使用 | 该主题无浅色变体，锁定后「明暗切换」开关自动失效（复用既有 `lockedMode` 机制，`themeStore.setMode` 已有分支） |
 | `applyTheme()` | **保留 `el.dataset.theme` 的写入**，值 = `'vscode-dark-modern'`；**必须**继续 `el.classList.toggle('dark', …)` 与 `el.style.colorScheme` | 新 token 同时定义在 `:root` 与 `html.dark`，二者任一生效；`colorScheme` 保证原生滚动条/表单控件跟随 |
 | 主题态选择器 | 新 token **不用** `html[data-theme="vscode-dark-modern"]` 作为主入口（因为它是 `:root` 本身）；该选择器仅作显式覆盖层备用 | 见 §5.1：`:root` 保证零配置继承 |
 

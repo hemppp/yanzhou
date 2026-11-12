@@ -226,14 +226,13 @@ describe('ProjectLayout 外壳（t1 截图形态）', () => {
     ).toEqual(['章节正文', '章节', 'AI 对话']);
   });
 
-  it('底部细条：左「底部面板」+ 右「N 条问题 Ctrl+J」', () => {
+  it('底部细条：左「底部面板」，右端不再显示问题条数与 Ctrl+J 提示', () => {
     const { container } = renderShell();
     const toggle = container.querySelector('.dock-bottom-toggle') as HTMLElement;
     expect(toggle.textContent).toContain('底部面板');
-    const right = container.querySelector('.dock-bottom-right') as HTMLElement;
-    // 无当前章节 ⇒ 真实批注来源为空 ⇒ 0 条（不是写死的 3）
-    expect(right.textContent).toContain('0 条问题');
-    expect(right.textContent).toContain('Ctrl+J');
+    // 2026-11-06 起右端的「N 条问题 / Ctrl+J」提示已移除；快捷键本身仍有效。
+    expect(container.querySelector('.dock-bottom-issues')).toBeNull();
+    expect(container.querySelector('.dock-bottom-kbd')).toBeNull();
     expect(container.querySelector('.dock-bottom-area')?.getAttribute('data-open')).toBe('false');
   });
 

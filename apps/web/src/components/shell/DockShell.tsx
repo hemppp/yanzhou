@@ -984,9 +984,10 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
         />
       </main>
 
-      {/* 底部面板细条（t1 截图）：左端「底部面板」、右端「N 条问题 Ctrl+J」。
+      {/* 底部面板细条（t1 截图）：左端「底部面板」+ 插件细条入口。
           常驻 DOM（原骨架即常驻，测试按该契约断言），展开高度由 CSS 控制，
-          条数与展开内容由调用方注入（见 DockShellProps.bottomPanel）。 */}
+          展开内容由调用方注入（见 DockShellProps.bottomPanel）。
+          ★ 2026-11-06：右端的「N 条问题 / Ctrl+J」提示已按用户要求移除。 */}
       <section
         className="dock-bottom-area"
         data-open={bottomOpen ? 'true' : 'false'}
@@ -1017,10 +1018,6 @@ export const DockShell = forwardRef<DockShellApi, DockShellProps>(function DockS
                 onOpen={() => setBottomOpen(true)}
               />
             ))}
-            <span className="dock-bottom-issues" title="当前章节未解决批注（问题清单）条数">
-              {bottomPanel?.issueCount ?? 0} 条问题
-            </span>
-            <kbd className="dock-bottom-kbd">Ctrl+J</kbd>
           </div>
         </div>
         {bottomOpen ? (

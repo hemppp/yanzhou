@@ -82,8 +82,8 @@ import { getPanelNavigation, registerPanelViewOpener, registerPanelViewSync, reg
 import { DEFAULT_OPEN_PANEL_KEYS, seedPanelOpenKeys } from '@/stores/panelOpenStore';
 import type { FloatingPanelDef } from '@/plugin/types';
 // ★ t1（外壳改造）新增：主题档位、文档标签栏、底部细条与状态栏的真实数据源
-import { useThemeStore } from '@/stores/themeStore';
-import { BottomIssueList, useIssueCount } from '@/components/shell/issues';
+import { THEMES, useThemeStore } from '@/stores/themeStore';
+import { BottomIssueList } from '@/components/shell/issues';
 import { formatWordCount, useClock, useProjectWordCountSync, useSaveState } from '@/components/shell/statusBar';
 import './project-shell.css';
 
@@ -303,6 +303,12 @@ export function ProjectLayout() {
   //   `themeMeta` 派生 —— 顺着删干净，别留悬空依赖。
   var themeMode = useThemeStore(function(s) { return s.mode; });
   var setThemeMode = useThemeStore(function(s) { return s.setMode; });
+  // ★ 2026-11-09：自带固定明暗的主题（「夜航」= lockedMode:'dark'）要让这个按钮**失效**。
+  //   themeStore.setMode 本来就会静默忽略切换，但按钮照旧可点、点了没反应 ——
+  //   那比「禁用 + 说明」更像坏了。所以这里读一次锁定态并 disabled。
+  //   ⚠️ 只加 disabled，**不改文案**：shell-tabs 测试逐字断言了 ['重写','夜间']。
+  var themeIdForLock = useThemeStore(function(s) { return s.theme; });
+  var modeLocked = Boolean(THEMES.find(function(t) { return t.id === themeIdForLock; })?.lockedMode);
 
   // 当前章节：面包屑标题 / 保存态 / 问题清单都取它。用 chapters + id 派生，
   // 避免把「每次调用可能返回新引用」的选择器交给 zustand 的相等性判断。
@@ -324,7 +330,6 @@ export function ProjectLayout() {
       : null,
   );
   var clock = useClock();
-  var issueCount = useIssueCount();
   // ★ t4：状态栏「N 字」的刷新闭环（缺口与修法见 statusBar.ts 的 hook 注释）。
   //   只在 manual 生效 —— auto 分支不渲染状态栏（下方提前 return），没必要轮询。
   useProjectWordCountSync(projectMode === 'manual' ? (project?.id ?? null) : null);
@@ -501,8 +506,9 @@ export function ProjectLayout() {
             <button
               type="button"
               className="shell-topbar-text-btn"
-              title={themeMode === 'dark' ? '切到亮色' : '切到夜间（暗色）'}
-              aria-label={themeMode === 'dark' ? '切到亮色' : '夜间模式'}
+              disabled={modeLocked}
+              title={modeLocked ? '当前主题锁定暗色，请到「设置 → 外观」换主题' : (themeMode === 'dark' ? '切到亮色' : '切到夜间（暗色）')}
+              aria-label={modeLocked ? '当前主题锁定暗色' : (themeMode === 'dark' ? '切到亮色' : '夜间模式')}
               aria-pressed={themeMode === 'dark'}
               onClick={function() { setThemeMode(themeMode === 'dark' ? 'light' : 'dark'); }}
             >
@@ -573,9 +579,8 @@ export function ProjectLayout() {
             // ★ 2026-10-28 VS Code 对齐：预览打开 —— DockShell 保持纯 UI，
             //   store 由这里注入（活动栏单击 / 标签单击都会走这条）。
             onPreviewOpen={handlePreviewOpen}
-            // ★ t1：底部细条 =「N 条问题 Ctrl+J」；N 来自真实批注（见 shell/issues.tsx），
-            //   展开区渲染真实问题清单。
-            bottomPanel={{ issueCount: issueCount, children: <BottomIssueList /> }}
+            // ★ t1：底部细条只保留开合机制；展开区渲染真实问题清单。
+            bottomPanel={{ children: <BottomIssueList /> }}
           />
         </main>
 

@@ -1,16 +1,13 @@
 // ============================================================
-// issues.tsx —— 底部细条「N 条问题」与问题清单的**真实数据源**（t1 外壳改造）
+// issues.tsx —— 底部面板「问题清单」的**真实数据源**（t1 外壳改造）
 //
-// 截图下端：左「▸ 底部面板」、右「3 条问题 Ctrl+J」。
-// N 不允许写死，取值链（自上而下，第一个命中的生效）：
-//   1. **外部 provider**：t2 的「本章未解决批注数」接口 / t4 的集成层经
-//      `registerIssueCountProvider(fn)` 注入（fn 返回 null 表示「不接管」）；
-//   2. **回落**：`useAnnotationStore`（真实 store，由 /api/annotations 经 syncService
-//      同步而来）中当前章节的批注条数 —— 即 mock 里批注块「已入问题清单」的那份清单。
-// 无项目 / 无章节 / 无批注 ⇒ 0，绝不伪造数字。
+// ★ 2026-11-06：底部细条右端的「N 条问题 / Ctrl+J」提示已按用户要求移除。
+//   细条现在只剩左端开关 + 插件注册的入口；本模块继续为**展开区**的问题清单
+//   提供真实数据（`useChapterIssues` / `useAnnotationBlocks`），绝不伪造数字。
+//   原先只服务于细条 N 的 `useIssueCount` / `registerIssueCountProvider` 已一并删除。
 // ============================================================
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { useAnnotationStore, useChapterStore } from '@/stores';
 import type { Annotation } from '@novel/shared';
 
@@ -25,7 +22,7 @@ import type { Annotation } from '@novel/shared';
 //   · `window.addEventListener('novelmuse:annotation-blocks', e => e.detail)`
 //     （同步派发同一对象；**值不变不换引用**，故这里用内部 version 计数订阅）
 //
-// `open` 即「本章未解决批注块数」= 底部细条「N 条问题」里 N 的优先取值。
+// `open` 即「本章未解决批注块数」（原底部细条 N 的取值；细条已不再显示该数字）。
 // 桥缺席（无手写台 / 编辑器未挂载）⇒ 全部返回 null，静默回落到 annotation store。
 // ============================================================
 
@@ -99,60 +96,9 @@ export function useAnnotationBlocks(chapterId: string | null): AnnotationBlockSu
   }, [chapterId, version]);
 }
 
-/** 外部条数 provider：入参为当前章节 id，返回 null 表示「本 provider 不接管」。 */
-export type IssueCountProvider = (chapterId: string | null) => number | null;
-
-let provider: IssueCountProvider | null = null;
-const listeners = new Set<() => void>();
-
-/**
- * 注册 / 注销条数 provider（返回注销函数）。同一时刻只保留最后一个。
- * t2 / t4 用它接管「本章未解决批注数」；注销后自动回落到 annotation store。
- */
-export function registerIssueCountProvider(fn: IssueCountProvider | null): () => void {
-  provider = fn;
-  listeners.forEach((l) => l());
-  return () => {
-    if (provider === fn) provider = null;
-    listeners.forEach((l) => l());
-  };
-}
-
 /** 当前章节 id（真实 store）。 */
 export function useCurrentChapterId(): string | null {
   return useChapterStore((s) => s.currentChapterId);
-}
-
-/** 底部细条右端的 N：provider 优先，其次 t2 批注块桥，最后回落当前章节批注条数。 */
-export function useIssueCount(): number {
-  const chapterId = useChapterStore((s) => s.currentChapterId);
-  const annotations = useAnnotationStore((s) => s.annotations);
-  const [tick, setTick] = useState(0);
-  // ★ t4：桥「值不变不换引用」，只能订阅它的版本号来触发重算
-  const blocksVersion = useSyncExternalStore(
-    subscribeAnnotationBlocks,
-    annotationBlocksVersion,
-    annotationBlocksVersion,
-  );
-
-  useEffect(() => {
-    const l = () => setTick((v) => v + 1);
-    listeners.add(l);
-    return () => {
-      listeners.delete(l);
-    };
-  }, []);
-
-  return useMemo(() => {
-    const fromProvider = provider?.(chapterId);
-    if (typeof fromProvider === 'number') return fromProvider;
-    // ★ t4（跨区契约①）：N = 中栏本章**未解决**内嵌批注块数（真实 DOM 节点计数，
-    //   由 t2 的 useAnnotationBlockBridge 发布）。这是截图里「已入问题清单」的那份数。
-    const snap = readAnnotationBlocks();
-    if (snap && chapterId && snap.chapterId === chapterId) return snap.open;
-    if (!chapterId) return 0;
-    return annotations.filter((a) => a.chapterId === chapterId).length;
-  }, [chapterId, annotations, tick, blocksVersion]);
 }
 
 /** 当前章节的批注（问题清单）原始列表。 */
@@ -178,7 +124,7 @@ const TYPE_LABEL: Record<string, string> = {
 export function BottomIssueList() {
   const chapterId = useCurrentChapterId();
   const issues = useChapterIssues(chapterId);
-  // ★ t4：与底部细条「N 条问题」同源 —— 展开后能看到 N 是怎么算出来的
+  // ★ t4：与原底部细条的 N 同源 —— 展开后能看到计数是怎么算出来的
   const blocks = useAnnotationBlocks(chapterId);
 
   if (!chapterId) {

@@ -195,14 +195,11 @@ export interface DockShellProps {
   /**
    * 底部面板细条（t1 外壳改造）。
    *
-   * 截图形态：常驻一条细条，左端「底部面板」、右端「N 条问题 Ctrl+J」，
-   * 点击左端或按 Ctrl+J 展开/收起（展开高 ~200px，内容区自己滚动）。
-   * 内核只负责**机制**（尺寸、开合、快捷键、无障碍），条数由调用方给真实来源
-   * （见 `shell/issues.tsx`：外部 provider 优先，回落 annotation store）。
+   * 截图形态：常驻一条细条，左端「底部面板」+ 插件注册的细条入口，
+   * 点击或按 Ctrl+J 展开/收起（展开高 ~200px，内容区自己滚动）。
+   * 内核只负责**机制**（尺寸、开合、快捷键、无障碍），内容由调用方给。
    */
   bottomPanel?: {
-    /** 问题条数（真实来源由调用方给出） */
-    issueCount: number;
     /** 展开后的内容（问题清单列表等） */
     children?: React.ReactNode;
   };
