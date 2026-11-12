@@ -45,7 +45,7 @@ export interface SceneCardField {
  */
 export const SCENE_CARD_FIELDS: readonly SceneCardField[] = [
   { key: '节拍', why: '这一章分几拍' },
-  { key: '场景', why: '四问①②：每个场景里 谁在场、在哪、什么时刻' },
+  { key: '场景', why: '四问①②：每个场景里 谁在场、在哪、什么时刻、**靠什么推进**（对话/动作/独处观察）' },
   { key: '角色', why: '四问①：谁在场，各自本章的状态变化' },
   { key: '动机', why: '四问③：他们为什么这么做' },
   { key: '关键物', why: '四问④：道具/信息从哪来' },
@@ -127,6 +127,31 @@ export interface SceneCardVerdict {
   missing: string[];
   /** 有标签但内容为空/占位的字段标签 */
   empty: string[];
+  /**
+   * 是否**既没有对话场、也没声明例外**（2026-11-07 加）。
+   *
+   * 实测依据：同一本书里，卡上标了「靠对话推进」的第 1 章对话占比 14.7%，
+   * 四场全标「动作/独处观察」的第 2 章只有 1.4%。**卡是唯一的杠杆**。
+   * 所以这一条要进 `ok`（像缺项一样退回补全），否则写作官只能靠猜。
+   */
+  dialogueGap: boolean;
+}
+
+/**
+ * 卡上有没有「对话场」，或有没有**明确声明本章无对话**。
+ *
+ * 两个出口（任一满足即视为合规）：
+ *   ① `场景` 里出现「对话」——该场靠人物来回推进；
+ *   ② `禁项` 里写明无对话/无人可对话/独处——给真正的独角戏章节留退路，
+ *      避免为了达标硬塞对白（那会把冷硬白描写成话痨）。
+ */
+export function declaresDialogueOrExemption(conclusion: string): boolean {
+  const fields = parseContractFields(conclusion);
+  const scene = fields.get('场景') ?? '';
+  const forbid = fields.get('禁项') ?? '';
+  if (/对话/.test(scene)) return true;
+  if (/无对话|没有对话|无人可对话|无须对话|独处|独角/.test(forbid)) return true;
+  return false;
 }
 
 /**
@@ -144,7 +169,10 @@ export function checkSceneLogicCard(conclusion: string): SceneCardVerdict {
     if (v === undefined) missing.push(f.key);
     else if (isEmptyValue(v)) empty.push(f.key);
   }
-  return { ok: missing.length === 0 && empty.length === 0, missing, empty };
+  const filled = missing.length === 0 && empty.length === 0;
+  // 场景填了才谈得上"有没有对话场"；没填由缺项报，不重复
+  const dialogueGap = filled && !declaresDialogueOrExemption(conclusion);
+  return { ok: filled && !dialogueGap, missing, empty, dialogueGap };
 }
 
 /** 把缺项渲染成给作者/定稿官看的一句话 */
@@ -152,7 +180,34 @@ export function renderSceneCardGap(v: SceneCardVerdict): string {
   const parts: string[] = [];
   if (v.missing.length) parts.push(`缺项：${v.missing.join('、')}`);
   if (v.empty.length) parts.push(`空白：${v.empty.join('、')}`);
+  if (v.dialogueGap) parts.push('没有对话场（也没有在禁项里说明本章无对话）');
   return parts.join('；');
+}
+
+/**
+ * 场景卡是否声明了「靠什么推进」（对话 / 动作 / 独处观察）。
+ *
+ * ★ 2026-11-02 新增，**不阻断**，只用来在写作前给写作官一句提示。
+ *
+ * 为什么需要：实测《雾中灯塔》8 章对话占比 9.8%，其中 4 章 <1%（第 5 章 0.1%、第 8 章 0.0%）。
+ * 根因不是写作官不听话，而是**卡上没说哪一场该用对话推进** —— 纯推进章就整章白描。
+ * 这印证了项目里那条老结论：**补纲（提供什么事件）> 提示词规则（怎么写）**。
+ *
+ * 为什么不开门禁：有的章本来就无人可对话（荒野独行、独自潜入），
+ * 强制要求对话会逼模型硬塞。所以只检查"卡上有没有提到"，然后由定稿官自己判断是否适用。
+ *
+ * @returns 若无任何场景标注「对话」，返回提示语；否则返回空串
+ */
+export function noteMissingDialogueScene(conclusion: string): string {
+  const fields = parseContractFields(conclusion);
+  const scene = fields.get('场景') ?? '';
+  const forbid = fields.get('禁项') ?? '';
+  // 卡上已声明对话场，或已用禁项写明"本章无对话"，都不提示
+  if (/对话/.test(scene)) return '';
+  if (/无对话|没有对话|无人可对话|独处/.test(forbid)) return '';
+  if (!scene.trim()) return '';   // 缺项由门①报，这里不重复
+  return '本章场景卡没有声明任何「对话」场。若本章存在"两个以上在场者且有信息要交换"的场景，'
+    + '请在「场景」里标注该场靠对话推进 —— 实测纯白描章对话占比会掉到 1% 以下。';
 }
 
 /**

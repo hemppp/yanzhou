@@ -47,8 +47,11 @@ import {
   parseHelperReport, parseSupervisorDecision, decideSupervision, renderDispatchInstruction,
   type HelperReport,
 } from '../pipeline/supervise-review.js';
-import { detectDialogue, renderDialogueHint, DIALOGUE_RATIO_MIN, DIALOGUE_RATIO_MAX } from '../framework/dialogue.js';
-import { stripProsePreamble, countProseChars } from '../framework/text.js';
+import {
+  detectDialogue, renderDialogueHint, renderSupplementDialogueDirective,
+  DIALOGUE_RATIO_MIN, DIALOGUE_RATIO_MAX,
+} from '../framework/dialogue.js';
+import { sanitizeProseForDelivery, countProseChars } from '../framework/text.js';
 import {
   runGateDecision, decisionToGateAction, isDecisionEnabled,
   type GateDecision, type DecisionIssue,
@@ -57,14 +60,15 @@ import { WRITER_MAX_TOKENS } from './roles.js';
 // 正文字数口径与意图门硬规则统一由 gate-rules.ts 提供（纯函数、可直接单测）
 import {
   proseLength, isTooLong, isOutOfBand, passedHardRules,
-  pickNearestBand, isRunawayExpansion, draftPenalty, pickBestDraft,
-  detectOutlineLeak, leakTotal, leakExceeds, trimToMaxChars, type LeakHit,
+  pickNearestBand, draftPenalty, pickBestDraft,
+  detectOutlineLeak, leakTotal, leakExceeds, trimToMaxChars,
+  renderLengthDirective, renderRewriteLead, type LeakHit,
 } from './gate-rules.js';
 import { schema, eq, and, isNull, desc, lt, getProjectDb, type DrizzleDb } from '@novel/db';
 import { randomUUID } from 'node:crypto';
 // 三条硬门禁（场景逻辑卡 / 四问 / 定稿线）—— 纯函数，见文件头
 import {
-  checkSceneLogicCard, renderSceneCardGap,
+  checkSceneLogicCard, renderSceneCardGap, noteMissingDialogueScene,
   scoreChapterForFinalize, renderFinalizeDetail, FINALIZE_MIN_SCORE,
 } from '../framework/quality-gates.js';
 // 复核证据包（双向证据：没问题时也把代码数出来的数字交给复核官）
@@ -151,8 +155,24 @@ function turnsFor(role: DesignRole): number {
  *   于是带瑕疵交付 → 监工 halt → 整条长跑停在第五章。
  *   多给一次定向重写，让"删到上限内、删掉重复"这条能真正落地；
  *   代价是每章最多多 1 次模型调用（仅在该章不达标时）。
+ *
+ * ★ 2026-11-04 修**差一**：本常量此前语义是"复核轮数"，循环写
+ *   `attempt <= MAX_REVISIONS` 且在第 3 轮**先 break 再重写** ⇒ 实际只改了 **2** 次，
+ *   日志却打「已达重写上限（3 次）」。现在语义明确为**改稿次数**：
+ *   循环跑 `MAX_REVISIONS + 1` 轮复核（复核次数 = 改稿次数 + 1，末轮只复核不再改）。
+ *   实测依据：13 章里短稿的候选表恒为 3 稿（初稿 + 2 次重写），每次都少一次。
  */
 const MAX_REVISIONS = 3;
+
+/**
+ * 初稿欠下限时最多**补写**几次（2026-11-04 从"一次性"改成循环）。
+ *
+ * 实测（13 章 / hy3）：初稿平均 1270 字，一次补写能抬到 ~1600–2800 —— 其中 5 章仍不到 2500
+ * 就交付了。补写本身有效（能加 50–100%），缺的是"补完还欠就再补"。
+ * 取 3：一次约 +65%，两次通常进带，第三次留余量；只在**不达标**的章上发生。
+ * 循环里还有两个提前退出：进带即停、没变长即停（模型补不动了，再问是白烧调用）。
+ */
+const MAX_EXPAND_ATTEMPTS = 3;
 
 /**
  * 监工终审（落库前）最多打回几轮。
@@ -889,9 +909,19 @@ export async function runDiscussion(
      * （否则复核官会拿"含工作笔记的版本"去验收，判断随之失真）。
      */
     if (role.key === ROLE_WRITER.key && r.text) {
-      const clean = stripProsePreamble(r.text);
+      /**
+       * ★ 2026-11-02：从「只剥开头」改成「开头 + 末尾都剥」。
+       *
+       * 实测（《雾中灯塔》第 1 章）：校对门定向修订后，模型把
+       * 「--- 修正说明：删除起始章号标题…余文未动，已与设定库逐条核对无冲突，篇幅约 2770 字」
+       * 附在了正文**末尾**，而这里只调了 `stripProsePreamble`（只管开头）
+       * ⇒ 修订说明原样进了讨论记录、又被落库进成稿。
+       *
+       * 用 `sanitizeProseForDelivery` 统一入口，避免下次再漏一半。
+       */
+      const clean = sanitizeProseForDelivery(r.text);
       if (clean !== r.text) {
-        console.log(`[discuss] 剥除正文开头的元语言前言：${countProseChars(r.text)} → ${countProseChars(clean)} 字`);
+        console.log(`[discuss] 剥除正文元语言（开头/末尾）：${countProseChars(r.text)} → ${countProseChars(clean)} 字`);
         r.text = clean;
       }
     }
@@ -946,6 +976,9 @@ export async function runDiscussion(
           '【本轮任务】你上面收敛的「本章结论」缺少必填项，写作官**无法据此动笔**。缺的是：\n'
           + `${card.missing.length ? `· 整项没写：${card.missing.join('、')}\n` : ''}`
           + `${card.empty.length ? `· 写了但空白：${card.empty.join('、')}\n` : ''}`
+          + `${card.dialogueGap ? '· 没有「对话」场：本章场景**至少要有一场**标注「靠对话推进」\n'
+            + '  （实测：卡上标了对话的章对话占比 14.7%，全标动作的章只有 1.4%）；\n'
+            + '  若本章设定确实无人可对话（独自潜入 / 荒野独行），请在「禁项」里写明「本章无对话」及原因\n' : ''}`
           + '\n请**只输出补全后的完整本章结论**（原有各行原样保留，把缺的补上），严格按契约逐项给出：'
           + '节拍 / 场景 / 角色 / 动机 / 关键物 / 伏笔 / 禁项 / 结束状态 / 故事内时间 / 待定。'
           + '不要解释、不要寒暄、不要复述讨论过程。',
@@ -972,10 +1005,19 @@ export async function runDiscussion(
     // 它与设计角色的区别：**不参与争论**，只把结论当契约执行 —— 避免被过程中
     // 已被否决的方案带偏。它仍然看得到完整讨论记录（要"总结上面的讨论"）。
     emit({ type: 'phase', label: `写作官落笔中（目标 ${WRITER_TARGET_CHARS} 字以上，需要一会儿）` });
+    /**
+     * ★ 2026-11-02：场景卡若没声明任何「对话」场，落笔前提醒一句。
+     *
+     * 实测《雾中灯塔》8 章：对话占比 9.8%，4 章 <1%（第 8 章 0.0%）。
+     * 根因是卡上没写"这一场靠对话推进"，写作官就整章白描。
+     * 只提示、不阻断 —— 有的章本来就无人可对话（独自潜入/荒野独行）。
+     */
+    const dialogueHint = noteMissingDialogueScene(conclusion);
     let currentDraft = await speak(
       ROLE_WRITER,
       '【本轮任务】按上面的「本章结论」写出本章正文。'
-      + '结论的节拍 / 关键物 / 角色 / 伏笔 / 禁项都是硬约束，逐条落实。直接输出正文。',
+      + '结论的节拍 / 关键物 / 角色 / 伏笔 / 禁项都是硬约束，逐条落实。直接输出正文。'
+      + (dialogueHint ? `\n\n★ 提醒：${dialogueHint}` : ''),
       { maxTokens: WRITER_MAX_TOKENS },
     );
 
@@ -1092,77 +1134,80 @@ export async function runDiscussion(
 
     const afterTrimLen = proseLength(currentDraft);
     if (afterTrimLen < WRITER_MIN_CHARS) {
-      emit({ type: 'phase', label: `篇幅不足（${initialLen} 字），请写作官补写…` });
-      try {
-        // 补写前先按需回读一段更早的前情（斗位之外），给"加细节"提供素材
-        const recalled = await recallEarlier(ROLE_WRITER.key);
-        const expanded = await speak(
-          ROLE_WRITER,
-          `【本轮任务】你上一稿只有 ${initialLen} 字，未达 ${WRITER_MIN_CHARS} 字下限。`
-          + `请在**现有内容基础上补写**（不要重写、不要压缩已有段落，只增加细节、动作、对话与描写），`
-          + `把篇幅补到 ${WRITER_TARGET_CHARS} 字左右。`
-          + `**篇幅区间是 ${WRITER_MIN_CHARS}–${WRITER_MAX_CHARS} 字：少于 ${WRITER_MIN_CHARS} 字不合格，超过 ${WRITER_MAX_CHARS} 字同样不合格**`
-          + `（超了就是靠复述凑字数，会被打回）。直接输出补写后的**完整正文**。`
-          + (recalled ? `\n\n${recalled}` : ''),
-          { maxTokens: WRITER_MAX_TOKENS },
-        );
-        const expandedLen = proseLength(expanded);
-
-        /**
-         * ★ 2026-10-22 修一个**判据性**的坑（它让第 67 章交了 1097 字残稿）。
-         *
-         * 实测：初稿 877 字 → 补写产出 **5200 字**（一部完整的正文，只是超长）。
-         * 旧判据只比"谁离区间近"：877 离下限 1623、5200 离上限 1700 ⇒ 判 877 更近，
-         * **把补写稿整个丢掉、留着 877 字的残稿交付**（日志原句「篇幅补写未变长（877 → 5200 字）」）。
-         *
-         * 根因：这条判据是在**还没有裁剪能力**时定的，那时两边都不可修复，比距离是对的。
-         * 现在 `trimToMaxChars` 能把超长稿零成本裁进区间 ⇒ **"超上限"变成可修复的，"欠下限"才是不可修复的**。
-         * 所以先对补写稿做一次裁剪归一化，再比距离：5200 裁到 ~3470（距离 0）必然胜出。
-         */
-        const expandedFixed = expandedLen > WRITER_MAX_CHARS ? trimToMaxChars(expanded) : expanded;
-        const expandedFixedLen = proseLength(expandedFixed);
-        if (isRunawayExpansion(expandedLen)) {
-          // 补写失控 → 再要一稿「删到区间内」。这是**有界的一次**：
-          // 删减比补写容易得多，实测能一次落回区间；失败也只是回到三选一。
-          emit({ type: 'phase', label: `补写失控（${expandedLen} 字），请写作官删到区间内…` });
-          const trimmed = await speak(
+      /**
+       * ★ 2026-11-04：**一次性补写 → 循环补写**（见 MAX_EXPAND_ATTEMPTS 的说明）。
+       *   实测 13 章里 5 章就是死在这一步：初稿 ~1270 → 一次补写 ~2100，仍不到 2500，然后交付。
+       *
+       *   退出条件有三个，任何一个命中就停：
+       *     · 进带（≥ 下限）—— 目标达成；
+       *     · 没变长 —— 模型已经补不动了，再问是白烧调用；
+       *     · 用尽 MAX_EXPAND_ATTEMPTS 次。
+       *
+       *   取舍判据沿用 2026-10-22 的结论：先对补写稿做**裁剪归一化**再比。
+       *   超长是**可修复**的（零成本裁进区间），欠下限才是不可修复的 ——
+       *   所以不该拿"原始长度离区间多远"去罚超长的补写稿（旧判据让第 67 章交了 1097 字残稿）。
+       *   归一化之后与**当前稿**逐轮比较，只要变长就采纳，保证单调收敛。
+       */
+      let expandAttempt = 0;
+      while (proseLength(currentDraft) < WRITER_MIN_CHARS && expandAttempt < MAX_EXPAND_ATTEMPTS) {
+        expandAttempt += 1;
+        const before = proseLength(currentDraft);
+        emit({
+          type: 'phase',
+          label: `篇幅不足（${before} 字，第 ${expandAttempt}/${MAX_EXPAND_ATTEMPTS} 次补写），请写作官补写…`,
+        });
+        try {
+          /**
+           * ★ 2026-11-05：补写必须**同时**看着对话占比。
+           *
+           *   实测（afterfix pilot 第 3 章）：补写把 1221 字扩到 3498（2.9 倍），
+           *   对话占比却从 27% **掉到 8%**。原因是指令只说"增加细节、动作、对话与描写"——
+           *   对话只占四分之一，模型补进来的绝大多数是叙述：分母涨、分子不涨，占比被稀释。
+           *   也就是说，**修篇幅的动作反过来恶化了对话指标**。
+           *
+           *   所以这里把对话报告也算一遍并交给写作官。只在本章对话确实不达标时才带
+           *   （tooLow / tooFragmented）—— 达标时多塞一段要求只会挤占它的注意力。
+           */
+          const dlgNow = detectDialogue(currentDraft);
+          const dialogueDirective = renderSupplementDialogueDirective(dlgNow);
+          // 补写前先按需回读一段更早的前情（斗位之外），给"加细节"提供素材
+          const recalled = await recallEarlier(ROLE_WRITER.key);
+          const expanded = await speak(
             ROLE_WRITER,
-            `【本轮任务】你上一稿有 ${expandedLen} 字，**超过了 ${WRITER_MAX_CHARS} 字上限**（上限是硬约束）。`
-            + `请把它删到 ${WRITER_MIN_CHARS}–${WRITER_MAX_CHARS} 字之间：优先删掉重复的段与句、删掉没有新信息的复述；`
-            + `**不要**删情节推进与关键动作，也不要再扩写。直接输出删好的**完整正文**。`,
+            `【本轮任务】你上一稿只有 ${before} 字，未达 ${WRITER_MIN_CHARS} 字下限。`
+            + `请在**现有内容基础上补写**（不要重写、不要压缩已有段落，只增加细节、动作、对话与描写），`
+            + `把篇幅补到 ${WRITER_TARGET_CHARS} 字左右。`
+            + (expandAttempt > 1 ? `这是第 ${expandAttempt} 次补写，上一次补完仍不够 —— **这次必须补足**。` : '')
+            + `**篇幅区间是 ${WRITER_MIN_CHARS}–${WRITER_MAX_CHARS} 字：少于 ${WRITER_MIN_CHARS} 字不合格，超过 ${WRITER_MAX_CHARS} 字同样不合格**`
+            + `（超了就是靠复述凑字数，会被打回）。直接输出补写后的**完整正文**。`
+            + dialogueDirective
+            + (recalled ? `\n\n${recalled}` : ''),
             { maxTokens: WRITER_MAX_TOKENS },
           );
-          // 三个候选一律先做长度归一化（超长的裁进区间）再比 —— 判据同上面那段说明
-          const trimmedLen = proseLength(trimmed);
-          const trimmedFixed = trimmedLen > WRITER_MAX_CHARS ? trimToMaxChars(trimmed) : trimmed;
-          const trimmedFixedLen = proseLength(trimmedFixed);
-          const pick = pickNearestBand(initialLen, expandedFixedLen, trimmedFixedLen);
-          currentDraft = pick === 1 ? expandedFixed : pick === 2 ? trimmedFixed : currentDraft;
-          console.log(
-            `[discuss] 篇幅校正 ${initialLen} → 补写${expandedLen}(归一 ${expandedFixedLen})`
-            + ` / 删减${trimmedLen}(归一 ${trimmedFixedLen}) ⇒ 取第 ${pick} 稿（${proseLength(currentDraft)} 字）`,
-          );
-        } else {
-          // 比的是**裁剪归一化之后**的长度（超长稿先裁进区间再比，见上面的说明）
-          const pick = pickNearestBand(initialLen, expandedFixedLen);
-          if (pick === 1) {
-            currentDraft = expandedFixed;
-            console.log(
-              `[discuss] 篇幅补写 ${initialLen} → ${expandedLen} 字`
-              + (expandedFixedLen !== expandedLen ? `（裁剪至 ${expandedFixedLen} 字）` : ''),
-            );
-          } else {
-            // ★ 2026-10-22 修措辞：这里以前一律写"未变长"，但实测有一条 `2039 → 4006 字`
-            //   也被判成"未变长" —— 其实它是**补过头了**（离上限比初稿离下限更远），
-            //   取舍函数 pickNearestBand 判它不如初稿贴区间。两种情况的处置相同、原因不同，
-            //   日志写成一句会让人误以为"模型没补"，排查时白跑一趟。
+          const expandedLen = proseLength(expanded);
+          const expandedFixed = expandedLen > WRITER_MAX_CHARS ? trimToMaxChars(expanded) : expanded;
+          const expandedFixedLen = proseLength(expandedFixed);
+          if (expandedFixedLen <= before) {
             console.warn(
-              `[discuss] 篇幅补写后离区间更远（${initialLen} → ${expandedLen} 字），保留初稿`,
+              `[discuss] 篇幅补写未变长（${before} → ${expandedLen} 字，归一 ${expandedFixedLen}），停止补写`,
             );
+            break;
           }
+          currentDraft = expandedFixed;
+          console.log(
+            `[discuss] 篇幅补写（第 ${expandAttempt} 次）${before} → ${expandedLen} 字`
+            + (expandedFixedLen !== expandedLen ? `（裁剪至 ${expandedFixedLen} 字）` : ''),
+          );
+        } catch (e) {
+          console.warn('[discuss] 篇幅补写失败，按现稿继续:', e);
+          break;
         }
-      } catch (e) {
-        console.warn('[discuss] 篇幅补写失败，按初稿继续:', e);
+      }
+      const afterExpandLen = proseLength(currentDraft);
+      if (afterExpandLen < WRITER_MIN_CHARS) {
+        console.warn(
+          `[discuss] 篇幅补写用尽 ${expandAttempt} 次仍未达下限（${afterExpandLen} 字），交意图门`,
+        );
       }
     }
     emit({ type: 'draft', text: currentDraft, revision: 0 });
@@ -1191,7 +1236,8 @@ export async function runDiscussion(
      *   和上限一样是可判定的物理事实，不能只靠提示词。
      */
     const tooLong = () => isTooLong(currentDraft);
-    /** 篇幅出带（超上限或欠下限）—— 确定性硬伤，详见下方 decisionToGateAction 的 nonNegotiable */
+    /** 篇幅出带（超上限或欠下限）—— 确定性硬伤，详见下方 decisionToGateAction 的 nonNegotiable。
+     *  2026-10-18 起上下限都走这一条（`isOutOfBand`），不再单列 `tooShort`。 */
     const outOfBand = () => isOutOfBand(currentDraft);
     /**
      * ★ 2026-10-21：提纲泄漏的**确定性**计数（此前这条只有模型监工在管，`leak` 字段恒为 0）。
@@ -1255,7 +1301,8 @@ export async function runDiscussion(
       });
     };
     rememberDraft(currentDraft);
-    for (let attempt = 1; attempt <= MAX_REVISIONS; attempt++) {
+    // 复核次数 = 改稿次数 + 1：末轮只复核，不再重写（见 MAX_REVISIONS 的说明）
+    for (let attempt = 1; attempt <= MAX_REVISIONS + 1; attempt++) {
       emit({ type: 'phase', label: `意图复核（第 ${attempt} 次）` });
       // 每轮重置：放行警示只应反映**本轮**决策器结论，不能带上一轮的旧结论
       lastDecision = null;
@@ -1412,6 +1459,20 @@ export async function runDiscussion(
       }
 
       emit({ type: 'review', text: review, attempt, passed });
+      /**
+       * ★ 2026-11-05：把**复核的开头**打进控制台。
+       *
+       *   起因：实测重写稿会比原稿短一大截（2821→856、2716→997），而交付靠 pickBestDraft
+       *   兜住了、日志里看不出任何异常。逐项排除后（截断？否——finish_reason 全是 stop；
+       *   提示词？否——隔离实验输出 2590~3077 字完整正文；system？否；讨论记录裁剪？否），
+       *   剩下的唯一变量就是**复核文本**本身。它此前只走 SSE、不落任何日志，
+       *   于是"为什么改向"在事后完全不可考。
+       */
+      console.log(
+        `[discuss] 意图复核（第 ${attempt} 次）：${passed ? '放行' : '打回'}`
+        + `｜复核 ${review.length} 字｜本稿 ${proseLength(currentDraft)} 字`
+        + `｜${review.slice(0, 200).replace(/\n/g, ' ')}`,
+      );
       if (passed) {
         approved = true;
         /**
@@ -1435,9 +1496,11 @@ export async function runDiscussion(
         break;
       }
 
-      if (attempt === MAX_REVISIONS) {
+      // attempt 是「第几次复核」；已改稿次数 = attempt - 1。
+      // 改满 MAX_REVISIONS 次后本轮只复核、不再改（`attempt` 最多到 MAX_REVISIONS + 1）。
+      if (attempt - 1 >= MAX_REVISIONS) {
         // 超限不硬撑：停下交给作者，别让它在循环里烧钱
-        emit({ type: 'phase', label: `已达重写上限（${MAX_REVISIONS} 次），停在待人工处理` });
+        emit({ type: 'phase', label: `已达重写上限（${MAX_REVISIONS} 次），本稿不再重写` });
         break;
       }
 
@@ -1451,19 +1514,26 @@ export async function runDiscussion(
       const focused = focus !== 'none'
         ? renderFocusedHint(focus, { rep, cross, dlg, chars: proseLength(currentDraft), tooLong: tooLong() })
         : '';
+      /**
+       * ★ 2026-11-04：开头那句随篇幅状态分叉。
+       *
+       *   篇幅出带时**不能**再说"能局部改就不要整章重来" —— 实测短稿每轮只加 15–300 字
+       *   （1920→1935→2020，闸门要求 ≥2500），就是被这句话按住的。出带时改为
+       *   "以修好硬指标为第一优先"；在带内才保留原来的少改动口径。
+       *   指令正文见 `renderLengthDirective`（纯函数，可单测）。
+       */
+      const lead = renderRewriteLead(outOfBand());
+      const lengthDirective = renderLengthDirective({
+        chars: proseLength(currentDraft), minChars: WRITER_MIN_CHARS, maxChars: WRITER_MAX_CHARS,
+      });
+      const beforeRewriteLen = proseLength(currentDraft);
       currentDraft = await speak(
         ROLE_WRITER,
-        '【本轮任务】你上一稿没过意图复核。按上文「意图复核」给出的**修改要求**重写。'
-        + '**能局部改就不要整章重来**，只动需要动的地方；直接输出修改后的**完整正文**。'
+        lead
         + (focus !== 'none'
           ? `\n\n【本轮**只**改这一条，其余不动】${issueLabel(focus)}\n${focused}`
-            + `\n（篇幅仍须在 ${WRITER_MIN_CHARS}–${WRITER_MAX_CHARS} 字之间。）`
-          : (tooLong()
-            // 超限时口径要反过来：**删**，不是补。否则它会一边被要求"不少于"、一边被要求"别超"，两头挨骂
-            ? `注意：本章**已超出篇幅上限**（现在 ${proseLength(currentDraft)} 字，上限 ${WRITER_MAX_CHARS} 字）。`
-              + '**必须删到上限以内** —— 优先删掉重复的段与句、删掉没有新信息的复述；'
-              + '**不要**为凑数扩写，**也不要**因为删了就补写新段。'
-            : `注意：修改后篇幅仍不得少于 ${WRITER_MIN_CHARS} 字、不要超过 ${WRITER_MAX_CHARS} 字。`)
+            + `\n${lengthDirective}`
+          : `\n\n${lengthDirective}`
             + (rep.excessive ? `\n\n${renderRepetitionHint(rep)}` : '')
             + (cross.excessive ? `\n\n${renderCrossRepetitionHint(cross)}` : '')
             // 补对话与删重复会互相拉扯（补对话会加字、删重复会减字），两条同时命中时
@@ -1472,6 +1542,16 @@ export async function runDiscussion(
             // 提纲泄漏：把**命中的词逐个列出来**（只说"别写提纲语言"它不知道该删哪个）
             + (leakTooMany() ? `\n\n${renderLeakHint(leakHits())}` : '')),
         { maxTokens: WRITER_MAX_TOKENS },
+      );
+      /**
+       * ★ 2026-11-05：把**每次重写的进/出长度**打出来。
+       *   起因：实测三章 9 次重写里 8 次比原稿短得多（2821→856、3500→1450、2716→997），
+       *   但交付靠 pickBestDraft 兜住了，日志里看不出任何异常。
+       *   这里补一行，让"重写在反向做功"从候选表之外的路径也能被发现。
+       */
+      console.log(
+        `[discuss] 第 ${attempt} 次重写：${beforeRewriteLen} → ${proseLength(currentDraft)} 字`
+        + `（复核${passed ? '过' : '打回'}后；maxTokens=${WRITER_MAX_TOKENS}）`,
       );
       /**
        * ★ 2026-10-22：**重写路径也要做长度归一化** —— 此前这一路完全没有篇幅校正，
@@ -1805,6 +1885,24 @@ export async function runDiscussion(
         if (finalLen < beforeDeliver) {
           currentDraft = finalCut;
           console.log(`[discuss] 交付前兜底裁剪 ${beforeDeliver} → ${finalLen} 字（超上限，落库前强制收敛）`);
+        }
+      }
+
+      /**
+       * ★ 2026-11-02：**落库前的元语言兜底**（与上面那道长度不变量同一位置）。
+       *
+       * 上面写作官调用点已经净化过一次，但**校对门的定向修订、监工派发的重写、
+       * 补写**都在它之后 —— 这些路径的回稿可能又带上修订说明（实测第 1 章就是
+       * 校对门修订带进来的）。这里是最后一次动正文的机会，再兜一遍。
+       *
+       * 只做净减、不改变正文内容；剥不动（保护阀触发）就原样放行。
+       */
+      {
+        const before = currentDraft;
+        const cleaned = sanitizeProseForDelivery(currentDraft);
+        if (cleaned !== before) {
+          currentDraft = cleaned;
+          console.log(`[discuss] 交付前剥除残留元语言：${proseLength(before)} → ${proseLength(cleaned)} 字`);
         }
       }
 

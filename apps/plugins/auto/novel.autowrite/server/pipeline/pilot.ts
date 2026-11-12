@@ -176,7 +176,7 @@ export interface PilotOutcome {
 }
 
 /** 取项目库里已交付的最大章号（新项目 → 0） */
-async function maxChapterOrder(ctx: ServerPluginContext, projectId: string): Promise<number> {
+async function maxChapterOrder(projectId: string): Promise<number> {
   try {
     const db = await getProjectDb(projectId) as unknown as DrizzleDb;
     const rows = await db
@@ -208,7 +208,7 @@ export async function runPilot(
 
   const last = opts.lastDelivered && opts.lastDelivered > 0
     ? opts.lastDelivered
-    : await maxChapterOrder(ctx, projectId);
+    : await maxChapterOrder(projectId);
   const orders = planPilotChapterOrders(last);
   const total = orders.length;
   const records: PilotChapterRecord[] = [];
@@ -253,7 +253,7 @@ export async function runPilot(
   }
 
   emit({ type: 'stage_phase', stage: 'pilot', label: '跨章审阅：横着读这三章…' });
-  const chapters = await loadDeliveredChapters(ctx, projectId, done.map((r) => r.order));
+  const chapters = await loadDeliveredChapters(projectId, done.map((r) => r.order));
   const premiere = await reviewPremiere(ctx, { projectId, userId, chapters, contracts: opts.contracts, records: done });
   const artifact = renderPremiereReport(premiere, done);
   emit({ type: 'premiere_review', text: artifact, verdict: premiere.verdict, issues: premiere.issues.length });
@@ -261,7 +261,6 @@ export async function runPilot(
 }
 
 async function loadDeliveredChapters(
-  ctx: ServerPluginContext,
   projectId: string,
   orders: number[],
 ): Promise<Array<{ order: number; title: string; content: string }>> {

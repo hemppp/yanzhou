@@ -16,7 +16,6 @@
 // 本文件里**判定与合并是纯函数**（可单测），只有"取判定"那一步调模型。
 // ============================================================
 
-import type { SettingsDigest } from '../framework/context-resolver.js';
 
 export type DriftLayer = 'L1' | 'L2' | 'L3';
 /** 判定三态。`库里没依据` 不是"偏离"，是**空白** —— 处置不同（进待定 vs 回修） */
@@ -175,28 +174,7 @@ export function summarizeDrift(r: DriftReport): string {
   return parts.join(' · ');
 }
 
-/** 该给哪个核查角色看什么（三层对照物，职责分工见设计 §3 的角色矩阵） */
-export function driftBriefFor(layer: DriftLayer, digest: SettingsDigest): string {
-  if (layer === 'L3') {
-    return [
-      '【L3 对照物：项目库事实】',
-      '角色现状：',
-      digest.characters || '（暂无）',
-      '伏笔台账：',
-      digest.foreshadows || '（暂无）',
-      '判定口径：库里**没有**依据的断言判「库中无依据」（这是空白，不是错），',
-      '库里**自相矛盾**（同一事实两个值）判「偏离」。',
-    ].join('\n');
-  }
-  if (layer === 'L2') {
-    return [
-      '【L2 对照物：已批准的契约】',
-      '（本段的上面已经给了《角色与节奏宪章》《世界圣经》《剧情总纲》的全文）',
-      '判定口径：与已批准内容**冲突**判「偏离」，并写清冲突在契约的哪一句。',
-    ].join('\n');
-  }
-  return [
-    '【L1 对照物：作者的 brief（作者原话，最高效力）】',
-    '判定口径：违背作者写下的开局/世界观/笔风/主角/女主名单 → 判「偏离」。',
-  ].join('\n');
-}
+// ★ 2026-11-03 清理：原 `driftBriefFor(layer, digest)` 已删（全仓 0 调用）。
+//   退役原因：drift 段的对照物是**逐层拼**的 —— L1/L2 由上面已批准的契约全文承担，
+//   L3 由 `orchestrator.ts` 在 `stage === 'drift'` 分支内联（断言清单 + 库事实）。
+//   该函数是那些内联文本的旧副本，留着只会两处漂移。

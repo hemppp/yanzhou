@@ -426,7 +426,7 @@ const DRIFT_WORLD_ROLE = withSystem(ROLE_WORLD, DRIFT_WORLD);
 const DRIFT_PLOT_ROLE = withSystem(ROLE_PLOT, DRIFT_PLOT);
 const CONVENER_DRIFT_ROLE = withSystem(ROLE_CONVENER, CONVENER_DRIFT);
 
-export const DRIFT_SPEAKERS = [DRIFT_CHARACTER_ROLE, DRIFT_WORLD_ROLE, DRIFT_PLOT_ROLE];
+const DRIFT_SPEAKERS = [DRIFT_CHARACTER_ROLE, DRIFT_WORLD_ROLE, DRIFT_PLOT_ROLE];
 
 // ---- Stage5 前三章试写（pilot）：跨章审阅角色 ----
 
@@ -470,8 +470,6 @@ export const ROLE_PREMIERE: DesignRole = {
   system: PREMIERE_REVIEW,
 };
 
-/** 跨章审阅的 system（供 pilot 直接取用；改口径只改这里） */
-export const PREMIERE_SYSTEM = PREMIERE_REVIEW;
 
 // ---- Stage6 长跑（production）：写作监工 + 每 N 章轨迹确认 ----
 
@@ -544,7 +542,6 @@ const TRACK_PLOT = `你是「剧情设计师」，本轮做**轨迹确认**（�
 - 必须对照《剧情总纲》里的**具体条目**（章号 / 节拍 / 伏笔计划），不要空泛
 - 不要重写大纲；只判断"现在这 N 章还在不在轨道上"`;
 
-export const TRACK_PLOT_ROLE = withSystem(ROLE_PLOT, TRACK_PLOT);
 
 /** 轨迹确认的 system（供 production 取用；改口径只改这里） */
 export const TRACK_SYSTEM = TRACK_PLOT;

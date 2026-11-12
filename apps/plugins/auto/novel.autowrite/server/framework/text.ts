@@ -112,10 +112,6 @@ export function parseJsonTolerant(raw: string): Record<string, unknown> | null {
   }
 }
 
-/** 与 chapter-service 一致的字数口径：剥 HTML 标记后计字符 */
-export function countChars(content: string): number {
-  return content.replace(/<[^>]+>/g, '').trim().length;
-}
 
 /**
  * 归一化「按内容计数」用的文本：只留汉字 / 字母 / 数字，丢掉空白与标点。
@@ -216,4 +212,73 @@ export function stripProsePreamble(raw: string): string {
   }
 
   return text;
+}
+
+/**
+ * 末尾元语言的判据（对称于开头的 `PREAMBLE_*`）。
+ *
+ * ★ 2026-11-02 新增，起因是一次实测：第 1 章正文**末尾**混进了校对门的修订说明——
+ *   「--- 修正说明：删除起始章号标题（消除纯度不纯），合并重复的"铁锈味风钻入"描写
+ *   （仅保留门缝一处），余文未动，已与设定库逐条核对无冲突，篇幅约 2770 字。」
+ *   而 `stripProsePreamble` **只处理开头**（日志里也确实有「剥除正文开头的元语言前言」），
+ *   末尾这类说明被原样落库、进了成稿。
+ *
+ * 为什么末尾会出现：校对门定向修订的提示词是「直接输出修正后的**完整正文**」，
+ *   但模型习惯性地把"我改了什么"附在末尾 —— 提示词管不住，只能在落库前兜住。
+ *
+ * 判据刻意**窄**（只认"交代修改动作"的句子，不是凡含关键词就砍）：
+ *   末尾的正文可能自然出现"删""改""核对"等词（如「他删了那行记录」），
+ *   所以要求同时满足「位于末尾若干段内」+「像工作说明」+「剥掉后仍留足正文」。
+ */
+const TRAILING_META_RE = new RegExp([
+  // ① 显式的修订说明抬头（最可靠）：--- 修正说明 / 【修订说明】 / 修改说明：
+  '(?:^|\\n)\\s*(?:[-—=*#]{2,}\\s*)?(?:【|\\[)?\\s*(?:修正|修改|修订|改动|变更|调整)(?:说明|记录|清单|情况|要点)?\\s*(?:】|\\])?\\s*[:：]',
+  // ② 交代"我改了什么"的动作句（要成句，不是单词命中）
+  '(?:删去|删除|删掉|已删|保留|仅保留|合并|压缩|扩写|补齐|补写|替换|改写|重写|改回|已与设定库|逐条核对|无冲突|未动|余文|篇幅约|字数约|以上为|共计)\\s*[^\\n]{0,40}(?:字|处|条|段|项|冲突|核对|未动|保留)',
+].join('|'), 'm');
+
+/** 末尾剥离时最多看最后几段 —— 修订说明总是在末尾 */
+const TRAILING_SCAN_PARAS = 3;
+
+/**
+ * 剥掉正文**末尾**的工作笔记（修订说明 / 改动清单）。
+ *
+ * 与 `stripProsePreamble` 同款保护阀：剥完必须仍留 ≥ `MIN_KEEP` 的正文，否则原样返回
+ * （宁可留一段脏说明，也不能把一章正文砍成残章）。
+ *
+ * @param raw 写作官/校对门的输出
+ * @returns 去掉末尾元语言后的正文
+ */
+export function stripProseTailMeta(raw: string): string {
+  const text = String(raw ?? '');
+  if (!text.trim()) return text;
+
+  const paras = text.split(/\n\s*\n/);
+  let cut = paras.length;   // 保留到第 cut 段（不含）
+  let scanned = 0;
+  // 从末尾往前，最多看 TRAILING_SCAN_PARAS 段
+  while (cut > 1 && scanned < TRAILING_SCAN_PARAS) {
+    const p = paras[cut - 1]!.trim();
+    scanned++;
+    if (!p) { cut--; continue; }
+    if (!TRAILING_META_RE.test(p)) break;
+    cut--;
+  }
+  if (cut === paras.length) return text;
+
+  const kept = paras.slice(0, cut).join('\n\n').replace(/\s+$/, '');
+  // 保护阀：与开头版一致
+  return countProseChars(kept) >= countProseChars(text) * MIN_KEEP && countProseChars(kept) > 0
+    ? kept
+    : text;
+}
+
+/**
+ * 落库前的正文净化：**开头 + 末尾**都剥。
+ *
+ * 单独暴露这个函数，是为了让调用方（`orchestrator` 的交付边界）**只有一个入口**，
+ * 不至于哪天只调了开头版、忘了末尾版 —— 那次实测就是这么漏的。
+ */
+export function sanitizeProseForDelivery(raw: string): string {
+  return stripProseTailMeta(stripProsePreamble(raw));
 }

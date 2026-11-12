@@ -193,6 +193,22 @@ export function renderFragmentedLine(rep: DialogueReport): string {
 }
 
 /**
+ * **补写**阶段用的对话指令：本章对话不达标时，把要求连同"新增篇幅优先给对话"一起交出去；
+ * 达标时返回空串（多塞要求只会挤占写作官的注意力）。
+ *
+ * ★ 2026-11-05 新增。为什么补写也要看对话：
+ *   实测（afterfix pilot 第 3 章）补写把 1221 字扩到 3498（2.9 倍），对话占比却从
+ *   27% **掉到 8%** —— 原指令只说"增加细节、动作、对话与描写"，对话只占四分之一，
+ *   模型补进来的绝大多数是叙述 ⇒ 分母涨、分子不涨。**修篇幅的动作反过来恶化了对话指标**，
+ *   所以补写阶段必须同时拿到对话目标，否则两个指标会互相打架。
+ */
+export function renderSupplementDialogueDirective(rep: DialogueReport): string {
+  if (!rep.tooLow && !rep.tooFragmented) return '';
+  return '\n\n**新增的篇幅请优先给人物对话** —— 本章对话占比不达标：\n'
+    + renderDialogueHint(rep);
+}
+
+/**
  * 生成给写作官的「补对话」重写指令。
  *
  * 只列数字与方向，不替它写台词 —— 写作官手里有本章结论（谁在场、要谈什么），
@@ -208,7 +224,7 @@ export function renderDialogueHint(rep: DialogueReport): string {
   if (rep.tooHigh) {
     const max = (DIALOGUE_RATIO_MAX * 100).toFixed(0);
     return [
-      '【本次重写的硬性要求：对话**压下来**】',
+      '【硬性要求：对话**压下来**】',
       `框架逐字统计：本章对话占比高达 ${pct}%（引号内 ${rep.dialogueChars} 字 / 正文 ${rep.totalChars} 字），超过 ${max}% 的上限。`,
       '整章几乎全是人物在说话，**动作、环境、物件、身体反应全被挤掉了** —— 读起来像剧本，不像小说。',
       '请这样改：',
@@ -227,7 +243,7 @@ export function renderDialogueHint(rep: DialogueReport): string {
    */
   if (rep.tooFragmented) {
     return [
-      '【本次重写的硬性要求：对话**写实、写厚**（现在太碎）】',
+      '【硬性要求：对话**写实、写厚**（现在太碎）】',
       renderFragmentedLine(rep),
       '请这样改（注意：**不是**加减对话数量，是把每一句写实）：',
       '· 把「一问一答、每句两个字的电报体」合并成**一次说完的整句**：',
@@ -242,7 +258,7 @@ export function renderDialogueHint(rep: DialogueReport): string {
     ].join('\n');
   }
   return [
-    '【本次重写的硬性要求：把对话补上来】',
+    '【硬性要求：把对话补上来】',
     `框架逐字统计：本章对话占比只有 ${pct}%（引号内 ${rep.dialogueChars} 字 / 正文 ${rep.totalChars} 字），低于 ${min}% 的下限。`,
     '请**增加人物之间的对话**：把下列内容改成**当面说出来的对白**（而不是叙述转述或内心独白）——',
     `· 现在写成"他想…""他知道…"的推理，能让人问出来、答出来；`,

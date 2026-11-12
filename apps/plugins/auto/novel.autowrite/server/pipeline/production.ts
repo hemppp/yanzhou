@@ -139,13 +139,9 @@ export function planWithinOutline(
  * - 全书第 1 章 → 按总纲起笔；
  * - 否则一律"接着上一章往下写"（**不要**照抄作者最初那句指令，那是写给立设定那一段的）。
  */
-export function productionMessage(order: number, hasPrevious: boolean, extra?: string): string {
-  const head = hasPrevious
-    ? `接着上一章往下写第 ${order} 章。按《剧情总纲》里第 ${order} 章的节拍走；`
-      + '保持人物、伏笔与文风连续，不要重述上一章已经写过的内容。'
-    : `按《剧情总纲》里第 ${order} 章的节拍，写出第 ${order} 章正文。`;
-  return extra ? `${head}\n\n【作者补充】\n${extra}` : head;
-}
+// ★ 2026-11-03 清理：原 `productionMessage(order, hasPrevious)` 已删（全仓 0 调用）。
+//   它是 `productionMessageWithCard` 之前的那版单章指令；有节拍卡之后一律走新版
+//   （卡整张塞进指令、总纲只作背景）。旧版只是被单测保活，运行期早已不用。
 
 /**
  * 单章指令 —— **有节拍卡时以卡为准**。
@@ -338,20 +334,9 @@ const SUPERVISE_VERDICT_LABEL: Record<SuperviseResult['verdict'], string> = {
   ok: '正常', watch: '留意', halt: '需停下处理',
 };
 
-/** 渲染单章监工报告（给人看，也存进阶段契约） */
-export function renderSuperviseReport(r: SuperviseResult): string {
-  const parts: string[] = [];
-  parts.push(`【第 ${r.order} 章监工】判定：${SUPERVISE_VERDICT_LABEL[r.verdict]}（${r.issues.length} 处）`);
-  if (r.trend) parts.push(`走势：${r.trend}`);
-  if (r.issues.length) {
-    parts.push('');
-    r.issues.forEach((it, i) => {
-      parts.push(`${i + 1}. [${SUPERVISE_KIND_LABEL[it.kind] ?? it.kind}] ${it.detail}`);
-      if (it.evidence) parts.push(`   证据：${it.evidence}`);
-    });
-  }
-  return parts.join('\n');
-}
+// ★ 2026-11-03 清理：原 `renderSuperviseReport(r)` 已删（全仓仅单测引用）。
+//   监工报告实际由编排层在 emit `supervise_report` 处内联拼装（见 runProduction），
+//   此处那份是它的副本 —— 留着只会两处漂移。
 
 // ---- 轨迹确认（每 N 章）----
 
@@ -424,20 +409,8 @@ const TRACK_VERDICT_LABEL: Record<TrackResult['verdict'], string> = {
   major_drift: '明显跑偏（已暂停，请作者决策）',
 };
 
-/** 渲染轨迹确认报告 */
-export function renderTrackReport(from: number, to: number, r: TrackResult): string {
-  const parts: string[] = [];
-  parts.push(`【轨迹确认 · 第 ${from}–${to} 章】判定：${TRACK_VERDICT_LABEL[r.verdict]}`);
-  if (r.note) parts.push(`结论：${r.note}`);
-  if (r.verdict === 'minor_drift' && r.patch) {
-    parts.push('', '—— 修正补丁（接下来 2–3 章按它走）——');
-    parts.push(r.patch);
-  }
-  if (r.verdict === 'major_drift') {
-    parts.push('', '★ 整条流水线已暂停。请作者阅读上面的结论，决定是回修、改总纲还是继续。');
-  }
-  return parts.join('\n');
-}
+// ★ 2026-11-03 清理：原 `renderTrackReport(from, to, r)` 已删（全仓仅单测引用）。
+//   轨迹确认报告同样由编排层在 emit `track_review` 处内联拼装。
 
 // ---- 编排层 ----
 
@@ -472,7 +445,7 @@ export interface ProductionOutcome {
   sinceReview: number;
 }
 
-async function maxChapterOrder(ctx: ServerPluginContext, projectId: string): Promise<number> {
+async function maxChapterOrder(projectId: string): Promise<number> {
   try {
     const db = await getProjectDb(projectId) as unknown as DrizzleDb;
     const rows = await db
@@ -490,7 +463,7 @@ async function maxChapterOrder(ctx: ServerPluginContext, projectId: string): Pro
 
 /** 回读单章（监工要用正文） */
 async function loadChapter(
-  ctx: ServerPluginContext, projectId: string, order: number,
+  projectId: string, order: number,
 ): Promise<{ order: number; title: string; content: string; summary: string } | null> {
   try {
     const db = await getProjectDb(projectId) as unknown as DrizzleDb;
@@ -509,7 +482,7 @@ async function loadChapter(
 
 /** 取某章之前最近 n 章的摘要（供监工比"趋势"） */
 async function recentSummaries(
-  ctx: ServerPluginContext, projectId: string, beforeOrder: number, n = 3,
+  projectId: string, beforeOrder: number, n = 3,
 ): Promise<Array<{ order: number; summary: string }>> {
   try {
     const db = await getProjectDb(projectId) as unknown as DrizzleDb;
@@ -646,7 +619,7 @@ async function runTrackReview(
        *   于是模型一边被要求"只输出 JSON"，一边被系统提示词要求"不要 JSON"，
        *   结果**每一条**轨迹确认都解析失败、一律降级成 minor_drift（memory 里记的
        *   「pipeline_tracks 5/5 全部输出没能解析成 JSON」就是这个）。
-       *   `TRACK_SYSTEM`（= `TRACK_PLOT_ROLE` 的 system）才是带 JSON 契约的那份，此前是死代码。
+       *   `TRACK_SYSTEM`（roles-phase 里带 JSON 契约的那份）才对。
        */
       system: await createAgentSkillResolver(ctx, o.userId).systemFor(ROLE_PLOT.key, TRACK_SYSTEM),
       input,
@@ -749,7 +722,7 @@ export async function runProduction(
    *   （否则会重复写已存在的章）。取 max 而不是直接换成 DB：游标可能包含
    *   DB 里查不到的进度（例如章被软删过），取大者两边都不丢失。
    */
-  const dbMax = await maxChapterOrder(ctx, projectId);
+  const dbMax = await maxChapterOrder(projectId);
   const last = Math.max(opts.lastDelivered ?? 0, dbMax);
 
   /**
@@ -875,7 +848,7 @@ export async function runProduction(
        *   于是"卡只到 10、已写到 73"时算出要补 **74–78** —— 而 74–78 早就写完了。
        *   补已写章节的卡毫无意义（节拍卡是未来章节的施工图）。
        */
-      const deliveredMax = Math.max(cursor, await maxChapterOrder(ctx, projectId));
+      const deliveredMax = Math.max(cursor, await maxChapterOrder(projectId));
       const check = checkBeatCoverage(beatArtifact, order, deliveredMax);
       if (check.needed) {
         const fresh = await generateBeatCards(
@@ -976,9 +949,9 @@ export async function runProduction(
 
     // ---- 逐章监工（只读）。只在**交付成功**时跑：没交付的章没有正文可巡检 ----
     if (delivered) {
-      const chapter = await loadChapter(ctx, projectId, order);
+      const chapter = await loadChapter(projectId, order);
       if (chapter) {
-        const recent = await recentSummaries(ctx, projectId, order, 3);
+        const recent = await recentSummaries(projectId, order, 3);
         emit({ type: 'stage_phase', stage: 'production', label: `第 ${order} 章监工巡检中` });
         const sup = await runSupervisor(ctx, {
           projectId, userId, order, chapter, recent, ledger,
@@ -1016,7 +989,7 @@ export async function runProduction(
             const to = win[win.length - 1] ?? order;
             const chapters: Array<{ order: number; title: string; content: string }> = [];
             for (const o of win) {
-              const c = await loadChapter(ctx, projectId, o);
+              const c = await loadChapter(projectId, o);
               if (c) chapters.push({ order: c.order, title: c.title, content: c.content });
             }
             if (chapters.length > 0) {
@@ -1060,7 +1033,7 @@ export async function runProduction(
       emit({ type: 'stage_phase', stage: 'production', label: `轨迹确认：回看第 ${from}–${to} 章` });
       const chapters: Array<{ order: number; title: string; content: string }> = [];
       for (const o of doneOrders) {
-        const c = await loadChapter(ctx, projectId, o);
+        const c = await loadChapter(projectId, o);
         if (c) chapters.push({ order: c.order, title: c.title, content: c.content });
       }
       const { foreshadows } = await readGateDigest(ctx, projectId, ROLE_PLOT.key);

@@ -16,13 +16,8 @@
 //   只在硬规则判不通过时才被询问，见 framework/gate-decision.ts。
 // ============================================================
 
-import {
-  detectRepetition,
-  detectCrossChapterRepetition,
-  type RepetitionReport,
-  type CrossRepetitionReport,
-} from '../pipeline/repetition.js';
-import { detectDialogue, type DialogueReport } from '../framework/dialogue.js';
+import type { RepetitionReport, CrossRepetitionReport } from '../pipeline/repetition.js';
+import type { DialogueReport } from '../framework/dialogue.js';
 import { WRITER_MIN_CHARS, WRITER_MAX_CHARS } from './roles.js';
 
 /** 正文字数口径：与交付时写入 word_count 的算法保持一致（去空白字符数） */
@@ -43,6 +38,88 @@ export function isTooShort(draft: string): boolean {
 /** 篇幅出带（超上限或欠下限）—— 确定性硬伤 */
 export function isOutOfBand(draft: string): boolean {
   return isTooLong(draft) || isTooShort(draft);
+}
+
+/**
+ * 重写轮里的**篇幅指令**。
+ *
+ * ★ 2026-11-04 新增，治「重写叫它少动、闸门要它多写」的自相矛盾。
+ *
+ *   原先重写提示词把「**能局部改就不要整章重来**，只动需要动的地方」放在最前面，
+ *   篇幅要求只是末尾一个括号。实测（13 章 / hy3）：短稿每轮重写只加 **15–300 字**
+ *   —— 1920 → 1935 → 2020，而闸门要求 ≥2500。两条指令打架时模型服从措辞更强的那条，
+ *   于是每章都卡在"改不动 → 用尽重写次数 → 按最不差的一稿交付"。
+ *
+ *   所以篇幅**欠下限**时口径必须反过来：明说允许整章重写、禁止只做局部润色。
+ *   超上限则维持原口径（删，不要扩写）—— 那两个方向的话术不能混用，
+ *   否则会出现"一边要求不少于、一边要求别超"的两头挨骂（见调用点的既有注释）。
+ *
+ * ★ 2026-11-05 再修一层：**扩写只能来自已有场景的稠密化，不能来自新增场景**。
+ *   见下方欠下限分支里的说明 —— 这条口径必须与写作官 system 的"不要加第 6 个场景"对齐，
+ *   否则模型会在"篇幅"与"节拍"两个硬约束之间来回振荡。
+ */
+export function renderLengthDirective(o: {
+  chars: number;
+  minChars: number;
+  maxChars: number;
+}): string {
+  const { chars, minChars, maxChars } = o;
+  if (chars > maxChars) {
+    return `【篇幅】本章**已超出上限**（现在 ${chars} 字，上限 ${maxChars} 字）。`
+      + '**必须删到上限以内** —— 优先删掉重复的段与句、删掉没有新信息的复述；'
+      + '**不要**为凑数扩写，**也不要**因为删了就补写新段。';
+  }
+  if (chars < minChars) {
+    return `【篇幅】本章**只有 ${chars} 字，低于 ${minChars} 字下限**（还差 ${minChars - chars} 字）。`
+      + '**必须扩写到达标 —— 这是本轮第一优先，比"少改动"重要**：'
+      + '· 允许**整章重写**，不要为了"保住原句"而不敢加；'
+      /**
+       * ★ 2026-11-05：从「加**新的场景内容**」改成「把**已有场景写厚**」。
+       *
+       *   上一版这句与写作官 system 里的硬锚点直接对立：
+       *     system：「一章写 3–5 个场景…**不要靠加第 6、第 7 个场景**（那是超长的主因）」
+       *     这里 ：「加的是**新的场景内容**」
+       *   于是模型被夹在两条相反的指令中间，只能挑最新最具体的那条执行。
+       *
+       *   实测代价（第 1/2 章，四次复核）：复核判"正文超出四拍范围" → 写作官删场景
+       *   （3101→1349）→ 删到跌破篇幅下限 → 篇幅门打回 → 扩写（→3053）→ 又超节拍 → 再删…
+       *   两个硬约束各自都满足不了对方，来回振荡到重写次数用尽，最后按原稿交付。
+       *
+       *   改口径的原则：**让"变长"与"不超节拍"指向同一个动作**。
+       *   要加的篇幅只能来自已有场景内部的稠密化，不能来自新增情节。
+       */
+      + '· 加的是**已有场景内部**的动作、对话、细节、环境 —— **把现有场景写厚**；'
+      + '· **不要新增场景 / 不要新增情节**（会超出本章节拍，复核会打回，等于白改）；'
+      + '· 也不要只是把原句换个说法讲一遍（那是复述，会触发重复检测）；'
+      + `· 写到 ${minChars}–${maxChars} 字之间，不要超过 ${maxChars} 字（超了同样会被打回）。`;
+  }
+  return `【篇幅】照旧保持在 ${minChars}–${maxChars} 字之间。`;
+}
+
+/**
+ * 重写轮的开场指令。
+ *
+ * ★ 2026-11-04 从 `orchestrator.ts` 抽出来（**并修了它的自相矛盾**）。
+ *
+ *   原来无论篇幅在不在带内，开场都是「**能局部改就不要整章重来**，只动需要动的地方」。
+ *   篇幅欠下限时这句话和闸门要求直接打架 —— 实测短稿每轮只加 15–300 字，
+ *   就是被这句话按住的（闸门要 ≥2500，指令说"少动"）。
+ *
+ *   现在按篇幅状态分叉：**出带时不给"少改动"的许可**，改为"以修好硬指标为第一优先"；
+ *   在带内才保留原来的口径（那时少改动确实是对的，能减少模型改写引入的新问题）。
+ *
+ *   抽成纯函数是为了让这条口径**可测**：见 gate-rules.test.ts 的断言
+ *   「欠下限时开场不得出现『能局部改就不要整章重来』」。
+ */
+export function renderRewriteLead(outOfBand: boolean): string {
+  const head = '【本轮任务】你上一稿没过意图复核。按上文「意图复核」给出的**修改要求**重写。';
+  return outOfBand
+    ? head + '**本轮以修好硬指标为第一优先** —— 该扩写就扩写、该删就删，'
+      + '不要为了"少改动"而留着不达标。'
+      // ★ 2026-11-05：此处一并钉住"往哪儿扩"，否则模型会拿新增场景去凑字数（与节拍约束打架）
+      + '**要加篇幅就加在已有场景里，不要开新场景**（新增情节会超出本章节拍）。'
+      + '直接输出修改后的**完整正文**。'
+    : head + '**能局部改就不要整章重来**，只动需要动的地方；直接输出修改后的**完整正文**。';
 }
 
 /**
@@ -259,46 +336,12 @@ export function trimToMaxChars(text: string, maxChars: number = WRITER_MAX_CHARS
   return proseLength(out) <= maxChars ? out : t;   // 裁不动就原样返回
 }
 
-export interface DraftFindings {
-  rep: RepetitionReport;
-  cross: CrossRepetitionReport;
-  dlg: DialogueReport;
-  chars: number;
-  tooLong: boolean;
-  tooShort: boolean;
-  outOfBand: boolean;
-  /** 提纲泄漏明细（上面的字段此前是硬编码 0，现在真的接上了） */
-  leakHits: LeakHit[];
-  leakCount: number;
-  leakTooMany: boolean;
-}
-
-/**
- * 对一稿做全部**确定性**检查。
- *
- * `priorChapters` 是跨章比对用的旧章（调用方决定窗口；当前是最近 8 章）。
- * 不给旧章时跨章检查自然返回「无重复」。
- */
-export function evaluateDraft(
-  draft: string,
-  priorChapters: Array<{ order: number; content: string }> = [],
-): DraftFindings {
-  const chars = proseLength(draft);
-  const leakHits = detectOutlineLeak(draft);
-  const leakCount = leakTotal(leakHits);
-  return {
-    rep: detectRepetition(draft),
-    cross: detectCrossChapterRepetition(draft, priorChapters),
-    dlg: detectDialogue(draft),
-    chars,
-    tooLong: chars > WRITER_MAX_CHARS,
-    tooShort: chars < WRITER_MIN_CHARS,
-    outOfBand: chars > WRITER_MAX_CHARS || chars < WRITER_MIN_CHARS,
-    leakHits,
-    leakCount,
-    leakTooMany: leakExceeds(leakHits),
-  };
-}
+// ★ 2026-11-03 清理：原 `evaluateDraft` / `DraftFindings` 已删（运行期 0 调用，
+//   只剩单测与 .runtime/probe-gate.mjs 在用）。
+//   退役原因：它是"一稿全量确定性检查"的**聚合器**，但编排层（discuss/orchestrator.ts）
+//   从不调它 —— 那边把同一批判定**逐项内联**在定稿流程里。两份并存时被测试的是死的
+//   这一份，真正的生产路径反而没被这套断言覆盖，留着只会掩盖漂移。
+//   下面导出的各单项判定（repetition / dialogue / outline-leak / 篇幅）仍是现役接口。
 
 /**
  * 复核明确给出「打回」。
