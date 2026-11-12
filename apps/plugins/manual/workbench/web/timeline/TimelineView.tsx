@@ -3,10 +3,16 @@ import { useTimelineStore, useChapterStore, useCharacterStore } from '@novel-plu
 import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
 import { Plus, GitBranch, Search, Loader2, LayoutGrid } from 'lucide-react';
 import { nanoid } from 'nanoid';
+import { dispatchToastEvent } from '@novel-plugins/ui-kit';
 import type { TimelineEvent } from '@novel/shared';
 import { TimelineFlowChart } from './TimelineFlowChart';
 import { getCapability } from '@/plugin/registry';
 import type { StreamTimelineEvent } from '../hooks/aiScanCapability';
+import {
+  buildCharNameToIdMap,
+  findCharIdByName,
+  isDuplicateEvent,
+} from '../hooks/useScanProcessors';
 
 const DEFAULT_EVENT_TYPES = [
   { value: 'event', label: '事件' },
@@ -37,7 +43,6 @@ export function TimelineView() {
   const addEvent = useTimelineStore((s) => s.addEvent);
   const chapters = useChapterStore((s) => s.chapters);
   const currentChapterId = useChapterStore((s) => s.currentChapterId);
-  const characters = useCharacterStore((s) => s.characters);
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventType, setNewEventType] = useState<TimelineEvent['type']>('event');
   const [selectedChapter, setSelectedChapter] = useState<number | 'all'>('all');
@@ -152,7 +157,14 @@ export function TimelineView() {
     }
 
     if (!extractCap) return; // 能力缺失：入口已隐藏（合同 §5.3），此处仅防御
-    if (!currentChapter) return;
+    if (!currentChapter) {
+      dispatchToastEvent({ type: 'info', message: '请先在左侧选择要提取的章节' });
+      return;
+    }
+    if (currentChapter.content.trim().length < 20) {
+      dispatchToastEvent({ type: 'info', message: '当前章节内容太短，暂无可提取的事件' });
+      return;
+    }
 
     // 取消上一次请求
     abortRef.current?.abort();
@@ -162,7 +174,14 @@ export function TimelineView() {
     setExtracting(true);
 
     let addedCount = 0;
+    let skippedCount = 0;
     let baseOrder = Date.now();
+
+    // 角色匹配用当前项目的完整名单（含别名），并在提取开始时取一次快照
+    const projectCharacters = useCharacterStore
+      .getState()
+      .characters.filter((c) => c.projectId === projectId);
+    const charNameToId = buildCharNameToIdMap(projectCharacters);
 
     try {
       await extractCap.extractEventsByKeyword(
@@ -171,16 +190,43 @@ export function TimelineView() {
         currentChapter.order,
         keyword,
         (event: StreamTimelineEvent) => {
-          // 直接静默写入时间线 store
-          const charIds = event.characterNames
-            .map((name) => characters.find((ch) => ch.name === name || ch.aliases?.includes(name))?.id)
-            .filter((id): id is string => !!id);
+          const title = event.title?.trim();
+          if (!title) return;
+
+          // ★ 流式提取可能和已有事件重复（同一章反复点「提取」），
+          //   写入前查重；store 同步更新，因此本批新增也在比较范围内。
+          //   判定规则与服务端扫描共用 isDuplicateEvent —— 两处阈值必须一致，
+          //   否则「自动扫描」和「手动提取」对同一条事件的取舍会不同。
+          const chapterEvents = useTimelineStore
+            .getState()
+            .events.filter((e) => e.projectId === projectId && e.chapter === currentChapter.order);
+          const duplicated = chapterEvents.some((existing) => {
+            if (!existing.title) return false;
+            return isDuplicateEvent(
+              existing.title,
+              existing.description ?? '',
+              title,
+              event.description ?? '',
+            );
+          });
+          if (duplicated) {
+            skippedCount++;
+            return;
+          }
+
+          const charIds = Array.from(
+            new Set(
+              (event.characterNames ?? [])
+                .map((name) => findCharIdByName(name, charNameToId, projectCharacters))
+                .filter((id): id is string => !!id),
+            ),
+          );
 
           addEvent({
             id: nanoid(),
             projectId,
-            title: event.title,
-            description: event.description,
+            title,
+            description: event.description || title,
             type: event.type,
             chapter: currentChapter.order,
             timestamp: event.timestamp,
@@ -194,12 +240,34 @@ export function TimelineView() {
         controller.signal,
         projectId,
       );
+
+      // 静默提取也要有结果反馈：此前 0 条时用户只看到按钮转一圈又复原
       if (addedCount > 0) {
-        console.debug(`[TimelineView] 静默提取完成：新增 ${addedCount} 个事件`);
+        dispatchToastEvent({
+          type: 'success',
+          message:
+            skippedCount > 0
+              ? `已提取 ${addedCount} 个事件，跳过 ${skippedCount} 条重复`
+              : `已提取 ${addedCount} 个事件`,
+        });
+      } else if (skippedCount > 0) {
+        dispatchToastEvent({
+          type: 'info',
+          message: `提取到的 ${skippedCount} 条事件都已在时间线中`,
+        });
+      } else {
+        dispatchToastEvent({
+          type: 'info',
+          message: `没有找到与「${keyword}」相关的事件，换个关键词试试`,
+        });
       }
     } catch (err) {
       if (controller.signal.aborted) return;
       console.error('[TimelineView] 提取事件失败:', err);
+      dispatchToastEvent({
+        type: 'error',
+        message: err instanceof Error ? err.message : '提取事件失败',
+      });
     } finally {
       setExtracting(false);
     }

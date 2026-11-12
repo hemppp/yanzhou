@@ -12,7 +12,10 @@ import { useEffect, useRef, useCallback, useState, useSyncExternalStore } from '
 import { nanoid } from 'nanoid';
 import { useCharacterStore, useLocationStore, useTimelineStore, useChapterStore, useItemStore, useProjectStore } from '@novel-plugins/data-core/stores';
 import { mergeSimilarCharacters, updateItemHoldersForMerge } from '../knowledge/characterMerge';
-import { normalizeItemType } from './useScanProcessors';
+import { processCreditTransactionShared } from './useScanProcessors';
+import { prepareItemContext, validateItemCandidate } from '../knowledge/itemRecognition';
+import { applyLocationCandidate, prepareLocationContext } from '../knowledge/locationRecognition';
+import { assignAutoCoords } from '../knowledge/locationCoords';
 import { dispatchToastEvent } from '@novel-plugins/ui-kit/errors';
 import type { Item, Location, TimelineEvent } from '@novel/shared';
 import { htmlToText } from '@novel-plugins/data-core/editor/entityDetector';
@@ -20,6 +23,7 @@ import {
   ScanSkippedError,
   type AIScanCapability,
   type StreamAliasMatch,
+  type StreamCreditTransaction,
   type StreamEntity,
   type StreamItemTransfer,
   type StreamTimelineEvent,
@@ -34,152 +38,6 @@ function subscribeRedstone(cb: () => void): () => void {
   return aiScan()?.subscribeRedstone(cb) ?? noopUnsub;
 }
 
-
-// ---- 自动地图坐标分配 ----
-
-/**
- * 虚拟地图配置 — 不使用真实经纬度，用算法生成故事世界坐标
- * 地图范围：经度 -180~180，纬度 -85~85（避开极地）
- */
-const MAP_BOUNDS = { minLat: -60, maxLat: 60, minLng: -170, maxLng: 170 };
-
-interface CoordCluster {
-  centerLat: number;
-  centerLng: number;
-  radius: number;
-}
-
-/** 将数值钳制在 [min, max] 区间内 */
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-/** 简单的确定性哈希（djb2 变种），将字符串映射为 [0,1) 的伪随机数 */
-function deterministicFraction(seed: string): number {
-  let hash = 5381;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) + hash + seed.charCodeAt(i)) | 0;
-  }
-  return ((hash >>> 0) % 10000) / 10000;
-}
-
-/**
- * 检测章节内容中可能的「世界」关键词（用于多世界/穿越小说）。
- * 返回检测到的世界名数组。
- */
-/** 将纬度限制在合法范围 */
-function clampLat(v: number): number {
-  return Math.max(MAP_BOUNDS.minLat, Math.min(MAP_BOUNDS.maxLat, v));
-}
-/** 将经度限制在合法范围 */
-function clampLng(v: number): number {
-  return Math.max(MAP_BOUNDS.minLng, Math.min(MAP_BOUNDS.maxLng, v));
-}
-
-/**
- * 为无坐标的地点自动分配虚拟地图坐标。
- *
- * 策略：
- * 1. 不同世界的地图分配到不同区域
- * 2. 同一世界内按章节顺序摊开
- * 3. 同章节出现的地点聚簇
- * 4. 已有坐标的不动
- */
-function assignAutoCoords(
-  locations: Location[],
-  updateLocationFn: (id: string, updates: Partial<Location>) => void,
-): void {
-  // 只给「在文中被检测到」的地点分配坐标（有出现章节），空的地点不上地图
-  const withoutCoords = locations.filter(l =>
-    (l.latitude == null || l.longitude == null) &&
-    l.chapters.length > 0
-  );
-  if (withoutCoords.length === 0) return;
-
-  // 将地图分为几个区域
-  const regions: CoordCluster[] = [
-    { centerLat: -30, centerLng: -120, radius: 40 },
-    { centerLat: -30, centerLng: 120, radius: 40 },
-    { centerLat: 30, centerLng: -120, radius: 40 },
-    { centerLat: 30, centerLng: 120, radius: 40 },
-    { centerLat: 0, centerLng: 0, radius: 50 },
-    { centerLat: -50, centerLng: 0, radius: 30 },
-    { centerLat: 0, centerLng: -60, radius: 30 },
-    { centerLat: 0, centerLng: 60, radius: 30 },
-  ];
-
-  // 按世界分组（多世界/穿越小说支持），没有世界的按章节分组
-  const worldGroups = new Map<string, Location[]>();
-  const chapterGroups = new Map<number, Location[]>();
-
-  for (const loc of withoutCoords) {
-    if (loc.world) {
-      const list = worldGroups.get(loc.world) || [];
-      list.push(loc);
-      worldGroups.set(loc.world, list);
-    } else {
-      const order = loc.chapters[0] ?? 1;
-      const list = chapterGroups.get(order) || [];
-      list.push(loc);
-      chapterGroups.set(order, list);
-    }
-  }
-
-  const usedRegions = new Set<number>();
-  let groupIdx = 0;
-
-  // 先处理有世界的分组（每个世界占一个区域）
-  for (const [world, group] of worldGroups) {
-    const regionIdx = groupIdx % regions.length;
-    usedRegions.add(regionIdx);
-    const region = regions[regionIdx % regions.length] ?? regions[0]!;
-    if (!region) continue;
-    const angleStep = (2 * Math.PI) / Math.max(group.length, 1);
-
-    group.forEach((loc, i) => {
-      const angle = angleStep * i + (deterministicFraction(`world:${world}`) * 0.5);
-      const d = deterministicFraction(`loc:${loc.id}`);
-      const dist = region.radius * (0.3 + d * 0.7);
-      const lat = region.centerLat + dist * Math.cos(angle);
-      const lng = region.centerLng + dist * Math.sin(angle);
-      updateLocationFn(loc.id, {
-        latitude: clampLat(lat), longitude: clampLng(lng), mapZoom: 8, updatedAt: Date.now(),
-      });
-    });
-    groupIdx++;
-  }
-
-  // 再处理无世界的（按章节轮转）
-  for (const [order, group] of chapterGroups) {
-    let regionIdx = (order - 1 + groupIdx) % regions.length;
-    for (let offset = 0; offset < regions.length; offset++) {
-      const idx = (regionIdx + offset) % regions.length;
-      if (!usedRegions.has(idx)) {
-        regionIdx = idx;
-        break;
-      }
-    }
-    usedRegions.add(regionIdx);
-
-    const region = regions[regionIdx % regions.length] ?? regions[0]!;
-    if (!region) continue;
-    const angleStep = (2 * Math.PI) / Math.max(group.length, 1);
-
-    group.forEach((loc, i) => {
-      const angle = angleStep * i + (order * 0.5);
-      const d = deterministicFraction(`loc:${loc.id}`);
-      const dist = region.radius * (0.3 + d * 0.7);
-      const lat = region.centerLat + dist * Math.cos(angle);
-      const lng = region.centerLng + dist * Math.sin(angle);
-      updateLocationFn(loc.id, {
-        latitude: clamp(lat, MAP_BOUNDS.minLat, MAP_BOUNDS.maxLat),
-        longitude: clamp(lng, MAP_BOUNDS.minLng, MAP_BOUNDS.maxLng),
-        mapZoom: 8,
-        updatedAt: Date.now(),
-      });
-    });
-  }
-}
 
 // ---- 事件去重工具函数 ----
 
@@ -448,6 +306,9 @@ export function useAutoEntityDetection(
     let newLocs = 0;
     let newTransfers = 0;
     let newAliases = 0;
+    let newCredits = 0;
+    // 积分流水先缓存，等实体/物品都落库后再处理，避免模型把流水排在实体前面时匹配不到角色
+    const pendingCredits: StreamCreditTransaction[] = [];
 
     const handleItemTransfer = (transfer: StreamItemTransfer) => {
       if (controller.signal.aborted) return;
@@ -681,6 +542,28 @@ export function useAutoEntityDetection(
       console.debug(`[AutoEntity] 开始 SSE 扫描，纯文本长度=${plainText.length}（HTML长度=${currentChapter.content.length}）`);
       const scan = aiScan();
       if (!scan) return; // ai.scan 缺失（无提供方）：静默 return（设计 §5.3）
+      // 本章只建一次索引：物品/地点再多也只做 O(1) 查重
+      const scanCharacters = useCharacterStore
+        .getState()
+        .characters.filter(c => c.projectId === projectId);
+      const scanItems = useItemStore
+        .getState()
+        .items.filter(i => i.projectId === projectId);
+      const scanLocations = useLocationStore
+        .getState()
+        .locations.filter(l => l.projectId === projectId);
+      const itemCtx = prepareItemContext({
+        chapterContent: plainText,
+        existingItems: scanItems,
+        existingCharacters: scanCharacters,
+        existingLocations: scanLocations,
+      });
+      const locationCtx = prepareLocationContext({
+        chapterContent: plainText,
+        existingLocations: scanLocations,
+        existingCharacters: scanCharacters,
+        existingItems: scanItems,
+      });
       const timelinePromise = scan.scanTimelineStream(
         plainText,
         chapterOrder,
@@ -778,24 +661,35 @@ export function useAutoEntityDetection(
               ...(entity.role ? { role: entity.role } : {}),
               ...(entity.speechStyle ? { speechStyle: entity.speechStyle } : {}),
             });
+            itemCtx.addEntityName(entity.name); // 同章物品撞名检查立即生效
+            locationCtx.addEntityName(entity.name); // 同章地点撞名检查立即生效
             newChars++;
           } else if (entity.entityType === 'item') {
             const itemState = useItemStore.getState();
-            const existing = itemState.items.find(i => i.name === entity.name);
-            if (existing) {
-              // ★ 已有物品：类型仍是未分类（other）且 AI 给出了有效类型时，补全分类
-              const normalized = normalizeItemType(entity.itemType);
-              if (normalized !== 'other' && (!existing.type || existing.type === 'other')) {
-                itemState.updateItem(existing.id, { type: normalized, updatedAt: Date.now() });
+            const validation = validateItemCandidate(entity, itemCtx);
+            if (!validation.accept) {
+              console.debug(
+                `[AutoEntity] 跳过疑似非物品 "${entity.name}": ${validation.reason}`,
+              );
+              return;
+            }
+            if (validation.existingItem) {
+              // 已有物品：类型仍是未分类（other）时用 AI/后缀推断补全
+              const existing = validation.existingItem;
+              if (validation.type !== 'other' && (!existing.type || existing.type === 'other')) {
+                itemState.updateItem(existing.id, {
+                  type: validation.type,
+                  updatedAt: Date.now(),
+                });
               }
               return;
             }
             const now = Date.now();
             const newItem: Item = {
               ...entityBase(projectId),
-              name: entity.name,
-              // ★ 类型识别：AI 输出的 itemType（宝物/衣物等）归一化入库
-              type: normalizeItemType(entity.itemType),
+              name: validation.name,
+              // AI 类型优先；缺失/other 时按名称后缀兜底
+              type: validation.type,
               description: entity.context || entity.description || '',
               states: [],
               holders: [],
@@ -807,18 +701,44 @@ export function useAutoEntityDetection(
               updatedAt: now,
             };
             useItemStore.getState().addItem(newItem);
+            itemCtx.addItem(newItem); // 同章后续重复输出直接命中索引
+            locationCtx.addEntityName(newItem.name); // 同章地点撞名检查立即生效
             newItems++;
           } else if (entity.entityType === 'location') {
-            const exists = useLocationStore.getState().locations.some(l => l.name === entity.name);
-            if (exists) return;
-            useLocationStore.getState().addLocation({
+            const result = applyLocationCandidate(entity, chapterOrder, locationCtx);
+            if (result.kind === 'reject') {
+              console.debug(
+                `[AutoEntity] 跳过疑似非地点「${entity.name}」：${result.reason}`,
+              );
+              return;
+            }
+            if (result.kind === 'link') {
+              // 已有地点（含方位前缀变体）只补章节/空描述，不重复建点
+              if (!result.changed) return;
+              const updates = {
+                chapters: result.chapters,
+                ...(result.description !== undefined ? { description: result.description } : {}),
+                updatedAt: Date.now(),
+              };
+              useLocationStore.getState().updateLocation(result.location.id, updates);
+              locationCtx.addLocation({ ...result.location, ...updates });
+              itemCtx.addEntityName(result.location.name);
+              return;
+            }
+            const now = Date.now();
+            const newLocation: Location = {
               ...entityBase(projectId),
-              name: entity.name,
-              description: entity.context || entity.description || '',
+              name: result.name,
+              description: result.description,
               states: [],
               chapters: [chapterOrder],
               tags: [],
-            });
+              createdAt: now,
+              updatedAt: now,
+            };
+            useLocationStore.getState().addLocation(newLocation);
+            locationCtx.addLocation(newLocation); // 同章后续重复输出直接命中索引
+            itemCtx.addEntityName(result.name); // 同章物品撞名检查立即生效
             newLocs++;
           }
         },
@@ -826,6 +746,10 @@ export function useAutoEntityDetection(
         handleAliasMatch,
         controller.signal,
         projectId,
+        (credit: StreamCreditTransaction) => {
+          if (controller.signal.aborted) return;
+          pendingCredits.push(credit);
+        },
       ).catch((e) => {
         if (!controller.signal.aborted) {
           console.warn('[AutoEntity] 流式扫描失败', e);
@@ -854,7 +778,18 @@ export function useAutoEntityDetection(
         console.debug(`[AutoEntity] 自动合并了 ${mergeCount} 对相似角色`);
       }
 
-      const totalNew = newChars + newLocs + newEvents + newItems + newRelations + newTransfers + newAliases;
+      // ★ 实体/物品都已落库，再处理积分流水（角色与关联物品才匹配得到）
+      for (const credit of pendingCredits) {
+        const result = processCreditTransactionShared(
+          credit,
+          projectId,
+          chapterOrder,
+          detectedIdsRef.current,
+        );
+        if (result.added) newCredits++;
+      }
+
+      const totalNew = newChars + newLocs + newEvents + newItems + newRelations + newTransfers + newAliases + newCredits;
       if (totalNew > 0) {
         const parts: string[] = [];
         if (newEvents > 0) parts.push(`${newEvents} 事件`);
@@ -864,6 +799,7 @@ export function useAutoEntityDetection(
         if (newRelations > 0) parts.push(`${newRelations} 关系`);
         if (newTransfers > 0) parts.push(`${newTransfers} 装备流转`);
         if (newAliases > 0) parts.push(`${newAliases} 别名`);
+        if (newCredits > 0) parts.push(`${newCredits} 积分流水`);
         dispatchToastEvent({
           type: 'success',
           message: `AI 识别完成：新增 ${parts.join('、')}`,

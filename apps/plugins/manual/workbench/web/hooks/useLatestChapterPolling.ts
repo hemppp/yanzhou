@@ -26,10 +26,14 @@ import { htmlToText } from '@novel-plugins/data-core/editor/entityDetector';
 import {
   type AIScanCapability,
   type StreamAliasMatch,
+  type StreamCreditTransaction,
   type StreamEntity,
   type StreamItemTransfer,
   type StreamTimelineEvent,
 } from './aiScanCapability';
+import { processCreditTransactionShared } from './useScanProcessors';
+import { prepareItemContext, validateItemCandidate } from '../knowledge/itemRecognition';
+import { applyLocationCandidate, prepareLocationContext } from '../knowledge/locationRecognition';
 
 function aiScan(): AIScanCapability | null {
   return getCapability<AIScanCapability>('ai.scan');
@@ -206,6 +210,10 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
       let newEvents = 0;
       let newTransfers = 0;
       let newAliases = 0;
+      let newCredits = 0;
+      const detectedCreditKeys = new Set<string>();
+      // 积分流水先缓存，等实体/物品都落库后再处理
+      const pendingCredits: StreamCreditTransaction[] = [];
 
       const handleItemTransfer = (transfer: StreamItemTransfer) => {
         if (controller.signal.aborted) return;
@@ -368,6 +376,28 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
 
         const scan = aiScan();
       if (!scan) return; // ai.scan 缺失：静默 return（设计 §5.3）
+      // 本章只建一次索引：轮询扫描也可能面对万级物品/地点库
+      const scanCharacters = useCharacterStore
+        .getState()
+        .characters.filter(c => c.projectId === projectId);
+      const scanItems = useItemStore
+        .getState()
+        .items.filter(i => i.projectId === projectId);
+      const scanLocations = useLocationStore
+        .getState()
+        .locations.filter(l => l.projectId === projectId);
+      const itemCtx = prepareItemContext({
+        chapterContent: plainText,
+        existingItems: scanItems,
+        existingCharacters: scanCharacters,
+        existingLocations: scanLocations,
+      });
+      const locationCtx = prepareLocationContext({
+        chapterContent: plainText,
+        existingLocations: scanLocations,
+        existingCharacters: scanCharacters,
+        existingItems: scanItems,
+      });
       await scan.scanTimelineStream(
           plainText,
           chapterOrder,
@@ -495,14 +525,36 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
                 chapters: [chapterOrder],
                 tags: [],
               });
+              itemCtx.addEntityName(entity.name); // 同章物品撞名检查立即生效
+              locationCtx.addEntityName(entity.name); // 同章地点撞名检查立即生效
               newChars++;
             } else if (entity.entityType === 'item') {
-              if (useItemStore.getState().items.some(i => i.name === entity.name)) return;
+              const itemState = useItemStore.getState();
+              const validation = validateItemCandidate(entity, itemCtx);
+              if (!validation.accept) {
+                console.debug(
+                  `[PollScan] 跳过疑似非物品 "${entity.name}": ${validation.reason}`,
+                );
+                return;
+              }
+              if (validation.existingItem) {
+                const existing = validation.existingItem;
+                if (
+                  validation.type !== 'other' &&
+                  (!existing.type || existing.type === 'other')
+                ) {
+                  itemState.updateItem(existing.id, {
+                    type: validation.type,
+                    updatedAt: Date.now(),
+                  });
+                }
+                return;
+              }
               const now = Date.now();
               const newItem: Item = {
                 ...entityBase(projectId),
-                name: entity.name,
-                type: 'other',
+                name: validation.name,
+                type: validation.type,
                 description: entity.context || entity.description || '',
                 states: [],
                 holders: [],
@@ -514,18 +566,44 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
                 updatedAt: now,
               };
               useItemStore.getState().addItem(newItem);
+              itemCtx.addItem(newItem); // 同章后续重复输出直接命中索引
+              locationCtx.addEntityName(newItem.name); // 同章地点撞名检查立即生效
               newItems++;
             } else if (entity.entityType === 'location') {
-              if (useLocationStore.getState().locations.some(l => l.name === entity.name)) return;
+              const result = applyLocationCandidate(entity, chapterOrder, locationCtx);
+              if (result.kind === 'reject') {
+                console.debug(
+                  `[PollScan] 跳过疑似非地点「${entity.name}」：${result.reason}`,
+                );
+                return;
+              }
+              if (result.kind === 'link') {
+                // 已有地点（含方位前缀变体）只补章节/空描述，不重复建点
+                if (!result.changed) return;
+                const updates = {
+                  chapters: result.chapters,
+                  ...(result.description !== undefined ? { description: result.description } : {}),
+                  updatedAt: Date.now(),
+                };
+                useLocationStore.getState().updateLocation(result.location.id, updates);
+                locationCtx.addLocation({ ...result.location, ...updates });
+                itemCtx.addEntityName(result.location.name);
+                return;
+              }
+              const now = Date.now();
               const newLoc: Location = {
                 ...entityBase(projectId),
-                name: entity.name,
-                description: entity.context || entity.description || '',
+                name: result.name,
+                description: result.description,
                 states: [],
                 chapters: [chapterOrder],
                 tags: [],
+                createdAt: now,
+                updatedAt: now,
               };
               useLocationStore.getState().addLocation(newLoc);
+              locationCtx.addLocation(newLoc);
+              itemCtx.addEntityName(result.name); // 同章物品撞名检查立即生效
               newLocs++;
             }
           },
@@ -533,6 +611,10 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
           handleAliasMatch,
           controller.signal,
           projectId,
+          (credit: StreamCreditTransaction) => {
+            if (controller.signal.aborted) return;
+            pendingCredits.push(credit);
+          },
         ).catch((e) => {
           if (!controller.signal.aborted) {
             console.warn('[PollScan] 流式扫描失败', e);
@@ -556,9 +638,20 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
           console.debug(`[PollScan] 自动合并了 ${mergeCount} 对相似角色`);
         }
 
-        const total = newChars + newItems + newLocs + newEvents + newTransfers + newAliases;
+        // ★ 实体/物品都已落库，再处理积分流水
+        for (const credit of pendingCredits) {
+          const result = processCreditTransactionShared(
+            credit,
+            projectId,
+            chapterOrder,
+            detectedCreditKeys,
+          );
+          if (result.added) newCredits++;
+        }
+
+        const total = newChars + newItems + newLocs + newEvents + newTransfers + newAliases + newCredits;
         if (total > 0) {
-          console.debug(`[PollScan] 静默扫描完成：+${newChars}角色 +${newItems}物品 +${newLocs}地点 +${newEvents}事件 +${newTransfers}流转 +${newAliases}别名`);
+          console.debug(`[PollScan] 静默扫描完成：+${newChars}角色 +${newItems}物品 +${newLocs}地点 +${newEvents}事件 +${newTransfers}流转 +${newAliases}别名 +${newCredits}积分流水`);
         } else {
           console.debug('[PollScan] 静默扫描完成：无新增实体');
         }

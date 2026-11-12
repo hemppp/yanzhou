@@ -6,14 +6,31 @@
 import { nanoid } from 'nanoid';
 import {
   useCharacterStore,
+  useCreditStore,
   useLocationStore,
   useItemStore,
   useTimelineStore,
 } from '@novel-plugins/data-core/stores';
-import type { Item, Location, TimelineEvent } from '@novel/shared';
+import type { CreditTransaction, Item, Location, TimelineEvent } from '@novel/shared';
 import { mergeSimilarCharacters, updateItemHoldersForMerge } from '../knowledge/characterMerge';
+import { computeCreditItemAcquisition } from '../knowledge/creditItemSync';
+import {
+  normalizeItemType,
+  prepareItemContext,
+  validateItemCandidate,
+  type PreparedItemContext,
+} from '../knowledge/itemRecognition';
+import {
+  applyLocationCandidate,
+  prepareLocationContext,
+  type PreparedLocationContext,
+} from '../knowledge/locationRecognition';
+
+// 保留原来的导出路径（useAutoEntityDetection 从这里 import normalizeItemType）
+export { normalizeItemType };
 import type {
   StreamAliasMatch,
+  StreamCreditTransaction,
   StreamEntity,
   StreamItemTransfer,
   StreamTimelineEvent,
@@ -56,13 +73,24 @@ export function stringSimilarity(s1: string, s2: string): number {
   return 1 - levenshteinDistance(n1, n2) / maxLen;
 }
 
-/** 判断两个事件是否为同一事件 */
+/**
+ * 判断两个事件是否为同一事件。
+ *
+ * ★ 2026-11-07：旧阈值（标题 0.55 / 描述 0.65 / 双 0.4）对中文太松——
+ *   「陈星进入藏经阁」与「陈星离开藏经阁」只差两个字，编辑距离相似度
+ *   0.71 > 0.55，稳定被误判成重复，事件就这样被静默吞掉（表现为「漏提取」）。
+ *   现在只承认三种确定性更高的重复：
+ *     ① 标题几乎一致（≥0.85，标点/空格差异）；
+ *     ② 标题较像且描述高度重合（模型换了个说法重提同一件事）；
+ *     ③ 描述几乎一致、标题措辞不同。
+ *   宁可留下一条待人工合并，也不要再把不同事件当成重复删掉。
+ */
 export function isDuplicateEvent(existingTitle: string, existingDesc: string, newTitle: string, newDesc: string): boolean {
   const titleSim = stringSimilarity(existingTitle, newTitle);
-  if (titleSim > 0.55) return true;
   const descSim = stringSimilarity(existingDesc, newDesc);
-  if (descSim > 0.65) return true;
-  if (titleSim > 0.4 && descSim > 0.4) return true;
+  if (titleSim >= 0.85) return true;
+  if (titleSim >= 0.6 && descSim >= 0.8) return true;
+  if (descSim >= 0.9 && titleSim >= 0.4) return true;
   return false;
 }
 
@@ -87,18 +115,46 @@ export function buildCharNameToIdMap(characters: Array<{ name: string; id: strin
 }
 
 /**
- * 查找角色ID：先精确匹配，再模糊匹配
+ * 查找角色ID：先精确匹配（含别名表），再保守地做包含匹配。
+ *
+ * ★ 2026-11-07：旧的 `characters.find(... includes ...)` 取的是**第一个**包含项，
+ *   单字名（「陈」「王」）会把事件稳定挂到名单里第一个姓陈/姓王的角色上，
+ *   这就是「角色挂错」的主要来源。现在：
+ *   1. 单字名不再参与模糊匹配（只认精确名/别名）；
+ *   2. 包含匹配按「共同匹配长度」取最长者；
+ *   3. 最高分并列且指向不同角色时视为歧义，返回 null（宁可不挂，也不挂错）。
  */
 export function findCharIdByName(name: string, charNameToId: Map<string, string>, characters: Array<{ id: string; name: string; aliases?: string[] }>): string | null {
-  if (!name) return null;
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+
   // 精确匹配
-  if (charNameToId.has(name)) return charNameToId.get(name)!;
-  // 模糊匹配：名字互相包含
-  const found = characters.find(c =>
-    c.name.includes(name) || name.includes(c.name) ||
-    c.aliases?.some(a => a.includes(name) || name.includes(a))
-  );
-  return found ? found.id : null;
+  const exact = charNameToId.get(trimmed);
+  if (exact) return exact;
+
+  // 单字名歧义太大，只接受精确名/别名
+  if (trimmed.length < 2) return null;
+
+  const scored = characters
+    .map((c) => {
+      let best = 0;
+      const candidates = [c.name, ...(c.aliases ?? [])];
+      for (const candidate of candidates) {
+        if (!candidate || candidate.length < 2) continue;
+        if (candidate.includes(trimmed) || trimmed.includes(candidate)) {
+          best = Math.max(best, Math.min(candidate.length, trimmed.length));
+        }
+      }
+      return { id: c.id, score: best };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return null;
+  const top = scored[0]!;
+  const runnerUp = scored.find((item) => item.id !== top.id);
+  if (runnerUp && runnerUp.score === top.score) return null; // 歧义：多个角色同样匹配
+  return top.id;
 }
 
 /**
@@ -144,13 +200,21 @@ export function processTimelineEventShared(
     return { added: false, relations: 0 };
   }
 
-  // 构建 名字 → ID 索引（含别名）
-  const existingCharacters = useCharacterStore.getState().characters;
+  // 构建 名字 → ID 索引（含别名）；只限当前项目，避免串项目匹配
+  const existingCharacters = useCharacterStore
+    .getState()
+    .characters.filter(c => c.projectId === projectId);
   const charNameToId = buildCharNameToIdMap(existingCharacters);
 
-  const matchedIds = (event.characterNames ?? [])
-    .map(name => charNameToId.get(name))
-    .filter((id): id is string => Boolean(id));
+  // ★ 精确名/别名优先，其次走与物品流转一致的模糊匹配（包含关系），
+  //   避免 AI 用「星儿」而角色库里叫「陈星」时事件丢失角色关联。
+  const matchedIds = Array.from(
+    new Set(
+      (event.characterNames ?? [])
+        .map(name => findCharIdByName(name, charNameToId, existingCharacters))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
 
   // order 去冲突：用 chapterOrder * 100 + 事件序号
   const safeOrder = chapterOrder * 100 + idx;
@@ -195,6 +259,99 @@ export function processTimelineEventShared(
   }
 
   return { added: true, relations: newRelations };
+}
+
+/**
+ * 处理正文扫描出的积分流水（系统文）。
+ * 只记录能匹配到角色的流水；宁可不记，也不挂到错的人身上。
+ */
+export function processCreditTransactionShared(
+  credit: StreamCreditTransaction,
+  projectId: string,
+  chapterOrder: number,
+  detectedIdsRef: Set<string>,
+): { added: boolean; itemLinked: boolean } {
+  if (!credit.characterName) return { added: false, itemLinked: false };
+
+  // 1. 本次扫描内去重
+  const eventKey = `credit:${chapterOrder}-${credit.characterName}-${credit.action}-${credit.amount}-${credit.reason ?? ''}`;
+  let hash = 5381;
+  for (let i = 0; i < eventKey.length; i++) {
+    hash = ((hash << 5) + hash + eventKey.charCodeAt(i)) | 0;
+  }
+  const hashKey = (hash >>> 0).toString(36);
+  if (detectedIdsRef.has(hashKey)) return { added: false, itemLinked: false };
+  detectedIdsRef.add(hashKey);
+
+  // 2. 角色匹配（仅当前项目）
+  const characters = useCharacterStore
+    .getState()
+    .characters.filter((c) => c.projectId === projectId);
+  const charNameToId = buildCharNameToIdMap(characters);
+  const characterId = findCharIdByName(credit.characterName, charNameToId, characters);
+  if (!characterId) {
+    console.debug('[ScanProcessor] 积分流水缺少可匹配角色，跳过:', credit.characterName);
+    return { added: false, itemLinked: false };
+  }
+
+  const amount = credit.action === 'gift' ? 0 : credit.amount;
+  if (credit.action !== 'gift' && amount <= 0) return { added: false, itemLinked: false };
+
+  // 3. 持久化去重：同角色/章节/类型/金额/事由视为同一笔（重复扫描不会重复入账）
+  const existing = useCreditStore
+    .getState()
+    .creditTransactions.filter(
+      (t) => t.projectId === projectId && t.characterId === characterId && t.chapter === chapterOrder,
+    );
+  const duplicate = existing.some(
+    (t) =>
+      t.type === credit.action &&
+      (t.amount ?? 0) === amount &&
+      normalizeText(t.reason ?? '') === normalizeText(credit.reason ?? ''),
+  );
+  if (duplicate) {
+    console.debug('[ScanProcessor] 跳过重复积分流水:', credit.reason ?? credit.action);
+    return { added: false, itemLinked: false };
+  }
+
+  // 4. 关联物品（不在此处新建物品；实体行会先输出并由 onEntity 建好）
+  const projectItems = useItemStore.getState().items.filter((i) => i.projectId === projectId);
+  const item = credit.itemName
+    ? (projectItems.find((i) => i.name === credit.itemName) ??
+      (credit.itemName.length >= 2
+        ? projectItems.find(
+            (i) => i.name.includes(credit.itemName!) || credit.itemName!.includes(i.name),
+          )
+        : undefined))
+    : undefined;
+
+  const now = Date.now();
+  const tx: CreditTransaction = {
+    id: nanoid(),
+    projectId,
+    characterId,
+    chapter: chapterOrder,
+    type: credit.action,
+    amount,
+    ...(credit.reason ? { reason: credit.reason } : {}),
+    ...(item ? { relatedItemId: item.id } : {}),
+    tags: ['AI识别'],
+    createdAt: now,
+    updatedAt: now,
+  };
+  useCreditStore.getState().addCreditTransaction(tx);
+
+  // 5. 兑换/奖励/赠予的物品同步进角色持有
+  let itemLinked = false;
+  if (item) {
+    const updates = computeCreditItemAcquisition(item, characterId, chapterOrder);
+    if (updates) {
+      useItemStore.getState().updateItem(item.id, updates);
+      itemLinked = true;
+    }
+  }
+
+  return { added: true, itemLinked };
 }
 
 /**
@@ -474,48 +631,10 @@ export function handleAliasMatchShared(
 }
 
 /**
- * 物品类型归一化：把 AI 输出的类型码/中文类型词映射到标准类型码
- * （词表与 ItemManager 的标签/配色一致）。无法识别时回退 'other'。
- */
-const ITEM_TYPE_ALIASES: Record<string, string> = {
-  weapon: 'weapon', 武器: 'weapon', 兵器: 'weapon', 兵刃: 'weapon',
-  armor: 'armor', 防具: 'armor', 铠甲: 'armor', 软甲: 'armor', 盔甲: 'armor', 护具: 'armor',
-  clothing: 'clothing', 衣物: 'clothing', 衣服: 'clothing', 服饰: 'clothing', 服装: 'clothing',
-  佩饰: 'clothing', 首饰: 'clothing', 戴饰: 'clothing', 衣袍: 'clothing', 袍服: 'clothing',
-  treasure: 'treasure', 宝物: 'treasure', 财宝: 'treasure', 珍宝: 'treasure', 金银: 'treasure', 财物: 'treasure',
-  token: 'token', 信物: 'token', 令牌: 'token', 令牌信物: 'token',
-  artifact: 'artifact', 法器: 'artifact', 法宝: 'artifact', 神器: 'artifact', 灵宝: 'artifact',
-  medicine: 'medicine', 药物: 'medicine', 药品: 'medicine', 解药: 'medicine', 毒药: 'medicine',
-  potion: 'potion', 丹药: 'potion', 丹: 'potion',
-  book: 'book', 书籍: 'book',
-  document: 'document', 文书: 'document', 书信: 'document', 信件: 'document', 地图: 'document',
-  scroll: 'scroll', 卷轴: 'scroll', 秘籍: 'scroll', 功法: 'scroll',
-  key: 'key', 钥匙: 'key',
-  vehicle: 'vehicle', 载具: 'vehicle', 交通工具: 'vehicle', 坐骑: 'vehicle', 马车: 'vehicle', 船只: 'vehicle', 飞剑: 'vehicle',
-  gem: 'gem', 宝石: 'gem', 玉器: 'gem', 珠宝: 'gem', 夜明珠: 'gem',
-  tool: 'tool', 工具: 'tool', 器具: 'tool',
-  food: 'food', 食物: 'food',
-  plant: 'plant', 植物: 'plant', 灵草: 'plant', 灵果: 'plant',
-  animal: 'animal', 动物: 'animal', 灵兽: 'animal',
-  prop: 'prop', 道具: 'prop', 杂物: 'prop',
-  other: 'other', 其他: 'other',
-};
-
-/** 物品标准类型码集合（与 ItemManager 配色词表一致） */
-const ITEM_TYPE_CODES = new Set([
-  'weapon', 'token', 'artifact', 'document', 'key', 'medicine', 'clothing', 'vehicle',
-  'treasure', 'book', 'food', 'plant', 'animal', 'tool', 'prop', 'potion', 'armor', 'scroll', 'gem', 'other',
-]);
-
-export function normalizeItemType(raw?: string): string {
-  if (!raw) return 'other';
-  const key = raw.trim().toLowerCase();
-  if (ITEM_TYPE_CODES.has(key)) return key;
-  return ITEM_TYPE_ALIASES[key] ?? 'other';
-}
-
-/**
  * 处理实体（角色/物品/地点）的公共逻辑
+ *
+ * 批量扫描时请传入预建的 itemContext（每章一次，需包含 chapterContent），
+ * 否则本函数会按每次调用重建索引（万级物品库下是 O(n) 扫描）。
  * @returns { chars: number; items: number; locs: number; aliases: number }
  */
 export function processEntityShared(
@@ -524,6 +643,9 @@ export function processEntityShared(
   chapterOrder: number,
   controller: AbortController,
   safeMode: boolean = false,
+  chapterContent?: string,
+  itemContext?: PreparedItemContext,
+  locationContext?: PreparedLocationContext,
 ): { chars: number; items: number; locs: number; aliases: number } {
   if (controller.signal.aborted) return { chars: 0, items: 0, locs: 0, aliases: 0 };
   if (!entity.name) return { chars: 0, items: 0, locs: 0, aliases: 0 };
@@ -614,24 +736,40 @@ export function processEntityShared(
       ...(entity.role ? { role: entity.role } : {}),
       ...(entity.speechStyle ? { speechStyle: entity.speechStyle } : {}),
     });
+    itemContext?.addEntityName(entity.name); // 同章物品撞名检查立即生效
+    locationContext?.addEntityName(entity.name); // 同章地点撞名检查立即生效
     chars++;
   } else if (entity.entityType === 'item') {
     const itemState = useItemStore.getState();
-    const existing = itemState.items.find(i => i.name === entity.name);
-    if (existing) {
-      // ★ 已存在的物品：类型还是未分类（other）且 AI 给出了有效类型时，补上分类
-      const normalized = normalizeItemType(entity.itemType);
-      if (normalized !== 'other' && (!existing.type || existing.type === 'other')) {
-        itemState.updateItem(existing.id, { type: normalized, updatedAt: Date.now() });
+    const itemCtx = itemContext ?? prepareItemContext({
+      chapterContent,
+      existingItems: itemState.items.filter(i => i.projectId === projectId),
+      existingCharacters: useCharacterStore
+        .getState()
+        .characters.filter(c => c.projectId === projectId),
+      existingLocations: useLocationStore
+        .getState()
+        .locations.filter(l => l.projectId === projectId),
+    });
+    const validation = validateItemCandidate(entity, itemCtx);
+    if (!validation.accept) {
+      console.debug(`[ScanProcessor] 跳过疑似非物品 "${entity.name}": ${validation.reason}`);
+      return { chars: 0, items: 0, locs: 0, aliases: 0 };
+    }
+    if (validation.existingItem) {
+      // 已存在的物品：类型还是未分类（other）时用 AI/后缀推断补上
+      const existing = validation.existingItem;
+      if (validation.type !== 'other' && (!existing.type || existing.type === 'other')) {
+        itemState.updateItem(existing.id, { type: validation.type, updatedAt: Date.now() });
       }
       return { chars: 0, items: 0, locs: 0, aliases: 0 };
     }
     const now = Date.now();
     const newItem: Item = {
       ...entityBase(projectId),
-      name: entity.name,
-      // ★ 类型识别：AI 按标准词表输出的 itemType（宝物/衣物/防具等），归一化后入库
-      type: normalizeItemType(entity.itemType),
+      name: validation.name,
+      // AI 类型优先；缺失/other 时按名称后缀兜底
+      type: validation.type,
       description: entity.context || entity.description || '',
       states: [],
       holders: [],
@@ -643,19 +781,56 @@ export function processEntityShared(
       updatedAt: now,
     };
     useItemStore.getState().addItem(newItem);
+    itemCtx.addItem(newItem); // 同章后续重复输出直接命中索引
+    locationContext?.addEntityName(newItem.name); // 同章地点撞名检查立即生效
     items++;
   } else if (entity.entityType === 'location') {
-    const exists = useLocationStore.getState().locations.some(l => l.name === entity.name);
-    if (exists) return { chars: 0, items: 0, locs: 0, aliases: 0 };
+    // 与自动检测 / 轮询扫描共用同一套确定性校验，不再只看「同名」就落库
+    const locationCtx = locationContext ?? prepareLocationContext({
+      chapterContent,
+      existingLocations: useLocationStore
+        .getState()
+        .locations.filter(l => l.projectId === projectId),
+      existingCharacters: useCharacterStore
+        .getState()
+        .characters.filter(c => c.projectId === projectId),
+      existingItems: useItemStore
+        .getState()
+        .items.filter(i => i.projectId === projectId),
+    });
+    const result = applyLocationCandidate(entity, chapterOrder, locationCtx);
+    if (result.kind === 'reject') {
+      console.debug(
+        `[ScanProcessor] 跳过疑似非地点 "${entity.name}": ${result.reason}`,
+      );
+      return { chars: 0, items: 0, locs: 0, aliases: 0 };
+    }
+    if (result.kind === 'link') {
+      if (!result.changed) return { chars: 0, items: 0, locs: 0, aliases: 0 };
+      const updates = {
+        chapters: result.chapters,
+        ...(result.description !== undefined ? { description: result.description } : {}),
+        updatedAt: Date.now(),
+      };
+      useLocationStore.getState().updateLocation(result.location.id, updates);
+      locationCtx.addLocation({ ...result.location, ...updates });
+      itemContext?.addEntityName(result.location.name);
+      return { chars: 0, items: 0, locs: 0, aliases: 0 };
+    }
+    const now = Date.now();
     const newLoc: Location = {
       ...entityBase(projectId),
-      name: entity.name,
-      description: entity.context || entity.description || '',
+      name: result.name,
+      description: result.description,
       states: [],
       chapters: [chapterOrder],
       tags: [],
+      createdAt: now,
+      updatedAt: now,
     };
     useLocationStore.getState().addLocation(newLoc);
+    locationCtx.addLocation(newLoc);
+    itemContext?.addEntityName(result.name); // 同章物品撞名检查立即生效
     locs++;
   }
 

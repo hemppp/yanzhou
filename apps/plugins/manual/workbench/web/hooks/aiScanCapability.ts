@@ -22,6 +22,8 @@ export interface StreamTimelineEvent {
   characterNames: string[];
   chapterOrder: number;
   timestamp?: string;
+  /** 原文证据片段（服务端已校验逐字命中，可直接用于二次去重/定位） */
+  quote?: string;
 }
 
 /** 流式实体（角色/物品/地点） */
@@ -53,6 +55,17 @@ export interface StreamAliasMatch {
   primaryName: string;
   aliases: string[];
   context: string;
+}
+
+/** 流式积分流水（系统文：正文明确写出的积分消耗/获得/系统赠予） */
+export interface StreamCreditTransaction {
+  creditType: 'credit_transaction';
+  action: 'gain' | 'spend' | 'gift';
+  characterName: string;
+  amount: number;
+  reason?: string;
+  itemName?: string;
+  chapterOrder: number;
 }
 
 /** 扫描被跳过（后端红石开关关闭）时抛出的错误 —— 本地同名类，调用方用 instanceof 判定 */
@@ -88,6 +101,7 @@ export interface AIScanCapability {
     onAliasMatch?: (aliasMatch: StreamAliasMatch) => void,
     signal?: AbortSignal,
     projectId?: string,
+    onCreditTransaction?: (credit: StreamCreditTransaction) => void,
   ): Promise<StreamTimelineEvent[]>;
   extractEventsByKeyword(
     content: string,
