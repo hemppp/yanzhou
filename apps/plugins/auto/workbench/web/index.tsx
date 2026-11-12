@@ -2,7 +2,7 @@
 // AI 写作台大模块 —— Web 面入口（D1：一模块一包；D35/D37：kernel 只经此入口引用）
 //
 // 注册面（2026-10-16 加「正文阅读」面板后）：
-//   1. registerProjectPanel × 6 —— 流水线 / 本章计划 / 实体与设定 / 记忆审计 / 技能库 / 正文阅读
+//   1. registerProjectPanel × 8 —— 流水线 / 讨论回看 / 本章计划 / 实体与设定 / 记忆审计 / 技能库 / 正文阅读 / 章节体检
 //   2. registerWorkbench({ modes:['auto'] }) —— AutoWriteWorkbench（AI 工作台壳）
 //   3. registerCapability × 3 —— ai.quickPhrases / ai.timelineExtract / ai.scan（D43）
 //   4. preload() —— 面板级预取（kernel 经 loadModulePreload('auto') 空闲调用）
@@ -22,8 +22,9 @@
 //
 // ★ 已裁（2026-10-14 清理批）：`chatRail` 注册**已删除**。该扩展点在 Dock 重构
 //   （3e3754e）后已无任何宿主消费点（apps/web/src 全仓无读取 chatRail 的代码），
-//   原注册是死注册。孤儿组件 `discuss/AiChatBubbleRail.tsx` 保留在模块内（不产生
-//   契约面），等 chatRail 在内核定生死；`preload()` 里的预取一并移除。
+//   原注册是死注册；`preload()` 里的预取一并移除。
+// ★ 2026-11-03 清理：随之失去唯一用途的 `discuss/AiChatBubbleRail.tsx` 已删除。
+//   若将来 kernel 决定恢复 chatRail 扩展点，需连组件一并重写（不是"恢复注册"能解决的）。
 //
 // 本入口由 main.tsx 的 import.meta.glob 自动收集
 //   （'../../../apps/plugins/auto/*/web/index.tsx'）—— 目录即模式事实来源。
@@ -31,7 +32,7 @@
 
 import React from 'react';
 import {
-  Workflow, ClipboardList, Network, ShieldCheck, Wand2, BookOpenText, MessagesSquare,
+  Workflow, ClipboardList, Network, ShieldCheck, Wand2, BookOpenText, MessagesSquare, Activity,
 } from 'lucide-react';
 import type { WebPluginContext } from '@novel/core/web';
 import type { FloatingPanelDef } from '@/plugin/types';
@@ -56,6 +57,9 @@ const EntityOverviewPanel = React.lazy(() =>
   import('./entities/EntityOverviewPanel').then((m) => ({ default: m.EntityOverviewPanel })));
 const ManuscriptPanel = React.lazy(() =>
   import('./manuscript/ManuscriptPanel').then((m) => ({ default: m.ManuscriptPanel })));
+// 章节质量体检：篇幅 / 对话 / 重复逐章汇总（判据在服务端，面板只画）
+const ChapterHealthPanel = React.lazy(() =>
+  import('./health/ChapterHealthPanel').then((m) => ({ default: m.ChapterHealthPanel })));
 
 const AutoWriteWorkbench = React.lazy(() =>
   import('./discuss/AutoWriteWorkbench').then((m) => ({ default: m.AutoWriteWorkbench })));
@@ -82,6 +86,9 @@ export const AUTO_WORKBENCH_PANELS: FloatingPanelDef[] = [
   { key: 'skills', label: '技能库', icon: Wand2, group: 'data', Component: SkillLibraryPanel, modes: ['auto'] },
   // 正文阅读：写出来的章节得能直接在界面上读（此前只能翻库/脚本，质量问题看不见）
   { key: 'manuscript', label: '正文阅读', icon: BookOpenText, group: 'data', Component: ManuscriptPanel, modes: ['auto'] },
+  // 体检：与「正文阅读」是**两件事** —— 那个回答"写了什么"，这个回答"写得合不合格"。
+  // 判据由服务端 `/chapters/health` 用现役 gate-rules 算出（见该路由的注释）。
+  { key: 'health', label: '章节体检', icon: Activity, group: 'data', Component: ChapterHealthPanel, modes: ['auto'] },
 ];
 
 export function apply(ctx: WebPluginContext): void {
@@ -97,12 +104,10 @@ export function apply(ctx: WebPluginContext): void {
     else store.removeProject(projectId);
   }), 'auto-workbench: chat history cleaner');
 
-  // 1) 6 个 AI 工作台面板
+  // 1) 8 个 AI 工作台面板
   for (const panel of AUTO_WORKBENCH_PANELS) ctx.registerProjectPanel(panel);
 
-  // 2) ★ 已删（2026-10-14 清理批 A3）：原 `ctx.registerChatRail({ key:'ai-chat-rail', … })`
-  //    —— chatRail 在 Dock 重构（3e3754e）后无宿主消费点，注册即死值。
-  //    孤儿组件 `discuss/AiChatBubbleRail.tsx` 保留（见文件头注释）。
+  // 2) 不注册 chatRail：该扩展点在 Dock 重构后无宿主消费点，注册即死值（见文件头注释）。
 
   // 3) AI 写作工作台壳（未注册 → auto 项目回退通用空态，manual 完全不受影响）
   ctx.registerWorkbench({

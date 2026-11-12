@@ -24,6 +24,9 @@ import { schema, eq, and, desc, like, type DrizzleDb } from '@novel/db';
 import { runDiscussion, runChapters, resolveStartOrder, lastDeliveredOrder } from './discuss/orchestrator.js';
 import { metaOf } from './discuss/agent-meta.js';
 import { pushInterjection, pendingCount } from './discuss/inbox.js';
+import { collectChapterHealth } from './discuss/chapter-health.js';
+import { WRITER_MIN_CHARS, WRITER_MAX_CHARS, WRITER_TARGET_CHARS } from './discuss/roles.js';
+import { DIALOGUE_RATIO_MIN, DIALOGUE_RATIO_MAX } from './framework/dialogue.js';
 import { formatBrief } from './framework/context-resolver.js';
 import { PipelineStore, computeBriefHash, canRun, nextStage } from './pipeline/store.js';
 import { writeAudit } from './framework/memory/index.js';
@@ -556,6 +559,50 @@ export function createAutowriteRouter(ctx: ServerPluginContext): Hono {
     if (!projectId) return fail(c, 400, 'BAD_REQUEST', '缺少 X-Project-Id 头');
     const store = storeFor(projectId);
     return c.json({ data: { decisions: store.getDecisions(), tracks: store.getTracks() } });
+  });
+
+  /**
+   * ---- 章节质量体检（只读）----
+   *
+   * 动机：篇幅/对话/重复这三条**一直是代码判据**，却只能在流水线运行时从日志里看。
+   * 作者想知道"这本书现在写成什么样"，此前只能跑 `.runtime/check-quality.mjs`。
+   *
+   * ★ 判据在**服务端**算（`discuss/chapter-health.ts`），面板只负责画：
+   *   前端另写一套阈值会造出"界面说没问题、流水线却打回"的第二套真相。
+   *
+   * 可选 `?limit=N`：只看最近 N 章（长篇 100+ 章时跨章比对是 O(n²)）。
+   */
+  router.get('/chapters/health', async (c) => {
+    const projectId = c.req.header('x-project-id');
+    if (!projectId) return fail(c, 400, 'BAD_REQUEST', '缺少 X-Project-Id 头');
+    const limitRaw = c.req.query('limit');
+    const limit = limitRaw != null ? Number(limitRaw) : 0;
+    if (limitRaw != null && (!Number.isFinite(limit) || limit < 0)) {
+      return fail(c, 400, 'BAD_REQUEST', `limit 必须是非负数字，收到 ${limitRaw}`);
+    }
+    try {
+      const report = await collectChapterHealth(projectId, limit);
+      return c.json({ data: report });
+    } catch (e) {
+      // 项目库尚未建（还没跑过任何一段）不是错误，回空报告即可 —— 面板据此显示空态
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/no such table|does not exist|not initialized/i.test(msg)) {
+        return c.json({
+          data: {
+            projectId,
+            band: { min: WRITER_MIN_CHARS, max: WRITER_MAX_CHARS, target: WRITER_TARGET_CHARS },
+            dialogue: { floor: DIALOGUE_RATIO_MIN, ceiling: DIALOGUE_RATIO_MAX },
+            chapters: [],
+            summary: {
+              count: 0, totalChars: 0, avgChars: 0, outOfBand: 0, dialogueLow: 0,
+              dialogueHigh: 0, dialogueFragmented: 0, intraDup: 0, crossDup: 0, clean: 0,
+            },
+          },
+        });
+      }
+      // 500 不在 fail() 的状态码联合里（那是给"用户可纠正的错"用的），这里直接返回
+      return c.json({ error: { code: 'INTERNAL', message: `体检失败：${msg}` } }, 500);
+    }
   });
 
   // ---- 轨迹确认台账（production 每 N 章一条）----
