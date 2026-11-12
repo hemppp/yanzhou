@@ -322,13 +322,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
   }, []);
 
   /**
-   * 让位阶梯（**绝不覆盖正文**，且**优先让看板留在正文旁边**）。
-   *   ① 放得下就并排（用户设的宽度）
-   *   ② 放不下 → 自动收 AI 交流栏（空间回来后自动恢复，不改写作者的 railOpen 偏好）
-   *   ③ 还放不下 → **先把侧组压窄**（最低 PANE_W_MIN_SOFT）——作者的诉求是"在正文旁边打开"，
-   *      所以压窄侧组比把它甩到下方角落更符合预期
-   *   ④ 压到最窄仍放不下（窗口极窄）→ 才把侧组挪到正文下方（正文宽度完整，仍**不覆盖**）
-   *
+   * 正文区的最小预算（**绝不覆盖正文** 的唯一判据）。
    * ★ 预算要含正文外框的内边距（BODY_PAD_X）：漏算的话判定"放得下"、正文实测却比最小宽还窄。
    */
   const bodyBudget = BODY_MIN_WIDTH + BODY_PAD_X;
@@ -1331,7 +1325,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
                     onClick={() => setBodyOpen(true)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md transition-all"
                     style={{
-                      fontFamily: "'Noto Serif SC', serif",
+                      fontFamily: 'var(--yz-font-display)',
                       fontSize: 12.5,
                       color: 'hsl(var(--card))',
                       background: 'hsl(var(--mountain-deep))',
@@ -1347,10 +1341,8 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
             )}
           </section>
 
-          {/* ★ 2026-09-15 页面切换：看板不再有独立容器（右侧栏 / 下方横栏都没了），
-              而是与正文**互斥地占满同一块区域**。原先这里的两处 WorkspacePane
-              连同四级让位阶梯（收 AI 栏 → 压窄侧组 → 落下方）一并移除。
-              标签栏已由上面的 unified TabBar 统一渲染。 */}
+          {/* 看板与正文**互斥地占满同一块区域**，没有独立的右侧栏 / 下方横栏：
+              标签栏由上面的 unified TabBar 统一渲染。不要再加回独立容器。 */}
           {activePane !== null && (() => {
             const p = aiPanels.find((x) => x.key === activePane);
             const C = p?.Component;

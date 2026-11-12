@@ -36,26 +36,6 @@ export const BODY_MIN_WIDTH = 480;
 export const BODY_PAD_X = 32;
 /** 气泡列宽（= 气泡直径 30 + 两侧留白；改这里要同步 BubbleRail 里的气泡尺寸） */
 export const RAIL_WIDTH = 44;
-/** AI 交流栏在被让位时的最小宽 */
-export const AI_MIN_WIDTH = 240;
-
-/** 分页区在下方时的尺寸范围 */
-export const PANE_H_MIN = 200;
-export const PANE_H_MAX = 560;
-export const PANE_H_DEFAULT = 300;
-
-/** 右栏模式默认宽（与 workspaceStore 的取值范围一致） */
-export const PANE_W_DEFAULT = 420;
-
-/**
- * 空间紧张时允许把侧组压到多窄。
- * ★ 作者明确要求「点击气泡是在**正文旁边**打开页面」——所以宁可压窄侧组、也别把它甩到下方角落。
- *   低于这个宽度就真的不好用了，那时才退回"落到下方"（仍不覆盖正文）。
- */
-export const PANE_W_MIN_SOFT = 280;
-
-/** 正文的"软"最小宽：极窄时允许正文窄到这个数，换取"面板仍在旁边" */
-export const BODY_MIN_SOFT = 400;
 
 /**
  * 编辑器区底色。

@@ -1,17 +1,17 @@
 // ============================================================
-// PipelineGraphPanel —— 设定流水线的**图谱版**（替代 PipelinePanel 的列表式呈现）
+// PipelineGraphPanel —— 设定流水线的**图谱版**（列表版 PipelinePanel 已于 2026-11-03 删除）
 //
-// 为什么改成图谱：7 个阶段本质是**有向链**（brief → cast → bible → plot → drift →
-// pilot → production），列表只能表达"有哪些"，图谱能同时表达"走到哪、下一步是谁、
+// 为什么改成图谱：7 个阶段本质是**有向链**（brief → cast → bible → plot → beats →
+// drift → pilot → production），列表只能表达"有哪些"，图谱能同时表达"走到哪、下一步是谁、
 // 哪一段被打回、哪一段因基线变更过期"。作者的要求是把 AI 工作台的详细内容全面图谱化。
 //
-// 布局：蛇形（boustrophedon）—— 上排左→右 4 段，下排右→左 3 段，
-// 唯一的竖直边是 plot → drift（两节点同 x），读起来不会打结。
+// 布局：按列排布，每列 `COL_ROWS`(=3) 段，列内自上而下、列间左→右推进，
+// 矮列在自身列内垂直居中（见 slotOf / yPad）—— 读起来不会打结。
+// 阶段数以 `STAGES`（后端 pipeline/types.ts）为准，改那边这里自动跟随。
 //
-// ★ 与 PipelinePanel 的**功能对等**是硬要求：开始立设定 / 跑这一段 / 闸门三态决策
-//   （通过 / 打回 / 退回上一段）/ 停止 / 决策台账 —— 一个都不能少，
-//   否则就是"换了张皮，功能少了"。
-//   所以 SSE 事件处理整段沿用原实现（那份逻辑是真机调出来的，不能重写）。
+// ★ 功能面必须完整：开始立设定 / 跑这一段 / 闸门三态决策（通过 / 打回 / 退回上一段）
+//   / 停止 / 决策台账 —— 一个都不能少，否则就是"换了张皮，功能少了"。
+//   SSE 事件处理是真机调出来的，改它要格外小心。
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -111,16 +111,15 @@ export function PipelineGraphPanel({
 }: PipelineGraphPanelProps) {
   const [status, setStatus] = useState<PipelineStatus | null>(null);
   /**
-   * ★ 2026-10-18：**界面上的长跑**（从 PipelinePanel 移植过来）。
+   * 「长跑写到 N 章」的目标章数。
    *
-   * 为什么必须在这里也有一份：宿主注册的「流水线」面板是**本组件**
-   * （`workbench/web/index.tsx` 的 `pipeline: PipelineGraphPanel`），而长跑控件当初
-   * 只加在了 `PipelinePanel`（列表版）上 —— 那个组件现在**只有测试在引用**，
-   * 界面上根本点不到。后果就是「GUI 写不完一部长篇」：界面点一次只出一批（5 章），
-   * 写 100 章要点 20 次、每次还要过闸门。
+   * 为什么必须有：界面上点一次只推进一批（`PRODUCTION_BATCH` 章），写 100 章要点
+   * 20 次、每次还要过闸门 —— 等于「GUI 写不完一部长篇」。这里按批循环推进，
+   * 直到全书已交付章数 ≥ N；每批结束自动 approve（"授权长跑"）；到目标或遇错就停。
+   * 进度实时显示。
    *
-   * 这里补「长跑写到 N 章」：按批循环推进，直到全书已交付章数 ≥ N；每批结束
-   * 自动 approve（"授权长跑"）；到目标或遇错就停。进度实时显示。
+   * ★ 宿主注册的「流水线」面板就是本组件（`workbench/web/index.tsx` 的 `pipeline`），
+   *   所以这段控件必须长在这里，别处放一份界面上点不到。
    */
   const [longRunTarget, setLongRunTarget] = useState(20);
   const [longRunMsg, setLongRunMsg] = useState('');
@@ -257,7 +256,7 @@ export function PipelineGraphPanel({
     setEdges(graphData.edges);
   }, [graphData.nodes, graphData.edges, setNodes, setEdges]);
 
-  // ---- 操作（与原 PipelinePanel 一致）----
+  // ---- 操作（开始 / 推进 / 决策 / 停止）----
   const handleStart = useCallback(async () => {
     if (!projectId) return;
     setBusy(true);
@@ -645,7 +644,7 @@ export function PipelineGraphPanel({
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-full" style={{ width: 7, height: 7, background: statusInk(current.status as StageVisualStatus) }} aria-hidden="true" />
-              <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 13, fontWeight: 600, color: 'hsl(var(--ink))' }}>
+              <span style={{ fontFamily: 'var(--yz-font-display)', fontSize: 13, fontWeight: 600, color: 'hsl(var(--ink))' }}>
                 {current.label || STAGE_LABEL_UI[current.key] || current.key}
               </span>
               {current.gated && (

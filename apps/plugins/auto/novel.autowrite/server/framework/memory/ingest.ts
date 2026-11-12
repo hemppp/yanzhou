@@ -107,35 +107,6 @@ export async function recordConflicts(
   }
 }
 
-/** 打开着的冲突（面板展示 / 定稿官裁决用） */
-export async function listOpenConflicts(ctx: ServerPluginContext, projectId: string) {
-  const db = ctx.db.project(projectId) as DrizzleDb;
-  return db
-    .select()
-    .from(schema.factConflicts)
-    .where(and(eq(schema.factConflicts.projectId, projectId), eq(schema.factConflicts.status, 'open')));
-}
-
-/**
- * 一次沉淀：先做批次内自洽检查，再写。
- * `writer` 由调用方注入（entity-sink 已有自己的写入路径），这样本文件只管规则、不碰它的表结构。
- */
-export async function ingestFacts(
-  ctx: ServerPluginContext,
-  projectId: string,
-  facts: readonly FactWrite[],
-  writer: (db: DrizzleDb, accepted: readonly FactWrite[]) => Promise<void>,
-  source: string,
-): Promise<IngestResult> {
-  const { written, conflicts } = detectBatchConflicts(facts);
-  if (conflicts.length > 0) await recordConflicts(ctx, projectId, conflicts, source);
-  if (written.length > 0) {
-    await writer(ctx.db.project(projectId) as DrizzleDb, written);
-  }
-  await writeAudit(ctx, {
-    projectId, agentId: 'orchestrator', action: 'ingest',
-    keys: written.map((w) => w.slot), reason: 'ingest', allow: true,
-    detail: `写入 ${written.length} 条，冲突 ${conflicts.length} 条`,
-  });
-  return { written, conflicts };
-}
+// ★ 2026-11-03 清理：`listOpenConflicts` 与 `ingestFacts` 已删（全仓 0 引用）。
+//   `ingestFacts` 是"通用沉淀入口"的提案，但实际写入路径在 entity-sink.ts ——
+//   本文件保留的 `detectBatchConflicts` / `recordConflicts` 才是被它调用的部分。

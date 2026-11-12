@@ -10,7 +10,7 @@
 //   1. 技能图标（registerSkillIcons）—— 技能内容归插件所有，保留
 //
 // ★ 2026-10-14 清理批 C1–C4：chatRail 注册**已删**（Dock 重构 3e3754e 后无宿主消费点）。
-//   孤儿组件 `web/chat-wheel.tsx` 保留在模块内（不产生契约面），等 chatRail 定生死。
+// ★ 2026-11-03 清理：失去唯一用途的 `web/chat-wheel.tsx` 已删除（chatRail 仍无消费点）。
 //
 // ★ 2026-09-28：panel.tsx（含从未注册的 AutowritePanel / AutowriteSkillRail）
 //   已随旧批次流水线一并删除；仍在用的 setApiFetch 迁到 api.ts。
@@ -34,12 +34,9 @@ export function apply(ctx: WebPluginContext): void {
   // ★ 带鉴权 API：经 ctx.api（自动带 JWT/项目头）
   setApiFetch(ctx.api);
 
-  // ── 已移除：registerProjectPanel({ key: 'autowrite', label: '自动写作' }) ──
-  //   手写框架不再提供自动写作入口。AI 写作是独立模块，有自己的工作台；
-  //   在手写模式下露出这个入口会让两套框架重新混在一起。
-
-  // ★ 已删（2026-10-14 清理批 C3）：原 `ctx.registerChatRail({ key:'novel.autowrite:chat-wheel', … })`
-  //   —— chatRail 在 Dock 重构（3e3754e）后无宿主消费点，注册即死值。
+  // ── 不注册 projectPanel / chatRail ──
+  //   前者会让手写框架重新出现「自动写作」入口，把两套框架混在一起；
+  //   后者在 Dock 重构后已无宿主消费点（注册即死值）。两者都不要加回。
 
   // ── 技能选择器图标（key = 技能 id；未注册的技能走宿主 Puzzle 兜底）──
   ctx.registerSkillIcons({

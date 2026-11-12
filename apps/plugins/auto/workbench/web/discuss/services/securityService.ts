@@ -232,29 +232,8 @@ export function validateUserInput(input: string): { safe: boolean; sanitized: st
   };
 }
 
-/**
- * 过滤搜索结果内容
- * 用于 AI 搜索返回的内容二次检测
- * 确保过滤掉可能包含注入内容的搜索结果
- * @param 内容 搜索返回的内容
- * @返回 过滤后的内容
- */
-export function filterSearchContent(content: string): string {
-  // 先执行安全检测，如果包含危险内容则返回空字符串
-  const checkResult = performSecurityCheck(content);
-  if (!checkResult.passed) {
-    console.warn('[Security] 搜索结果过滤: 检测到危险内容', checkResult.threats);
-    return '';
-  }
-  // 安全检测通过后再进行内容清理
-  return sanitizeContent(content);
-}
-
-export default {
-  detectDangerousPatterns,
-  sanitizeContent,
-  performSecurityCheck,
-  validateUserInput,
-  filterSearchContent,
-  DEFAULT_SECURITY_CONFIG,
-};
+// ★ 2026-11-03 清理：`filterSearchContent` 与 `export default {...}` 已删 ——
+//   前者的唯一调用方 `webSearchService.ts`（无任何导入者的孤儿服务）同批删除，
+//   后者的 `import securityService from ...` 全仓 0 处。
+//   其余函数保留：`validateUserInput` 仍是 ChatPanel 的输入校验入口，
+//   它依赖 sanitizeContent → performSecurityCheck → detectDangerousPatterns 这条链。

@@ -48,24 +48,11 @@ export type MemoryAuditAction =
   | 'ingest'
   | 'conflict';
 
-/**
- * L1 事实式的**键族**。白名单按族授权，避免把键写成散字符串（改一处要改十处）。
- * 命名规范：`<族>.<主体>[.<子键>]`
- */
-export const L1_KEY_FAMILIES = [
-  'settings.projectName',
-  'settings.genre',
-  'settings.brief',
-  'entity.characters',   // entity.characters.<名称>
-  'entity.locations',
-  'entity.items',
-  'foreshadow',          // foreshadow.<名称>.status
-  'constraint',          // constraint.<名称>
-  'outline',             // outline.<节点>
-  'chapter',             // chapter.<n>.summary
-] as const;
-
-export type L1KeyFamily = typeof L1_KEY_FAMILIES[number];
+// ★ 2026-11-03 清理：原 `L1_KEY_FAMILIES` / `L1KeyFamily` 已删（全仓 0 引用）。
+//   它是一份"键族唯一真源"的提案，但从未接线 —— 真正生效的映射是
+//   `digest-gate.ts` 的 `FIELD_TO_KEY_FAMILY`（由它派生 `DIGEST_KEYS`）。
+//   两份并存时后者才是被闸门读的那个，故删前者。
+//   键族命名规范仍为：`<族>.<主体>[.<子键>]`。
 
 /** 角色可读的 L1 键模式（支持末尾 `*` 通配） */
 export interface RoleMemoryPolicy {

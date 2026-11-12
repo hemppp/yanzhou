@@ -73,16 +73,9 @@ export function pushChapter(
   return { slots: next.slice(0, cap), evicted };
 }
 
-/** 把斗位渲染成给模型看的文本（斗 1 最新，带章号与故事时间） */
-export function renderWheel(slots: readonly WheelChapter[]): string {
-  if (slots.length === 0) return '（水车空）';
-  return slots
-    .map((s, i) => {
-      const time = s.storyTime ? ` · 故事内：${s.storyTime}` : '';
-      return `【斗${i + 1}｜第 ${s.chapterNo} 章${time}】\n${s.text}`;
-    })
-    .join('\n\n');
-}
+// ★ 2026-11-03 清理：原 `renderWheel(slots)` 已删 —— 它是不带预算的那版渲染，
+//   运行期一律走 `renderWheelWithin`（斗 1 必留 + 超预算标注省略）。
+//   两版渲染同一个头部格式，留着必然漂移；测试口径已挪到 `renderWheelWithin`。
 
 /**
  * 出界一斗压成梗概用的提示词片段（真正的压缩由模型做）。
