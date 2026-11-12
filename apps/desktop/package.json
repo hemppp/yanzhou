@@ -1,6 +1,6 @@
 {
   "name": "@novel/desktop",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "砚舟 桌面端（Electron 主进程 + 内嵌 server 子进程）",
   "author": "砚舟",
