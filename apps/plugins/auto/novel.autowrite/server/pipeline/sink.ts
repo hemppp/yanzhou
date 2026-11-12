@@ -36,10 +36,14 @@ const EXTRACT_SYSTEM_CAST = `你是数据抽取器。把《角色与节奏宪章
       "role": "protagonist | femaleLead | supporting | minor",
       "desire": "欲望，一句话",
       "fear": "恐惧，一句话",
+      "belief": "信念，一句话",
+      "weakness": "致命弱点，一句话",
+      "appearance": "外貌，一句话",
       "personality": "性格，一句话",
       "speechStyle": "说话风格，一句话",
       "backstory": "背景，一句话",
-      "aliases": ["别名"]
+      "aliases": ["别名"],
+      "relations": [{ "target": "对方名字", "type": "关系类型", "description": "关系里最要紧的那点张力" }]
     }
   ],
   "notes": ["抽取中发现的不确定项"]
@@ -48,7 +52,8 @@ const EXTRACT_SYSTEM_CAST = `你是数据抽取器。把《角色与节奏宪章
 规则：
 - 只抽文本里**明确写了**的；没写就留空字符串，不要推测
 - 主角是 protagonist，女主是 femaleLead，其余按文本判断
-- name 必须原样照抄`;
+- name 必须原样照抄
+- relations 的 target 必须是文本里出现过的名字；关系没写就不给这条`;
 
 const EXTRACT_SYSTEM_BIBLE = `你是数据抽取器。把《世界圣经》抽成 JSON，不要评论、不要解释。
 
@@ -99,9 +104,18 @@ export function extractSystemFor(stage: StageKey): string | undefined {
 
 // ---- 抽取 ----
 
-interface RawChar {
+interface RawRelation { target?: unknown; type?: unknown; description?: unknown }
+
+/**
+ * 角色抽取的**原始行**（字段全是 unknown —— 模型返回什么都有可能）。
+ * ★ 2026-11-07：对外导出。`enrichCastProfiles` 的入参就是 `RawChar[]`，
+ *   不导出该类型，调用方连自己的输入都没法标注（`sink.test.ts` 即撞在此处）。
+ */
+export interface RawChar {
   name?: unknown; role?: unknown; desire?: unknown; fear?: unknown;
+  belief?: unknown; weakness?: unknown; appearance?: unknown;
   personality?: unknown; speechStyle?: unknown; backstory?: unknown; aliases?: unknown;
+  relations?: RawRelation[];
 }
 interface RawNote { title?: unknown; description?: unknown }
 interface RawNamed { name?: unknown; description?: unknown }
@@ -208,6 +222,184 @@ export async function extractStageArtifact(
   return parsed;
 }
 
+// ============================================================
+// 角色档案补全（cast 段专用）
+//
+// ★ 为什么"抽取"还不够（2026-11-07：作者反馈「角色详细内容不够详细」）：
+//   《角色与节奏宪章》本身是 200–400 字的共识稿，定稿官只记「欲望 / 恐惧 / 关系演变 / 退场点」，
+//   抽取器又只能照抄文本里写了的 —— 于是落进知识库的角色档案每条只有一句话；
+//   `appearance` / `belief` / `weakness` 三列**从来没被写过**（DB 有列，抽取器不产出，sink 也不写）。
+//   作者点开角色看到的是一张空表，写作官拿到的也只有五个短句。
+//
+//   所以 cast 落库多一步"档案补全"：一次调用，把骨架扩写成能照着写的详细档案。
+//   与抽取的分工：抽取是"文本里有什么写什么"；补全是"宪章没细写的，按已批准设定补足"。
+//   因此它**允许推断细节**，但硬约束是不改姓名/定位、不推翻宪章里写死的关系与弧光。
+// ============================================================
+
+/**
+ * 一次补全最多覆盖多少个角色。
+ * 预算账：单个角色约 600–700 字 + JSON 键 ≈ 800 token，8 位 ≈ 6.4k；
+ * 推理模型的思考 token 也计入 `maxTokens`（实测 5k 上下），16384 才够用。
+ * 全员补全在几十人的项目里必然截断，而截断 = 整份 JSON 作废。
+ */
+const ENRICH_MAX_CHARS = 8;
+
+const ENRICH_SYSTEM = `你是「角色档案师」，负责把《角色与节奏宪章》里的人物补全成**可以直接照着写**的详细档案。
+
+给你：作者的开书设定、已批准的角色宪章、以及从宪章里抽出的角色骨架（可能每个字段只有一句话）。
+你的活：为名单里的每个角色写一份有细节、能落到笔下的档案。
+
+写什么：
+1. 外貌：1–2 个**能被记住**的具体特征（旧外套、说话前的停顿、左手小指伸不直），不要"眉清目秀"
+2. 性格：表层表现 + 内里的矛盾 + 一个具体的习惯动作
+3. 欲望 / 恐惧 / 信念 / 致命弱点：各写清"从哪来、会怎么影响他的选择"
+4. 说话风格：句长、用词、称呼习惯，并**给 2 句他真会说的话**
+5. 背景：与当前故事**直接相关**的往事，最多三件
+6. 关系：只写有张力的（谁要什么、谁欠谁、谁在防谁）；target 必须是名单里的名字，或开书设定里明确出现的人名
+
+硬规则（违反则整份作废）：
+- 姓名、角色定位、宪章里写死的关系与弧光**一律不许改**；宪章与开书设定冲突时以开书设定为准
+- 不要写剧情推进，不要写"伏笔 / 回收 / 作者 / 读者 / 本章"这类元语言
+- 名单里的每个角色都要有输出，没给到的角色不要自己加
+- 只输出 JSON，不要评论、不要解释
+
+严格输出这个结构：
+{
+  "characters": [
+    {
+      "name": "必须与名单完全一致",
+      "appearance": "40–80 字",
+      "personality": "80–150 字",
+      "desire": "30–60 字",
+      "fear": "30–60 字",
+      "belief": "30–60 字",
+      "weakness": "30–60 字",
+      "speechStyle": "40–80 字，含两句示例台词",
+      "backstory": "100–200 字",
+      "relations": [{ "target": "名单里的名字", "type": "关系类型", "description": "20–50 字，写张力不写履历" }]
+    }
+  ]
+}`;
+
+/** 补全字段（顺序即拼骨架时的展示顺序） */
+const PROFILE_KEYS = [
+  'desire', 'fear', 'belief', 'weakness',
+  'appearance', 'personality', 'speechStyle', 'backstory',
+] as const;
+
+/** 只补全值得花预算的角色：主角 / 女主 / 配角优先，路人甲靠抽取的骨架就够 */
+function enrichRank(v: unknown): number {
+  const s = str(v);
+  if (s === 'protagonist') return 0;
+  if (s === 'femaleLead') return 1;
+  if (s === 'supporting') return 2;
+  return 3;
+}
+
+export interface EnrichCastResult {
+  /** 补全后的角色骨架（补全失败时原样返回） */
+  rows: RawChar[];
+  /** 失败/降级说明（成功时为空） */
+  note?: string;
+}
+
+/**
+ * 把 cast 段抽出的角色骨架扩写成详细档案。
+ *
+ * **不抛错**：补全是锦上添花，失败时骨架照常落库（与 sink 的总体取向一致）。
+ */
+export async function enrichCastProfiles(
+  ctx: ServerPluginContext,
+  opts: { artifact: string; briefText: string; rows: RawChar[]; userId?: string },
+): Promise<EnrichCastResult> {
+  if (opts.rows.length === 0) return { rows: opts.rows };
+
+  const picked = [...opts.rows]
+    .sort((a, b) => enrichRank(a.role) - enrichRank(b.role))
+    .slice(0, ENRICH_MAX_CHARS);
+  const skeleton = picked.map((c, i) => {
+    const profile = c as unknown as Record<string, unknown>;
+    const fields = PROFILE_KEYS
+      .map((k) => `${k}=${str(profile[k]) ?? '（空）'}`)
+      .join('｜');
+    return `${i + 1}. ${str(c.name) ?? '（无名）'}｜${str(c.role) ?? 'supporting'}｜${fields}`;
+  });
+
+  const trimNote = opts.rows.length > picked.length
+    ? `（本次补全前 ${picked.length} 位；其余 ${opts.rows.length - picked.length} 位只落骨架）`
+    : '';
+
+  let raw: string;
+  try {
+    raw = await ctx.ai.complete({
+      messages: [
+        { role: 'system', content: ENRICH_SYSTEM },
+        {
+          role: 'user',
+          content: [
+            '【本轮任务】为下面名单里的每个角色补全详细档案，只输出 JSON（按 system 里给的结构）。',
+            '',
+            opts.briefText ? `【作者的开书设定】\n${opts.briefText}\n` : '',
+            `【已批准的《角色与节奏宪章》】\n${opts.artifact}\n`,
+            `【要补全的角色名单（骨架）】${trimNote}\n${skeleton.join('\n')}`,
+          ].filter(Boolean).join('\n'),
+        },
+      ],
+      json: true,
+      maxTokens: EXTRACT_MAX_TOKENS,
+      // 补全要写细节，0.1 会写成模板句；但仍需贴着宪章，所以不给更高
+      temperature: 0.6,
+      userId: opts.userId,
+    });
+  } catch (e) {
+    return {
+      rows: opts.rows,
+      note: `角色档案补全失败（骨架已照常落库）：${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
+  let parsed: { characters?: RawChar[] } | null = null;
+  try {
+    parsed = parseJsonLoose<{ characters?: RawChar[] }>(raw);
+  } catch (e) {
+    console.warn('[pipeline] 角色档案补全解析失败:', e instanceof Error ? e.message : e);
+    console.warn(`[pipeline] 原始输出前 200 字：${raw.slice(0, 200)}`);
+    return { rows: opts.rows, note: '角色档案补全返回的不是合法 JSON（骨架已照常落库）' };
+  }
+
+  const enriched = asArray(parsed?.characters);
+  if (enriched.length === 0) {
+    return { rows: opts.rows, note: '角色档案补全结果为空（骨架已照常落库）' };
+  }
+
+  const byName = new Map<string, RawChar>();
+  for (const r of opts.rows) {
+    const n = str(r.name);
+    if (n) byName.set(n, r);
+  }
+
+  let filled = 0;
+  for (const e of enriched) {
+    const name = str(e?.name);
+    if (!name) continue;
+    const target = byName.get(name);
+    // 名单外的名字一律丢弃（模型不得凭空造角色）
+    if (!target) continue;
+    for (const k of PROFILE_KEYS) {
+      const v = str((e as unknown as Record<string, unknown>)[k]);
+      if (!v) continue;
+      (target as unknown as Record<string, unknown>)[k] = v;
+      filled++;
+    }
+    if (Array.isArray(e.relations) && e.relations.length > 0) target.relations = e.relations;
+  }
+
+  if (filled === 0) {
+    return { rows: opts.rows, note: '角色档案补全没有产出可用字段（骨架已照常落库）' };
+  }
+  return { rows: opts.rows };
+}
+
 // ---- 落库 ----
 
 export interface SinkInput {
@@ -257,7 +449,19 @@ export async function sinkStageArtifact(
   }
 
   if (input.stage === 'cast') {
-    await upsertCharacters(db, input.projectId, asArray(extracted.characters), stats);
+    /**
+     * ★ 补全在落库**之前**做（2026-11-07）：upsert 的语义是"只补空字段"，
+     *   如果先按一句话骨架写进去，补全结果就永远进不了新建的行。
+     *   补全失败时 rows 原样返回，骨架照常落库。
+     */
+    const enriched = await enrichCastProfiles(ctx, {
+      artifact: input.artifact,
+      briefText: input.briefText,
+      rows: asArray(extracted.characters),
+      userId: input.userId,
+    });
+    if (enriched.note) stats.notes.push(enriched.note);
+    await upsertCharacters(db, input.projectId, enriched.rows, stats);
   } else if (input.stage === 'bible') {
     await upsertBible(db, input.projectId, extracted, stats);
   } else if (input.stage === 'plot') {
@@ -269,6 +473,29 @@ export async function sinkStageArtifact(
     if (s) stats.notes.push(s);
   }
   return stats;
+}
+
+/** 关系列的 JSON 形状（与 @novel/shared 的 CharacterRelation 一致） */
+interface RelationJson {
+  targetId: string;
+  type: string;
+  description?: string;
+  chapter?: number | null;
+  direction: 'from' | 'to' | 'mutual';
+}
+
+function parseRelations(raw: unknown): RelationJson[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (!Array.isArray(v)) return [];
+    return v.filter((r): r is RelationJson =>
+      !!r && typeof r === 'object'
+      && typeof (r as RelationJson).targetId === 'string'
+      && typeof (r as RelationJson).type === 'string');
+  } catch {
+    return [];
+  }
 }
 
 /** 角色：按**精确名称**匹配，存在就只补空字段（绝不覆盖作者写过的内容） */
@@ -297,14 +524,24 @@ async function upsertCharacters(
       role: schema.characters.role,
       desire: schema.characters.desire,
       fear: schema.characters.fear,
+      belief: schema.characters.belief,
+      weakness: schema.characters.weakness,
+      appearance: schema.characters.appearance,
       personality: schema.characters.personality,
       speechStyle: schema.characters.speechStyle,
       backstory: schema.characters.backstory,
+      relations: schema.characters.relations,
+      tags: schema.characters.tags,
     })
     .from(schema.characters)
     .where(eq(schema.characters.projectId, projectId));
 
   const byName = new Map(existing.map((r) => [r.name, r]));
+  /** 名称 → id（含本轮新建的）：关系解析要用它把「对方名字」换成 targetId */
+  const nameToId = new Map(existing.map((r) => [r.name, r.id]));
+  const relByChar = new Map(existing.map((r) => [r.name, parseRelations(r.relations)]));
+  /** 本轮新建的角色名：关系补写不再重复记一次 updated */
+  const created = new Set<string>();
   const now = new Date();
 
   for (const c of rows) {
@@ -314,19 +551,46 @@ async function upsertCharacters(
       continue;
     }
     const role = mapCharRole(c.role);
+    /**
+     * ★ 2026-11-07：补全后的档案要**八列全写**。
+     *   此前只写 desire/fear/personality/speechStyle/backstory 五列，
+     *   `belief` / `weakness` / `appearance` 三列在 DB 里存在却永远为空 ——
+     *   作者在详情页看到的就是"这角色没写多少东西"。
+     */
     const patch = {
       desire: str(c.desire),
       fear: str(c.fear),
+      belief: str(c.belief),
+      weakness: str(c.weakness),
+      appearance: str(c.appearance),
       personality: str(c.personality),
       speechStyle: str(c.speechStyle),
       backstory: str(c.backstory),
     };
     const hit = byName.get(name);
     if (hit) {
-      // 只补空：作者已经写过的字段一个都不动
+      /**
+       * 只补空：作者已经写过的字段一个都不动。
+       *
+       * ★ 2026-11-07 加一条**受限升级**：老项目里的角色是上一版 sink 写的，
+       *   五个字段都只有一句话（非空）—— 按"只补空"的规则，补全结果永远写不进去，
+       *   作者重跑 cast 也看不到改善。所以对**流水线自己创建**的行
+       *   （tags 含 `pipeline:cast`），允许用补全结果替换**明显是一句话**的旧值
+       *   （≤40 字且新值至少长 10 字）。作者写过的长文本不会被碰。
+       */
+      const isPipelineRow = typeof hit.tags === 'string' && hit.tags.includes('pipeline:cast');
       const set: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(patch)) {
-        if (v && !(hit as Record<string, unknown>)[k]) set[k] = v;
+        if (!v) continue;
+        const cur = (hit as Record<string, unknown>)[k];
+        if (!cur) {
+          set[k] = v;
+          continue;
+        }
+        if (isPipelineRow && typeof cur === 'string'
+          && cur.trim().length <= 40 && v.length > cur.trim().length + 10) {
+          set[k] = v;
+        }
       }
       if (!hit.role) set.role = role;
       if (Object.keys(set).length > 0) {
@@ -339,8 +603,9 @@ async function upsertCharacters(
       continue;
     }
     const aliases = asArray(c.aliases as unknown[]).map((a) => str(a)).filter((a): a is string => !!a);
+    const id = randomUUID();
     await db.insert(schema.characters).values({
-      id: randomUUID(),
+      id,
       projectId,
       name,
       role,
@@ -353,7 +618,46 @@ async function upsertCharacters(
       createdAt: now,
       updatedAt: now,
     });
+    nameToId.set(name, id);
+    relByChar.set(name, []);
+    created.add(name);
     stats.characters.created++;
+  }
+
+  /**
+   * ★ 关系放在**第二轮**写（2026-11-07）：第一轮结束时所有角色 id 才齐，
+   *   否则「A → 排在后面的 B」会因为 B 还没插入而解析不到 targetId。
+   *   解析不到的（名单外的人名、单字名）直接丢弃 —— 不猜、不新建。
+   */
+  for (const c of rows) {
+    const name = usableName(c.name);
+    if (!name) continue;
+    const id = nameToId.get(name);
+    if (!id) continue;
+    const list = relByChar.get(name) ?? [];
+    let changed = false;
+    for (const raw of asArray(c.relations)) {
+      const targetName = str(raw?.target);
+      if (!targetName) continue;
+      const targetId = nameToId.get(targetName);
+      if (!targetId || targetId === id) continue;
+      const type = str(raw.type) ?? '关联';
+      // 幂等：同一对 (targetId, type) 只留一条
+      if (list.some((x) => x.targetId === targetId && x.type === type)) continue;
+      list.push({
+        targetId,
+        type,
+        ...(str(raw.description) ? { description: str(raw.description) } : {}),
+        direction: 'mutual',
+        chapter: null,
+      });
+      changed = true;
+    }
+    if (!changed) continue;
+    await db.update(schema.characters)
+      .set({ relations: JSON.stringify(list), updatedAt: now })
+      .where(eq(schema.characters.id, id));
+    if (!created.has(name)) stats.characters.updated++;
   }
 }
 

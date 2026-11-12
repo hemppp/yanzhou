@@ -94,6 +94,11 @@ export async function resolveSettingsDigest(
       role: schema.characters.role,
       desire: schema.characters.desire,
       fear: schema.characters.fear,
+      // ★ 2026-11-07：信念 / 弱点 / 外貌此前不读 —— cast 落库补全后这几列有值了，
+      //   写作官却看不到，等于白补（角色的"为什么这样做"主要靠信念与弱点判断）
+      belief: schema.characters.belief,
+      weakness: schema.characters.weakness,
+      appearance: schema.characters.appearance,
       personality: schema.characters.personality,
       speechStyle: schema.characters.speechStyle,
       backstory: schema.characters.backstory,
@@ -148,9 +153,34 @@ export async function resolveSettingsDigest(
     .where(eq(schema.projects.id, projectId));
   const proj = projRows[0] ?? {};
 
-  const charLines = chars.map((c) =>
-    `- ${c.name}（${c.role ?? '未定位'}）：欲望=${cut(c.desire, 80)} 恐惧=${cut(c.fear, 60)} 性格=${cut(c.personality, 100)} 语言风格=${cut(c.speechStyle, 60)} 背景=${cut(c.backstory, 120)}`,
-  );
+  /**
+   * ★ 2026-11-07：角色注入**分档**。
+   *   档案补全后每个角色有 600–800 字的可写细节；全员满配会把上下文撑爆（角色多时 20+ 人），
+   *   而路人甲本来也不需要弧光。所以：
+   *     · 主角 / 女主 / 配角 → 完整档（欲望/恐惧/信念/弱点/外貌/性格/语言/背景）
+   *     · 路人甲 → 只留写作时真会用到的两项，避免噪声
+   *   各字段仍按上限截断：补全偶尔会写成小作文，不能让一个角色吃掉整段预算。
+   */
+  const charLines = chars.map((c) => {
+    if (c.role === 'minor') {
+      const terse = [
+        cut(c.personality, 60) ? `性格=${cut(c.personality, 60)}` : '',
+        cut(c.speechStyle, 40) ? `说话=${cut(c.speechStyle, 40)}` : '',
+      ].filter(Boolean);
+      return terse.length ? `- ${c.name}（路人甲）：${terse.join(' ')}` : `- ${c.name}（路人甲）`;
+    }
+    const parts = [
+      `欲望=${cut(c.desire, 110)}`,
+      `恐惧=${cut(c.fear, 90)}`,
+      `信念=${cut(c.belief, 90)}`,
+      `致命弱点=${cut(c.weakness, 90)}`,
+      `外貌=${cut(c.appearance, 90)}`,
+      `性格=${cut(c.personality, 160)}`,
+      `语言风格=${cut(c.speechStyle, 110)}`,
+      `背景=${cut(c.backstory, 180)}`,
+    ];
+    return `- ${c.name}（${c.role ?? '未定位'}）：${parts.join(' ')}`;
+  });
   const fshLines = fsh.map((f) =>
     `- [${f.type}/${f.status}] ${cut(f.description, 80)}（埋于第${f.seedChapter}章${f.payoffChapter ? `，回收于第${f.payoffChapter}章` : '，未回收'}）`,
   );

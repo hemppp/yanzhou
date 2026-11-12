@@ -215,6 +215,26 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
               />
             </FormField>
 
+            {/* ★ 2026-11-07：信念 / 致命弱点 两列 DB 早就有、AI 写作流水线现在也会写，
+                但详情页一直没入口 —— 作者既看不到、也改不了。补齐，与欲望/恐惧同一层。 */}
+            <FormField label="信念" hint="他相信什么、为什么信（判断角色「为什么这样做」的根据）">
+              <input
+                value={(entity as Character).belief || ''}
+                onChange={(e) => saveAny({ belief: e.target.value })}
+                className={inputCls}
+                placeholder="角色坚信的东西..."
+              />
+            </FormField>
+
+            <FormField label="致命弱点" hint="会被对手利用的那一处（不是普通缺点）">
+              <input
+                value={(entity as Character).weakness || ''}
+                onChange={(e) => saveAny({ weakness: e.target.value })}
+                className={inputCls}
+                placeholder="角色最容易被击破的地方..."
+              />
+            </FormField>
+
             <FormField label="背景故事">
               <textarea
                 value={(entity as Character).backstory || ''}
