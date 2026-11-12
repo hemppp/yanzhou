@@ -125,7 +125,7 @@ apps/plugins/
 ## 5. 状态可观测性
 
 - `GET /api/health` → `pluginStandard`（标准版本）+ `plugins[]`（每插件 `id/status/error/modes`）。
-- `GET /api/admin/plugins`（需管理员）→ 状态 + 权限 + 依赖 + 被依赖 + `source`（builtin/local/npm）+ 守护器快照。
+- `GET /api/plugin-manager`（本地版无鉴权）→ 状态 + 权限 + 依赖 + 被依赖 + `source`（builtin/local/npm）+ 守护器快照。
 - 被扫描器拒绝的插件也会登记进宿主状态（`recordInstallRejections`），**不会静默消失**。
 - 被 **HOST_MODE 过滤**（见 §6.2）的插件不进入挂载管线，但仍在状态表中可见，`status: 'skipped'`，
   `error` 形如 `HOST_MODE_FILTERED: 宿主模式 manual，插件模式 [auto]` —— 是「跳过」而非「消失」。

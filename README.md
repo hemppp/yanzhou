@@ -70,13 +70,11 @@ pnpm build && pnpm start:server   # 生产：静态资源由基座托管
 > 并**被静默降级**为 `status:degraded` —— 不报错，只是插件全部加载失败，极难排查。
 
 > ⚠️ **`VITE_API_BASE_URL` 必须带 `/api` 后缀**（如 `http://localhost:3774/api`）。
-> 前端把它当作 API 根（默认 `/api`），相对路径（如 `/auth/login`）直接拼在其后；
-> **漏写 `/api`（如 `http://localhost:3774`）会让请求打到 `http://localhost:3774/auth/login` → 全部 API 404、登录不可用**（症状隐蔽，易误判为后端故障）。
+> 前端把它当作 API 根（默认 `/api`），相对路径（如 `/projects`）直接拼在其后；
+> **漏写 `/api`（如 `http://localhost:3774`）会让请求打到 `http://localhost:3774/projects` → 全部 API 404**（症状隐蔽，易误判为后端故障）。
 > 另：`HOST_MODE`（`manual` / `auto` / `all`，未设 = `all`）可在启动期按机器角色裁剪插件集合，见 `docs/architecture/plugin-standard.md`。
 
-**首次登录**：用户名默认 `admin`（可用 `ADMIN_USERNAME` 覆盖）。密码取 `ADMIN_PASSWORD` 环境变量；
-未设置时会**自动生成随机强密码并打印到控制台（仅显示一次）**，请立即登录修改。
-生产环境必须显式设置 `JWT_SECRET`（缺失将拒绝启动）。
+**本地版无账号体系**：没有注册/登录/管理员页面，所有请求自动以唯一的本地用户身份执行。
 
 **运行测试**
 

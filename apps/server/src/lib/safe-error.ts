@@ -49,12 +49,3 @@ export function safeBusiness(
   console.error(`${logPrefix} 未分类异常（隐藏详情）:`, error);
   return fallbackMessage;
 }
-
-/**
- * 处理 token 验证错误：所有 JWT 相关异常统一返回通用提示，
- * 不暴露 "jwt malformed" / "jwt expired" / "invalid signature" 等细节。
- */
-export function safeTokenError(error: unknown, logPrefix: string = '[Auth]'): string {
-  console.warn(`${logPrefix} Token 验证失败:`, error instanceof Error ? error.message : error);
-  return 'Token 无效或已过期，请重新登录';
-}

@@ -8,7 +8,7 @@
 // （内置模块 / 管理器 / 本地插件）各挑一条真实路由断言「挂载 ≠ 404」，
 // 并用 404 阴性对照证明断言本身有区分度。
 //
-// 装配方式与 index.ts 完全一致（仅省去代理初始化、管理员引导、定时器）。
+// 装配方式与 index.ts 完全一致（仅省去代理初始化、本地用户引导、定时器）。
 // ============================================================
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -96,19 +96,22 @@ describe('插件挂载冒烟（真实 HTTP）', () => {
     }
   });
 
-  it('阴性对照：未知 /api 路由返回 404（证明 401/200 断言有区分度）', async () => {
+  it('阴性对照：未知 /api 路由返回 404（证明可达性断言有区分度）', async () => {
     const res = await get('/api/__smoke_no_such_route__');
     expect(res.status).toBe(404);
   });
 
-  it('内置业务模块：未鉴权访问 /api/projects 应 401 而非 404', async () => {
+  // 本地版没有登录流程：所有接口按本地用户身份直接可达。
+  it('内置业务模块：/api/projects 可达（非 404）', async () => {
     const res = await get('/api/projects');
-    expect(res.status).toBe(401);
+    expect(res.status).toBeLessThan(500);
+    expect(res.status).not.toBe(404);
   });
 
-  it('插件管理器：未鉴权访问 /api/admin/plugins 应 401 而非 404', async () => {
-    const res = await get('/api/admin/plugins');
-    expect(res.status).toBe(401);
+  it('插件管理器：/api/plugin-manager 可达（非 404）', async () => {
+    const res = await get('/api/plugin-manager');
+    expect(res.status).toBeLessThan(500);
+    expect(res.status).not.toBe(404);
   });
 
   it('本地插件 bookscan：路由可达（/api/plugins/bookscan/sources 非 404）', async () => {
@@ -117,8 +120,8 @@ describe('插件挂载冒烟（真实 HTTP）', () => {
     expect(res.status).not.toBe(404);
   });
 
-  it('本地插件 typography：路由可达（非 404）', async () => {
-    const res = await get('/api/plugins/typography');
+  it('本地插件 typography：路由可达（/api/plugins/typography/settings 非 404）', async () => {
+    const res = await get('/api/plugins/typography/settings');
     expect(res.status).toBeLessThan(500);
     expect(res.status).not.toBe(404);
   });
@@ -129,13 +132,4 @@ describe('插件挂载冒烟（真实 HTTP）', () => {
     expect(res.status).not.toBe(404);
   });
 
-  it('公开认证路由：POST /api/auth/login 可达（非法凭据返回 4xx 而非 404/5xx）', async () => {
-    const res = await get('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '__smoke__', password: '__smoke__' }),
-    });
-    expect(res.status).toBeLessThan(500);
-    expect(res.status).not.toBe(404);
-  });
 });

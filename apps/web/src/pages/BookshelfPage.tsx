@@ -11,7 +11,6 @@ import { setQueryData } from '@/services/api/queryClient';
 import { queryKeys } from '@/services/api/queryKeys';
 // ★ 2026-10-07「跳转加载转圈」全修复（④）：书架条目 hover/按下即预取「进项目」链路 chunk
 import { prefetchProjectEntry } from '@/routes/prefetch';
-import { useAuthStore } from '@/stores/authStore';
 import {
   useProjectStore,
   useChapterStore,
@@ -145,7 +144,6 @@ function readStoredLibrary(): LibraryMode {
 
 export function BookshelfPage() {
   const navigate = useNavigate();
-  const logout = useAuthStore(s => s.logout);
   const setCurrentProject = useProjectStore(s => s.setProject);
   const [showAddModal, setShowAddModal] = useState(false);
   /** 当前所在的库（手写 / AI 自动写作）—— 只影响书架页看什么，不影响书的 mode */
@@ -326,13 +324,6 @@ export function BookshelfPage() {
       }
     }
   }, [books, applyBooks]);
-
-  const handleLogout = useCallback(async () => {
-    const confirmed = await safeConfirm('确定要退出登录吗？');
-    if (!confirmed) return;
-    logout();
-    navigate('/');
-  }, [logout, navigate]);
 
   const handleEditBook = useCallback((book: Project) => {
     setEditingBook(book);
@@ -571,15 +562,10 @@ export function BookshelfPage() {
           )}
         </main>
 
-        {/* Footer：只留一处版权与登出。
-            ★ 2026-10-29：去掉衬线体与「砚舟 · 墨香书阁」（品牌已由顶栏字标承担，
-              页脚再写一遍是重复信息）；字号从 10px 提到 11px —— 10px 的正文
-              在 1x 屏上低于中文可读下限。 */}
+        {/* Footer：只留版权。
+            ★ 本地版没有账号体系，原「退出登录」入口已移除。 */}
         <footer className="bs-footer">
           <span>© {new Date().getFullYear()} 砚舟</span>
-          <button type="button" onClick={handleLogout} className="bs-footer-link">
-            退出登录
-          </button>
         </footer>
       </div>
 

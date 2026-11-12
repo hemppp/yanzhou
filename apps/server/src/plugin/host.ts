@@ -294,7 +294,7 @@ export function createServerPluginHost(options: ServerPluginHostOptions = {}): S
     register(prefix: string, router: unknown, opts?: { pluginId?: string }): () => void {
       if (registeredPrefixes.has(prefix)) return () => undefined;
       // ★ 前缀边界：动态/本地插件（携带 pluginId）只允许注册 /api/plugins/{id}；
-      //   /api/admin、/api/auth 等其他前缀仅限内置模块，防止插件劫持宿主或管理面。
+      //   /api/plugin-manager 等其他前缀仅限内置模块，防止插件劫持宿主或管理面。
       if (opts?.pluginId && !/^\/api\/plugins\/[a-z0-9][a-z0-9-]*$/.test(prefix)) {
         console.error(`[cordis-host] 插件 ${opts.pluginId} 试图注册非插件前缀路由 ${prefix}，已拒绝（仅允许 /api/plugins/{id}）`);
         return () => undefined;

@@ -21,7 +21,7 @@ export default defineConfig(({ command, mode }) => {
   //   背景：宿主/IDE 可能把 VITE_API_BASE_URL 注入到**进程环境**，而 Vite 解析环境
   //   变量时 process.env 的优先级高于 .env 文件（见 vite 的 loadEnv 实现）。
   //   若该值漏写 /api（如 http://localhost:3774），前端会把请求打到
-  //   http://localhost:3774/auth/login（应 /api/auth/login）→ 404 / CORS 预检失败
+  //   http://localhost:3774/projects（应 /api/projects）→ 404 / CORS 预检失败
   //   → 浏览器报 "网络错误: Failed to fetch"，症状隐蔽、极易误判为后端故障。
   //   这里统一规范化，并写回 process.env 使 import.meta.env 与 dev server 端一致。
   const rawApiBase = (

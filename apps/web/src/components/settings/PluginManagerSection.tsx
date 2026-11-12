@@ -1,8 +1,8 @@
 // ============================================================
 // 插件管理设置 Section —— 查看/开关插件 + 守护器（隔离箱）+ 全局依赖检查
 //
-// 数据源：GET /api/admin/plugins（列表 + 依赖分析 + 守护策略）
-// 动作：POST /api/admin/plugins/:id/enable | /disable | /promote | /re-quarantine
+// 数据源：GET /api/plugin-manager（列表 + 依赖分析 + 守护策略）
+// 动作：POST /api/plugin-manager/:id/enable | /disable | /promote | /re-quarantine
 // ============================================================
 
 import { useEffect, useState } from 'react';
@@ -129,7 +129,7 @@ export function PluginManagerSection() {
     refresh: reload,
   } = useCachedQuery<PluginListResponse>(
     queryKeys.adminPlugins,
-    () => apiClient.get<PluginListResponse>('/admin/plugins'),
+    () => apiClient.get<PluginListResponse>('/plugin-manager'),
   );
   const data = pluginData ?? null;
 
@@ -153,7 +153,7 @@ export function PluginManagerSection() {
     setBusyId(p.id);
     setNotice('');
     try {
-      await apiClient.post(`/admin/plugins/${encodeURIComponent(p.id)}/${p.enabled ? 'disable' : 'enable'}`);
+      await apiClient.post(`/plugin-manager/${encodeURIComponent(p.id)}/${p.enabled ? 'disable' : 'enable'}`);
       setNotice(`「${p.name}」已${p.enabled ? '禁用' : '启用'}`);
       await reload();
     } catch (err) {
@@ -172,7 +172,7 @@ export function PluginManagerSection() {
     setBusyId(p.id);
     setNotice('');
     try {
-      await apiClient.post(`/admin/plugins/${encodeURIComponent(p.id)}/${action.endpoint}`);
+      await apiClient.post(`/plugin-manager/${encodeURIComponent(p.id)}/${action.endpoint}`);
       setNotice(`「${p.name}」${action.endpoint === 'promote' ? '已放行' : '已重置回隔离箱'}`);
       await reload();
     } catch (err) {

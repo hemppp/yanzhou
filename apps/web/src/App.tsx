@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { useAuthStore } from '@/stores/authStore';
-import { startSessionKeepalive } from '@/services/auth/sessionKeepalive';
 import { CommandPalette } from './components/ui/CommandPalette';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { PATHS } from './routes/paths';
@@ -21,9 +19,6 @@ import {
   loadChapterEditor,
   loadBookshelf,
   loadSettings,
-  loadAdmin,
-  loadLogin,
-  loadRegister,
   loadLanding,
   PRELOAD_ON_PATH,
   ALL_ROUTE_LOADERS,
@@ -41,9 +36,6 @@ const ProjectIndexPage = lazyRoute(loadProjectIndex);
 const ChapterEditor = loadChapterEditor ? lazyRoute(loadChapterEditor) : null;
 const BookshelfPage = lazyRoute(loadBookshelf);
 const SettingsPage = lazyRoute(loadSettings);
-const AdminPage = lazyRoute(loadAdmin);
-const LoginPage = lazyRoute(loadLogin);
-const RegisterPage = lazyRoute(loadRegister);
 const LandingPage = lazyRoute(loadLanding);
 
 type IdleWindow = Window & {
@@ -66,45 +58,6 @@ const CommandPaletteHotkey: React.FC = () => {
   }, []);
   if (!open) return null;
   return <CommandPalette isOpen={open} onClose={() => setOpen(false)} onNavigate={navigate} />;
-};
-
-/**
- * 路由权限守卫：未登录用户自动重定向到登录页，登录后回到原页面。
- * - isLoading 阶段（后台验证 token）：显示加载动画，避免闪烁
- * - 未认证：重定向到 /login，携带 redirect 路径
- * - requireAdmin：需要管理员权限的路由（如 /admin）
- */
-const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boolean }> = ({ children, requireAdmin }) => {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  const isInitialized = useAuthStore((s) => s.isInitialized);
-  const location = useLocation();
-
-  // 初始化未完成或正在后台验证 token：显示加载状态
-  // 防止 persist 恢复的 isAuthenticated: true 在验证前短暂绕过守卫
-  if (!isInitialized || (!isAuthenticated && isLoading)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div
-          className="w-8 h-8 border-2 rounded-full animate-spin"
-          style={{ borderColor: 'hsl(var(--primary))', borderTopColor: 'transparent' }}
-        />
-      </div>
-    );
-  }
-
-  // 未认证：重定向到登录页，登录后回到当前页
-  if (!isAuthenticated) {
-    return <Navigate to={PATHS.login} state={{ redirect: location.pathname }} replace />;
-  }
-
-  // 需要管理员权限但不具备：重定向到书架
-  if (requireAdmin && !user?.isAdmin) {
-    return <Navigate to={PATHS.bookshelf} replace />;
-  }
-
-  return <>{children}</>;
 };
 
 /**
@@ -174,26 +127,24 @@ const AppRoutes: React.FC = () => {
     };
   }, []);
 
+  // 本地版没有登录/管理员：插件路由的 guard 不再拦截，一律直接渲染。
   const renderPluginRoute = (def: PluginRouteDef) => {
     const Comp = def.Component;
-    let element = <PageFade><Comp /></PageFade>;
-    if (def.guard === 'protected') element = <ProtectedRoute>{element}</ProtectedRoute>;
-    if (def.guard === 'admin') element = <ProtectedRoute requireAdmin>{element}</ProtectedRoute>;
     if (def.inProject) {
       return (
-        <Route key={def.path} path={def.path} element={<ProtectedRoute><PageFade><ProjectLayout /></PageFade></ProtectedRoute>}>
+        <Route key={def.path} path={def.path} element={<PageFade><ProjectLayout /></PageFade>}>
           <Route index element={<Comp />} />
         </Route>
       );
     }
-    return <Route key={def.path} path={def.path} element={element} />;
+    return <Route key={def.path} path={def.path} element={<PageFade><Comp /></PageFade>} />;
   };
 
   return (
     <Routes location={location}>
       <Route path={PATHS.root} element={<PageFade><LandingPage /></PageFade>} />
-      <Route path={PATHS.bookshelf} element={<ProtectedRoute><PageFade><BookshelfPage /></PageFade></ProtectedRoute>} />
-      <Route path={PATHS.project} element={<ProtectedRoute><PageFade><ProjectLayout /></PageFade></ProtectedRoute>}>
+      <Route path={PATHS.bookshelf} element={<PageFade><BookshelfPage /></PageFade>} />
+      <Route path={PATHS.project} element={<PageFade><ProjectLayout /></PageFade>}>
         <Route index element={<ProjectIndexPage />} />
         {/* ★ 带 bookId 的 index 路由（2026-09-15 加）——
             没有它时 `/project/<id>` 单段会落到 path='*' 变 404（2026-09-13 GUI 走查踩过），
@@ -206,12 +157,9 @@ const AppRoutes: React.FC = () => {
             落到下方 path='*' 的 404（**不**伪造空组件兜底）。 */}
         {ChapterEditor && <Route path=':bookId/:chapterId' element={<ChapterEditor />} />}
       </Route>
-      <Route path={PATHS.settings} element={<ProtectedRoute><PageFade><SettingsPage /></PageFade></ProtectedRoute>} />
-      {/* ★ UI 改造对照页（仅 dev）：不需要登录 —— 它不读任何业务数据 */}
+      <Route path={PATHS.settings} element={<PageFade><SettingsPage /></PageFade>} />
+      {/* ★ UI 改造对照页（仅 dev）：不读任何业务数据 */}
       {UiPreviewPage && <Route path='/dev/ui-preview' element={<React.Suspense fallback={null}><UiPreviewPage /></React.Suspense>} />}
-      <Route path={PATHS.admin} element={<ProtectedRoute requireAdmin><PageFade><AdminPage /></PageFade></ProtectedRoute>} />
-      <Route path={PATHS.login} element={<PageFade><LoginPage /></PageFade>} />
-      <Route path={PATHS.register} element={<PageFade><RegisterPage /></PageFade>} />
       {/* 插件注册的路由 */}
       {pluginRoutes.map(renderPluginRoute)}
       <Route path='*' element={<PageFade><NotFoundPage /></PageFade>} />
@@ -220,7 +168,6 @@ const AppRoutes: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  React.useEffect(() => { useAuthStore.getState().initialize(); startSessionKeepalive(); }, []);
   return (
     <ErrorBoundary>
       <BrowserRouter>

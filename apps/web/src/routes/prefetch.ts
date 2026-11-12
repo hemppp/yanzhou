@@ -31,9 +31,6 @@ export const loadProjectIndex = () => import('../pages/ProjectIndexPage').then(m
 export const loadChapterEditor = loadModuleComponent<ComponentType<any>>('manual', 'ChapterEditor');
 export const loadBookshelf = () => import('../pages/BookshelfPage').then(m => ({ default: m.BookshelfPage }));
 export const loadSettings = () => import('../pages/SettingsPage').then(m => ({ default: m.SettingsPage }));
-export const loadAdmin = () => import('../pages/AdminPage').then(m => ({ default: m.AdminPage }));
-export const loadLogin = () => import('../pages/LoginPage').then(m => ({ default: m.LoginPage }));
-export const loadRegister = () => import('../pages/RegisterPage').then(m => ({ default: m.RegisterPage }));
 export const loadLanding = () => import('../pages/LandingPage').then(m => ({ default: m.LandingPage }));
 
 /**
@@ -99,9 +96,6 @@ export const ALL_ROUTE_LOADERS: Array<() => Promise<unknown>> = [
   ...(loadChapterEditor ? [loadChapterEditor] : []),
   loadBookshelf,
   loadSettings,
-  loadAdmin,
-  loadLogin,
-  loadRegister,
   loadLanding,
 ];
 

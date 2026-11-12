@@ -157,22 +157,22 @@ describe('novel.autowrite 挂载（真实宿主）', () => {
     expect(listSkillMetas().map((m) => m.id)).not.toContain('auto-write');
   });
 
-  it('GET /api/ai/skills 路由存在（未鉴权 401 而非 404）', async () => {
+  // 本地版没有鉴权：路由已注册即直接可达。
+  it('GET /api/ai/skills 路由存在（非 404）', async () => {
     const res = await get('/api/ai/skills');
-    expect(res.status).toBe(401);
+    expect(res.status).toBeLessThan(500);
+    expect(res.status).not.toBe(404);
   });
 
-  // 注（2026-10-19 回仓后恢复）：novel.autowrite 的实现路由已重新注册
-  // `/api/plugins/autowrite` 前缀 ⇒ 该前缀下子路径**命中前缀鉴权**，未带凭证时是 401
-  // （**不再是** 404 —— 404 是 t10 剥离期骨架不注册该前缀时的表现）。
-  // 断言 401 的两层语义：
+  // 断言两层语义：
   //   · 该前缀**已注册**（未注册只会是 Hono 通用 404）；
   //   · 且不是被模式门禁挡下（此处无 X-Project-Id，不触发项目模式门禁）。
-  it('流水线路由已注册（未鉴权 ⇒ 401，而非未注册的 404）', async () => {
+  it('流水线路由已注册（非 404）', async () => {
     const res = await get('/api/plugins/autowrite/pipeline/runs');
-    expect(res.status).toBe(401);
+    expect(res.status).toBeLessThan(500);
+    expect(res.status).not.toBe(404);
     const body = await res.json().catch(() => ({})) as { error?: { code?: string } };
-    expect(body?.error?.code, '应是鉴权拦截而非项目模式门禁')
+    expect(body?.error?.code, '不应是项目模式门禁')
       .not.toBe('PLUGIN_MODE_MISMATCH');
   });
 });

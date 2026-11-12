@@ -204,13 +204,8 @@ export interface CreatePluginArgs {
   webCode?: string;
 }
 
-export async function createPlugin(args: CreatePluginArgs, ctx: { projectId: string; user?: { id?: string; isAdmin?: boolean } }): Promise<{ success: boolean; result: string }> {
-  // ★ 权限闸门（handler 层）：插件 serverCode 会在服务端进程内动态 import 执行，
-  //   等同任意代码执行能力，必须仅限管理员。工具定义层过滤只是第一道闸，
-  //   此处是最终授权校验（纵深防御，防止未来其他调用路径绕过）。
-  if (!ctx.user?.isAdmin) {
-    return { success: false, result: '权限不足：创建插件需要管理员权限（请使用管理员账号登录后重试）' };
-  }
+export async function createPlugin(args: CreatePluginArgs, ctx: { projectId: string; user?: { id?: string } }): Promise<{ success: boolean; result: string }> {
+  // 本地版没有账号/管理员，不再做角色闸门；保留下面的自定义源码安全策略。
 
   // ★ 自定义源码闸门：serverCode 会在服务端进程内动态 import 执行。
   //   默认只允许内置固定模板；确需自定义源码时显式设置 PLUGIN_ALLOW_CUSTOM_CODE=1。
@@ -247,7 +242,7 @@ export async function createPlugin(args: CreatePluginArgs, ctx: { projectId: str
   return createPluginInternal({ ...args, id, name }, ctx, '');
 }
 
-async function createPluginInternal(args: CreatePluginArgs, ctx: { projectId: string; user?: { id?: string; isAdmin?: boolean } }, prefixNote: string): Promise<{ success: boolean; result: string }> {
+async function createPluginInternal(args: CreatePluginArgs, ctx: { projectId: string; user?: { id?: string } }, prefixNote: string): Promise<{ success: boolean; result: string }> {
   const { id, name } = args;
   // ★ 目录使用完整规范化 id（含点号），杜绝不同完整 id 共享 shortId 导致的目录碰撞覆盖
   const dir = join(LOCAL_PLUGINS_DIR, id);

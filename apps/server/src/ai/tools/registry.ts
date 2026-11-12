@@ -25,10 +25,9 @@ import type { ToolDefinition } from '../providers/provider-factory.js';
 export interface ToolContext {
   /** 当前项目 ID（用于项目隔离，所有写入操作绑定此项目；必须先经过项目归属校验） */
   projectId: string;
-  /** 发起工具调用的用户信息（必填：权限校验与审计依赖可信身份，不再允许匿名执行） */
+  /** 发起工具调用的用户信息（本地版固定为本地用户，仅用于数据归属与审计） */
   user: {
     id?: string;
-    isAdmin?: boolean;
   };
 }
 

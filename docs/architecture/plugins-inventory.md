@@ -82,7 +82,7 @@
 - **文件**：`apps/server/src/plugin/manager.ts`（宿主启动时以插件身份挂载，刻意演示"管理功能本身也是插件"）
 - **模式**：`shared`（未显式声明 → 缺省 `shared`）
 - **作用**：查看/开关插件、检查全局依赖
-- **路由**（全部 `requireAuth + requireAdmin`）：`GET /api/admin/plugins`、`GET /api/admin/plugins/deps`、`POST /api/admin/plugins/:id/enable`、`POST /api/admin/plugins/:id/disable`
+- **路由**（本地版无鉴权）：`GET /api/plugin-manager`、`GET /api/plugin-manager/deps`、`POST /api/plugin-manager/:id/enable`、`POST /api/plugin-manager/:id/disable`
 
 ### `novel.worldbuilding` —— 世界观建造师（示例插件）
 

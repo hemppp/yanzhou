@@ -22,9 +22,6 @@ export {
 } from './api/apiClient';
 export type { ApiClient, ApiClientConfig, RequestOptions } from './api/apiClient';
 
-export { authApi, adminApi } from './api/authApi';
-export type { LoginRequest, RegisterRequest, AuthResponse, AdminUser, AdminStats } from './api/authApi';
-
 // ---- 数据服务 ----
 export * from './data/databaseService';
 export {

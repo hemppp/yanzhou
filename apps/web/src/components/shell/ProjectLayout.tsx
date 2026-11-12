@@ -48,9 +48,6 @@ import React, { useEffect, useMemo, useCallback, useState, Suspense } from 'reac
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import {
   Settings,
-  LogOut,
-  User,
-  Shield,
   AlertTriangle,
   ArrowLeft,
   Moon,
@@ -58,7 +55,6 @@ import {
 } from 'lucide-react';
 import { useProjectStore, useChapterStore } from '@/stores';
 import { useReferenceStore } from '@/stores/referenceStore';
-import { useAuthStore } from '@/stores/authStore';
 import { PATHS } from '@/routes/paths';
 import { apiClient } from '@/services/api/apiClient';
 import { useCachedQuery } from '@/hooks/useCachedQuery';
@@ -151,8 +147,6 @@ export function ProjectLayout() {
   }, [backTarget, navigate]);
   var project = useProjectStore(function(s) { return s.currentProject; });
   var setProject = useProjectStore(function(s) { return s.setProject; });
-  var user = useAuthStore(function(s) { return s.user; });
-  var logout = useAuthStore(function(s) { return s.logout; });
 
   // 打开状态来自 store（编辑器内的插件面板栏共享同一份，可开关面板）
   var openPanelKeys = usePanelOpenStore(function(s) { return s.keys; });
@@ -423,11 +417,6 @@ export function ProjectLayout() {
     };
   }, [navigate]);
 
-  var handleLogout = useCallback(async function() {
-    await logout();
-    navigate(PATHS.login);
-  }, [logout, navigate]);
-
   // ★ 创作模式分流：AI 写作模式走固定工作台 —— 不渲染停靠外壳。
   //   刻意放在所有 hooks 之后，保证两种模式下 hooks 的调用顺序完全一致。
   //   ★ 工作台组件来自注册表槽（auto 模块注册）。模块缺席 ⇒ activeWorkbench 为 null
@@ -526,37 +515,7 @@ export function ProjectLayout() {
             >
               <Settings size={15} />
             </button>
-            {user?.isAdmin && (
-              <button
-                onClick={function() { navigate(PATHS.admin); }}
-                className="nm-btn-apple-icon-sm"
-                title="管理员后台"
-                aria-label="管理员后台"
-              >
-                <Shield size={15} />
-              </button>
-            )}
-            {/* ★ 2026-10-29：用户名文字从顶栏撤掉，只留头像。
-               这是 29px 高的一行，右侧原本挤着 7 个元素；文字名与它左边的
-               首字头像表达的是同一件事，等于白占一份宽度 —— 而且名字一长
-               （中文 2 字以上）就会把「设置 / 登出」往左挤。名字改为 title
-              提示（悬停可见），信息没丢。 */}
-            {user && (
-              <div className="shell-user-chip" title={user.displayName || user.username}>
-                <div className="shell-user-avatar" aria-hidden="true">
-                  {user.displayName ? user.displayName.charAt(0).toUpperCase() : <User size={10} />}
-                </div>
-                <span className="sr-only">{user.displayName || user.username}</span>
-              </div>
-            )}
-            <button
-              onClick={handleLogout}
-              className="nm-btn-apple-icon-sm"
-              title="登出"
-              aria-label="登出"
-            >
-              <LogOut size={15} />
-            </button>
+            {/* 本地版没有账号体系：管理员入口、用户头像与登出按钮均已移除。 */}
           </div>
         </header>
 

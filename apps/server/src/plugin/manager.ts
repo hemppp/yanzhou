@@ -2,13 +2,12 @@
 // 插件管理器（内置插件）—— 查看/开关插件、检查全局依赖
 //
 // 由宿主在启动时以"插件"身份挂载（演示"管理功能本身也是插件"）。
-// 路由：GET /api/admin/plugins、GET /api/admin/plugins/deps、
-//       POST /api/admin/plugins/:id/enable、POST /api/admin/plugins/:id/disable
-// 全部需 requireAuth + requireAdmin。
+// 路由：GET /api/plugin-manager、GET /api/plugin-manager/deps、
+//       POST /api/plugin-manager/:id/enable、POST /api/plugin-manager/:id/disable
+// 本地版没有账号/管理员，管理接口不再做鉴权。
 // ============================================================
 
 import { Hono } from 'hono';
-import { requireAuth, requireAdmin, type AuthVariables } from '../middleware/auth.js';
 import type { ServerPluginHost } from './host.js';
 import type { ServerPluginContext } from './types.js';
 import type { PluginEntry, PluginModule } from '@novel/core';
@@ -34,8 +33,7 @@ export function createPluginManagerPlugin(getHost: () => ServerPluginHost): Plug
   return {
     name: 'novel.plugin-manager',
     apply(ctx: ServerPluginContext): void {
-      const router = new Hono<{ Variables: AuthVariables }>();
-      router.use('*', requireAuth, requireAdmin);
+      const router = new Hono();
 
       /** 插件列表（含状态/权限/依赖/开关/守护器） */
       router.get('/', async (c) => {
@@ -135,8 +133,8 @@ export function createPluginManagerPlugin(getHost: () => ServerPluginHost): Plug
         }
       });
 
-      ctx.effect(() => ctx.routes.register('/api/admin/plugins', router), 'plugin-manager routes');
-      ctx.logger.info('插件管理器已挂载（/api/admin/plugins）');
+      ctx.effect(() => ctx.routes.register('/api/plugin-manager', router), 'plugin-manager routes');
+      ctx.logger.info('插件管理器已挂载（/api/plugin-manager）');
     },
   };
 }

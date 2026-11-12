@@ -4,7 +4,7 @@
 // ============================================================
 
 // ★ 必须置于首位：顶层副作用加载仓库根 .env，确保下面所有
-//   `process.env.X`（PORT / HOST_MODE / JWT_SECRET …）都能读到 .env。
+//   `process.env.X`（PORT / HOST_MODE …）都能读到 .env。
 //   ESM 按 import 顺序求值 ⇒ 本行先于任何其它模块的顶层代码执行。
 //   不再依赖 `tsx --env-file=`（此前遗漏即静默丢配置）。
 import './env.js';
@@ -17,12 +17,10 @@ import { createPluginManagerEntry } from './plugin/manager.js';
 import { scanLocalPluginsDetailed } from './plugin/local-scanner.js';
 import { setPluginHostForTools } from './ai/tools/plugin-tools.js';
 import { createSqliteKvService } from './plugin/kv-service.js';
-import { initDatabase, closeDatabase, closeAllProjectDbs, getDb, eq, schema, saveToDisk, getMainSqlite, migrateToProjectDbs } from '@novel/db';
+import { initDatabase, closeDatabase, closeAllProjectDbs, getDb, schema, getMainSqlite, migrateToProjectDbs } from '@novel/db';
 // 代理初始化必须在所有可能发起 fetch 的模块加载前执行
 import { initProxy } from './lib/proxy-agent.js';
-import { v4 as uuidv4 } from 'uuid';
-import { randomBytes } from 'node:crypto';
-import { hashPassword } from './lib/jwt.js';
+import { ensureLocalUser } from './services/local-user-service.js';
 
 // 端口：支持 PORT 环境变量覆盖（Docker/容器化场景必需），默认 3774
 // PORT=0 时让操作系统自动分配可用端口（Electron 桌面端场景）
@@ -37,14 +35,6 @@ const serverPluginHost = createServerPluginHost({ kv, hostMode });
 console.warn(`[Server] HOST_MODE=${hostMode}${process.env.HOST_MODE && hostMode === 'all' ? `（环境值 "${process.env.HOST_MODE}" 非法，回退 all）` : ''}`);
 
 (async () => {
-  // ---- 启动守卫：生产环境必须显式配置 JWT_SECRET ----
-  // 安全最佳实践：签名密钥缺失/回退到公开值 = 任意用户 token 可伪造。
-  // 缺失时拒绝启动（fail-fast），绝不进入「半可用」状态。
-  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-    console.error('[Server] ❌ 生产环境必须设置 JWT_SECRET 环境变量（生成方式：openssl rand -hex 32）。已拒绝启动。');
-    process.exit(1);
-  }
-
   // 尽早初始化代理，让后续所有 fetch 自动走代理（解决中国大陆直连 OpenAI 的 ETIMEDOUT）
   try {
     await initProxy();
@@ -56,55 +46,8 @@ console.warn(`[Server] HOST_MODE=${hostMode}${process.env.HOST_MODE && hostMode 
     // 初始化数据库（schema 自动迁移 / 建表）
     await initDatabase(process.env.DB_PATH);
 
-    // 初始化默认管理员用户（如果不存在）
-    try {
-      const db = getDb();
-      if (db) {
-        // 引导条件是「系统里没有任何管理员」，而不是「没有叫 admin 的用户」。
-        // 否则管理员一旦改名，下次启动会再造一个 admin 账号出来。
-        const adminUsername = process.env.ADMIN_USERNAME ?? 'admin';
-        const existingAdmin = db.select({ id: schema.users.id })
-          .from(schema.users)
-          .where(eq(schema.users.isAdmin, true))
-          .get();
-
-        if (!existingAdmin) {
-          // 首次创建管理员：优先用 ADMIN_PASSWORD 环境变量；未设置则生成随机强口令并打印到控制台。
-          // 安全最佳实践：移除固定默认口令（admin/novelmuse123 曾公开写死在源码/README，人人可登录管理员）。
-          const adminPassword = process.env.ADMIN_PASSWORD ?? randomBytes(16).toString('base64url');
-          const now = new Date();
-          const userId = uuidv4();
-          const passwordHash = await hashPassword(adminPassword);
-
-          db.insert(schema.users).values({
-            id: userId,
-            username: adminUsername,
-            passwordHash,
-            displayName: '管理员',
-            isAdmin: true,
-            createdAt: now,
-            updatedAt: now,
-          }).run();
-
-          await saveToDisk(true);
-          if (process.env.ADMIN_PASSWORD) {
-            console.warn(`[Server] ✅ 默认管理员用户创建成功 (${adminUsername} / 密码来自 ADMIN_PASSWORD 环境变量)`);
-          } else {
-            console.warn(`[Server] ✅ 默认管理员用户创建成功 (${adminUsername})`);
-            console.warn(`[Server] 🔑 管理员初始密码（仅本次启动显示，请立即登录后修改）: ${adminPassword}`);
-          }
-        } else if (process.env.ADMIN_PASSWORD) {
-          // ADMIN_PASSWORD 显式设置时：每次启动同步管理员密码（明确意图优先于界面修改）
-          const syncedHash = await hashPassword(process.env.ADMIN_PASSWORD);
-          db.update(schema.users).set({ passwordHash: syncedHash, updatedAt: new Date() })
-            .where(eq(schema.users.username, adminUsername)).run();
-          await saveToDisk(true);
-          console.warn(`[Server] 已按 ADMIN_PASSWORD 环境变量同步管理员密码（${adminUsername}）`);
-        }
-      }
-    } catch (initErr) {
-      console.error('[Server] 初始化默认用户失败', initErr);
-    }
+    // 本地版：引导唯一的本地用户（无登录/管理员，仅用于数据归属）
+    await ensureLocalUser();
 
     // 主库 → 项目库 数据迁移（首次启动时拆分已有数据到每项目独立库）
     try {

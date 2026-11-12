@@ -3,7 +3,7 @@
 // ------------------------------------------------------------
 // 背景：tsx 4.x **不会**自动加载 .env；此前只能靠 `tsx --env-file=…`
 //   手动传（scripts / start-dev.cmd 里都容易漏），一漏就静默丢配置
-//   （ADMIN_PASSWORD / JWT_SECRET / PORT… 全部回退默认值）。
+//   （PORT / HOST_MODE / AI 配置… 全部回退默认值）。
 // 方案：用 Node 原生 `process.loadEnvFile()`（Node ≥20.12 / 本项目 Node ≥24）
 //   从**仓库根**加载 .env。
 // 语义（关键）：loadEnvFile **不覆盖**已存在的 process.env ——

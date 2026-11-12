@@ -69,8 +69,7 @@ export function LandingPage() {
       {/* 液态玻璃环境背景由 App.tsx 全局挂载 */}
 
       {/* ===== 顶部导航（2026-10-29 新增）=====
-          此前落地页没有任何导航：访客（尤其已注册的）在首页找不到「登录」。
-          左侧是字标，中间是章节锚点，右侧是登录 + 主行动。 */}
+          左侧是字标，中间是章节锚点，右侧是主行动（本地版无登录入口）。 */}
       <nav className="landing-nav" aria-label="站点导航">
         <div className="landing-nav-inner">
           <div className="landing-nav-brand">
@@ -93,9 +92,6 @@ export function LandingPage() {
             </button>
           </div>
           <div className="landing-nav-actions">
-            <button type="button" className="landing-nav-link" onClick={() => navigate('/login')}>
-              登录
-            </button>
             <button
               type="button"
               className="nm-btn-apple-primary"

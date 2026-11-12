@@ -27,7 +27,7 @@ try {
 }
 
 /**
- * 获取当前 JWT 令牌（内存态；页面刷新后为 null，会话恢复走 Cookie + /auth/me）
+ * 获取当前内存令牌（本地版恒为 null；保留函数以兼容旧调用点）
  * @返回 当前令牌，不存在则返回 null
  */
 export function getToken(): string | null {
@@ -120,12 +120,12 @@ export function buildUrl(baseUrl: string, path: string, params?: Record<string, 
   // baseUrl 可能是：
   //   - 绝对 URL（含协议），如 'http://localhost:3774/api'
   //   - 相对路径，如 '/api'
-  // path 是 API 相对路径，如 '/auth/login'。
+  // path 是 API 相对路径，如 '/projects'。
   //
   // ★ 不能用 new URL(path, baseUrl)：path 以 '/' 开头时，URL 解析会用 path
-  //   替换掉 baseUrl 的整个路径段（'http://host/api' + '/auth/login'
-  //   → 'http://host/auth/login'），把 baseUrl 里的 '/api' 前缀吞掉，
-  //   导致请求打到 http://localhost:3774/auth/login（缺 /api）→ 404 / CORS 预检失败。
+  //   替换掉 baseUrl 的整个路径段（'http://host/api' + '/projects'
+  //   → 'http://host/projects'），把 baseUrl 里的 '/api' 前缀吞掉，
+  //   导致请求打到 http://localhost:3774/projects（缺 /api）→ 404 / CORS 预检失败。
   //   这里显式做「base 路径 + 子路径」拼接，保留 baseUrl 的路径前缀。
   const isAbsolute = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(baseUrl);
   const joinedPath = `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
@@ -289,18 +289,10 @@ function createApiClient(config: ApiClientConfig): ApiClient {
 
       // ========== 错误处理 ==========
       if (!response.ok) {
-        // 401 Unauthorized：自动清除令牌 + 跳转登录页 + 静默（不弹 toast）
+        // 本地版没有登录流程：401 只清掉内存令牌并静默，不再跳转登录页。
         if (response.status === 401 && autoHandleUnauthorized) {
           clearToken();
-          // 静默标记：后续 catch 块不再 dispatchApiErrorEvent
           isUnauthorizedSilent = true;
-          // 跳转到登录页（仅在浏览器环境且当前不在登录页时）
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-            // 用 setTimeout 避免在 fetch 链中跳转打断当前帧
-            setTimeout(() => {
-              window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-            }, 0);
-          }
         }
 
         if (isJson) {

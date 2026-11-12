@@ -47,7 +47,6 @@ const PORT_AUTO = Number(process.env.VERIFY_PORT_AUTO) || 3792;
 const PORT_CONSTRUCT = Number(process.env.VERIFY_PORT_CONSTRUCT) || 3793;
 
 const TMP_DIR = path.join(ROOT, '.workbuddy', 'tmp-verify-mode');
-const PASSWORD = 'Probe1234!';
 
 // ---- 契约常量（与 server-dev t2 实现口径一致）----
 // 迁移后：manual={novel.bookscan, worldbuilding}、auto={novel.autowrite}、shared={novel.typography}
@@ -107,9 +106,6 @@ async function startServer(hostMode, preferredPort, extraEnv = {}) {
       // 独立临时库：不污染 data/novelmuse.db（各模式各一个，避免互相串）
       DB_PATH: path.join(TMP_DIR, `novelmuse-${hostMode}-${port}.db`),
       NODE_ENV: 'development',
-      JWT_SECRET: 'verify-mode-separation-secret',
-      // 覆盖仓库 .env 里的 ALLOW_REGISTRATION=false（探针要建临时账号）
-      ALLOW_REGISTRATION: 'true',
       NO_COLOR: '1',
       FORCE_COLOR: '0',
       ...extraEnv,
@@ -154,14 +150,11 @@ function stopServer(s) {
   } catch { /* 已退出 */ }
 }
 
-// ---- 带 cookie 的请求工具（临时 server 上注册/登录/建项目/打路由）----
+// ---- 请求工具（临时 server 上建项目/打路由；本地版无需登录）----
 function makeClient(port) {
-  let cookie = '';
   return async function req(p, opts = {}) {
-    const headers = { 'content-type': 'application/json', ...(cookie ? { cookie } : {}), ...(opts.headers || {}) };
+    const headers = { 'content-type': 'application/json', ...(opts.headers || {}) };
     const res = await fetch(`http://127.0.0.1:${port}${p}`, { ...opts, headers });
-    const sc = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
-    if (sc.length) cookie = sc.map((c) => c.split(';')[0]).join('; ');
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch { /* 非 JSON */ }
@@ -169,17 +162,13 @@ function makeClient(port) {
   };
 }
 
-/** 在某个临时 server 上：注册→登录→建一个指定 mode 的项目；返回带 cookie 的 req + projectId */
+/** 在某个临时 server 上：建一个指定 mode 的项目；返回 req + projectId */
 async function provision(port, mode, label) {
   const req = makeClient(port);
-  const username = `mode_${label}`;
-  let r = await req('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, password: PASSWORD, displayName: label }) });
-  if (r.status === 409) r = await req('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password: PASSWORD }) });
-  if (r.status >= 400) throw new Error(`[${label}] 注册/登录失败 HTTP ${r.status}: ${r.text.slice(0, 200)}`);
   const proj = await req('/api/projects', { method: 'POST', body: JSON.stringify({ name: `mode-${label}`, mode }) });
   const id = proj.json?.data?.id;
   if (!id) throw new Error(`[${label}] 建项目失败 HTTP ${proj.status}: ${proj.text.slice(0, 200)}`);
-  return { req, projectId: id, username };
+  return { req, projectId: id };
 }
 
 // ---- health 视角：挂载(ok) vs 被过滤(skipped) 必须分开看 ----

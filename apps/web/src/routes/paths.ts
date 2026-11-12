@@ -8,9 +8,6 @@ export const PATHS = {
   bookshelf: '/bookshelf',
   settings: '/settings',
   project: '/project',
-  login: '/login',
-  register: '/register',
-  admin: '/admin',
 } as const;
 
 export const PROJECT_ROUTES = {

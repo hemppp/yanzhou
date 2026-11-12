@@ -17,7 +17,6 @@ export const queryKeys = {
   /** 章节计数，按项目 id 列表整体缓存（调用方需保证 id 列表顺序稳定） */
   chapterCounts: (projectIdsKey: string) => ['chapter-counts', projectIdsKey] as string[],
   /** 管理后台总览：用户列表 + 统计（一起取，一起缓存） */
-  adminOverview: ['admin', 'overview'] as string[],
   /** 管理后台的插件列表 */
   adminPlugins: ['admin', 'plugins'] as string[],
 };

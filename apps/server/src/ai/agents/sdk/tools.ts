@@ -28,8 +28,6 @@ import { listChapters, updateChapter } from '../../../services/chapter-service.j
 export interface NovelAgentContext {
   projectId: string;
   userId: string;
-  /** 管理员身份（SDK Agent 默认不暴露 create_plugin 等高危工具，此字段供审计） */
-  isAdmin?: boolean;
   /** 章节写入能力默认关闭（安全模式）；恢复需显式传 true 并配合服务端审批 */
   allowWriteChapter?: boolean;
 }
@@ -85,7 +83,7 @@ export function wrapExistingTools(allowedNames?: ReadonlySet<string>): Tool<Nove
         const projectId = agentCtx?.projectId ?? '';
         const result: ToolHandlerResult = await executeTool(name, args, {
           projectId,
-          user: { id: agentCtx?.userId ?? '', isAdmin: agentCtx?.isAdmin },
+          user: { id: agentCtx?.userId ?? '' },
         });
         return JSON.stringify(result);
       },

@@ -31,8 +31,6 @@ export { useStatsStore } from './statsStore';
 export { cascadeCleanChapterClient } from './cascadeClean';
 
 export { cascadeCleanFlag } from './cascadeCleanFlag';
-export { useAuthStore } from './authStore';
-export type { User } from './authStore';
 export { useEditorStore } from './editorStore';
 export { useOutlineNotepadStore } from './outlineNotepadStore';
 export type { NotepadSection, OutlineNotepadData } from './outlineNotepadStore';

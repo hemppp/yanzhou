@@ -21,8 +21,6 @@ function moduleEntry(id: string, manifest: PluginEntry['manifest'], load: Plugin
 }
 
 export const BUILTIN_PLUGINS: PluginEntry[] = [
-  // 认证（公开路由，必须最先注册）
-  builtinEntry('novel.auth', '/api/auth', () => import('../modules/auth.js')),
   // 项目与核心
   builtinEntry('novel.projects', '/api/projects', () => import('../modules/projects.js')),
   builtinEntry('novel.chapters', '/api/chapters', () => import('../modules/chapters.js')),
@@ -45,9 +43,8 @@ export const BUILTIN_PLUGINS: PluginEntry[] = [
   builtinEntry('novel.stats', '/api/stats', () => import('../modules/stats.js')),
   builtinEntry('novel.search', '/api/search', () => import('../modules/search.js')),
   builtinEntry('novel.references', '/api/references', () => import('../modules/references.js')),
-  // AI / 管理
+  // AI
   builtinEntry('novel.ai', '/api/ai', () => import('../modules/ai.js')),
-  builtinEntry('novel.admin', '/api/admin', () => import('../modules/admin.js')),
 
   // ── 完整插件（自带 apply，演示插件契约）──
   // 世界观建造师：路由 + AI 工具 + 技能 + 事件订阅（数据走 KV，无需迁移）

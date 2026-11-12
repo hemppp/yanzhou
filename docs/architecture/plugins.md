@@ -217,20 +217,20 @@ curl -X POST http://localhost:3774/api/plugins/worldbuilding \
 | 运行时开关 | 启用 = 重新 apply；禁用 = 逆序清理 disposers（AI 工具/技能/事件/定时任务/KV 即时生效） |
 | 状态持久化 | 禁用清单存主库 `plugin_kv`（`novel.host:disabled-plugins`），重启后仍保持禁用 |
 | 依赖保护 | 依赖的插件未启用时，启用被拒（HTTP 409 DEPENDENCY_UNMET）；禁用前提示受影响的依赖方 |
-| 全局依赖检查 | `GET /api/admin/plugins/deps` 返回互相依赖图 + 缺失依赖 + 循环依赖警告 |
+| 全局依赖检查 | `GET /api/plugin-manager/deps` 返回互相依赖图 + 缺失依赖 + 循环依赖警告 |
 
 **已知限制（Hono 架构性）**：路由注册后无法 unroute、matcher 构建后无法新增路由。因此：
 - 禁用插件后，其路由在**重启后**才真正失效（扩展点已即时清理）
 - 首次启用（本进程内未注册过路由）时路由可能需重启生效，插件其余扩展点立即恢复
 
-管理端接口（均需 requireAuth + requireAdmin）：
+管理端接口（本地版无鉴权）：
 ```text
-GET   /api/admin/plugins                # 列表 + 依赖分析 + 守护策略
-GET   /api/admin/plugins/deps           # 全局依赖分析
-POST  /api/admin/plugins/:id/enable     # 启用（校验依赖）
-POST  /api/admin/plugins/:id/disable    # 禁用（返回受影响的依赖方）
-POST  /api/admin/plugins/:id/promote        # 守护器：手动放行（跳过剩余隔离期）
-POST  /api/admin/plugins/:id/re-quarantine  # 守护器：重置回隔离箱（被熔断禁用的会同时重新挂载启用）
+GET   /api/plugin-manager                # 列表 + 依赖分析 + 守护策略
+GET   /api/plugin-manager/deps           # 全局依赖分析
+POST  /api/plugin-manager/:id/enable     # 启用（校验依赖）
+POST  /api/plugin-manager/:id/disable    # 禁用（返回受影响的依赖方）
+POST  /api/plugin-manager/:id/promote        # 守护器：手动放行（跳过剩余隔离期）
+POST  /api/plugin-manager/:id/re-quarantine  # 守护器：重置回隔离箱（被熔断禁用的会同时重新挂载启用）
 ```
 
 ### 7.1 插件守护器与隔离箱

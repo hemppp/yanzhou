@@ -17,7 +17,7 @@
 //   docs/architecture/web-workbench-split-contract.md:18,185、:202 t5 行），
 //   scripts/verify/verify-workbench-isolation.mjs:167 的 DOMAIN_BY_PATH 同口径。
 //   kernel 侧放该前缀会同时触发 K2A（kernel→auto 跨域 import）与 B-ENTRY
-//   （kernel 深引模块内部路径）。本服务是 kernel 自有，故与 authApi.ts 同放
+//   （kernel 深引模块内部路径）。本服务是 kernel 自有，故与 apiClient 同放
 //   `services/api/`（DOMAIN_BY_PATH:162 明列 kernel）。
 //
 // ⚠️ 「测试连接」与「拉取模型列表」都读**服务端已保存**的配置 ⇒ 有未保存改动时

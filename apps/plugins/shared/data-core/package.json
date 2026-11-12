@@ -2,7 +2,7 @@
   "name": "@novel-plugins/data-core",
   "version": "0.1.0",
   "private": true,
-  "description": "共享数据层：鉴权 API 客户端（resolveApiUrl）、数据库/同步服务、实体检测与共享 store",
+  "description": "共享数据层：API 客户端（resolveApiUrl）、数据库/同步服务、实体检测与共享 store",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -21,11 +21,6 @@
       "types": "./src/api/apiClient.ts",
       "import": "./src/api/apiClient.ts",
       "default": "./src/api/apiClient.ts"
-    },
-    "./api/authApi": {
-      "types": "./src/api/authApi.ts",
-      "import": "./src/api/authApi.ts",
-      "default": "./src/api/authApi.ts"
     },
     "./*": {
       "types": "./src/*.ts",

@@ -947,7 +947,6 @@ aiRouter.post('/chat-stream', requireAuth, ensureConfigMiddleware, aiRateLimit, 
             }, {
               projectId: toolProjectId,
               userId: user?.id ?? '',
-              isAdmin: user?.isAdmin === true,
               // ★ 安全模式：Agent 暂时只读，章节写入（write_chapter）默认不暴露。
               //   恢复需实现服务端审批 + 快照 + 版本校验后显式开启。
               allowWriteChapter: false,
@@ -980,13 +979,13 @@ aiRouter.post('/chat-stream', requireAuth, ensureConfigMiddleware, aiRateLimit, 
             // ★ 章节提案（propose_chapter_edit）也是无条件给的：它**不写库**，
             //   只是让 AI 把改法交到作者面前确认。真写入在前端点确认后走
             //   `PUT /api/chapters/:id` —— 服务端这一侧没有任何正文写入路径。
-            // ★ 权限过滤：create_plugin 等同服务端代码执行，仅对管理员暴露给 LLM
+            // 本地版没有管理员角色：插件工具直接暴露给 LLM
             const toolDefs = getToolDefinitions([
               ...READ_TOOL_NAMES,
               ...ENTITY_TOOL_NAMES,
               PROPOSE_CHAPTER_TOOL_NAME,
               ...getPluginToolNames(),
-              ...(user?.isAdmin ? PLUGIN_TOOL_NAMES : []),
+              ...PLUGIN_TOOL_NAMES,
             ]);
             console.log('[chat-stream] 工具模式诊断: toolDefs=' + toolDefs.length, '插件工具=' + toolDefs.map((d) => d.function.name).filter((n) => n.startsWith('autowrite')).join(','));
 
@@ -1008,7 +1007,7 @@ aiRouter.post('/chat-stream', requireAuth, ensureConfigMiddleware, aiRateLimit, 
             }, {
               signal,
               tools: toolDefs,
-              toolContext: { projectId: toolProjectId, user: { id: user?.id ?? '', isAdmin: user?.isAdmin } },
+              toolContext: { projectId: toolProjectId, user: { id: user?.id ?? '' } },
               maxToolRounds: 5,
             });
 

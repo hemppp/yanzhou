@@ -2,9 +2,8 @@
 // Hono 应用工厂
 // 集中配置 CORS、安全响应头、请求体大小限制、错误处理、日志
 //
-// 认证中间件说明：
-// - requireAuth: 强制认证，用于受保护的路由（从 middleware/auth 导入）
-// - optionalAuth: 可选认证，用于需要区分登录状态的路由
+// 用户上下文说明（本地版）：
+// - requireAuth: 注入本地用户上下文（不再做认证），从 middleware/auth 导入
 // - 使用方式：在具体路由中按需引入，如 router.get('/protected', requireAuth, handler)
 // ============================================================
 

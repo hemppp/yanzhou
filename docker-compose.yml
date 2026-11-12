@@ -39,19 +39,7 @@ services:
       PORT: 3774
       # 数据库路径
       DB_PATH: /app/data/novelmuse.db
-      # 管理员引导账号用户名（仅在系统内还没有任何管理员时生效，默认 admin）
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
-      # 管理员密码（不设置则首次启动自动生成随机强密码并打印到日志）
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # JWT 密钥（生产必填：不设置则容器拒绝启动。生成：openssl rand -hex 32）
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (generate with: openssl rand -hex 32)}
-      # 会话有效期（活跃期间前端每 10 分钟滑动续期；此值≈停止使用后多久退出登录）
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-30d}
-      # ---- 安全开关（C4/C8/C10）----
-      # 会话 Cookie：仅 HTTPS 反向代理场景设为 true
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      # 注册开关：容器默认暴露 0.0.0.0，生产默认关闭注册（防任意账号占用 AI 额度）
-      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+      # 本地版没有账号体系：无需 JWT / 管理员 / 注册相关配置。
       # SSRF 防护：如需让用户配置指向局域网内的 AI 服务，设为 true 放开私网地址
       AI_SSRF_ALLOW_PRIVATE: ${AI_SSRF_ALLOW_PRIVATE:-false}
       # ---- AI 配置（也可在应用内 UI 配置，环境变量为全局默认）----
