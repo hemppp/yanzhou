@@ -610,25 +610,37 @@ export function BookshelfPage() {
         /* ★ 2026-11-04：三段式（品牌 / 库切换 / 操作）。
            原来是两段 space-between，直接插第三个子元素会让三段均匀分布、
            品牌与操作区都往中间挤。
-           ★ 2026-11-05 修：不能用 1fr auto 1fr —— 那会把两侧压成等宽，
+           ★ 2026-11-05：不能用 1fr auto 1fr —— 那会把两侧压成等宽，
              而右侧（搜索 + 设置 + 新建）实测要 326px、左侧只要 45px，
              窄屏下右侧被挤到「新建」折成两行（实测 694px 视口复现）。
-             改为 auto 1fr auto：两侧按内容取自然宽，中间那条弹性空间里居中。
+           ★ 2026-11-12 修「切换库时中间那枚开关会左右跳」：
+             上一版是 grid auto 1fr auto，中间 1fr 轨道的宽度 = 剩下多少空间，
+             而「AI 自动写作」侧会把右侧的搜索框与「新建」整块拿掉（实测 295px），
+             轨道随之变宽 / 变窄，轨道的几何中心也跟着平移 147px，
+             于是开关整体跟着跳（截图实测 x 中心 608 → 758）。
+             修法：品牌与操作区仍留在流内两端（space-between），
+             中间开关改为**脱离文档流**、相对整条顶栏绝对居中 ——
+             两侧内容再怎么增删，都不再影响它的位置。
+             窄屏（≤900px）退回流内三列布局：此时两侧会挤在一起，
+             绝对居中会压到右侧按钮，见文件末尾的媒体查询。
              ⚠️ 本段位于 <style> 的**模板字符串**内部，注释中绝不能出现反引号 ——
                 会提前闭合它，表现为「页面异常 / Failed to fetch dynamically
                 imported module」（本次已踩过一次）。 */
         .bs-topbar-inner {
-          display: grid;
-          grid-template-columns: auto 1fr auto;
+          position: relative;
+          display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: var(--space-6);
           width: 100%; max-width: 1440px;
           margin: 0 auto;
           padding: var(--space-5) var(--space-8);
         }
-        .bs-brand { justify-self: start; }
-        .bs-library { justify-self: center; }
-        .bs-topbar-actions { justify-self: end; }
+        .bs-library {
+          position: absolute;
+          left: 50%; top: 50%;
+          transform: translate(-50%, -50%);
+        }
         /* 「新建」绝不能折行：一旦被挤就会变成两行、把顶栏撑高 */
         .bs-topbar-actions .nm-btn-apple-primary { white-space: nowrap; flex-shrink: 0; }
 
@@ -849,6 +861,18 @@ export function BookshelfPage() {
         @media (max-width: 900px) {
           .bs-topbar-inner, .bs-main, .bs-footer { padding-left: var(--space-5); padding-right: var(--space-5); }
           .bs-brand-tag { display: none; }
+          /* ★ 2026-11-12：窄屏放弃「绝对居中」，退回流内三列。
+             这里两侧内容已经快贴到一起（右侧实测 326px），绝对定位的开关
+             会压在搜索框上；宁可换库时轻微位移，也不能重叠不可点。 */
+          .bs-topbar-inner {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+          }
+          .bs-library {
+            position: static;
+            transform: none;
+            justify-self: center;
+          }
         }
         @media (max-width: 640px) {
           .nm-book-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
