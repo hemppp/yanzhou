@@ -303,6 +303,13 @@ export interface StreamTimelineEvent {
   characterNames: string[];
   chapterOrder: number;
   timestamp?: string;
+  /**
+   * 原文证据片段（逐字来自当前章节）。
+   * ★ 2026-11-07：模型最容易「脑补」event，而 title/description 都是概括，
+   *   无法逐字核对。quote 是唯一能确定性验证「这件事真的写在原文里」的字段，
+   *   落库前用它做真伪校验（见 toTimelineEvent / toKeywordEvent）。
+   */
+  quote?: string;
 }
 
 /** 流式扫描输出的实体（角色/物品/地点） */
@@ -338,6 +345,20 @@ export interface StreamAliasMatch {
   context: string;
 }
 
+/**
+ * 流式扫描输出的积分流水（系统文）。
+ * 只从原文明确写出的积分数额 / 系统赠予中提取，不猜测。
+ */
+export interface StreamCreditTransaction {
+  creditType: 'credit_transaction';
+  action: 'gain' | 'spend' | 'gift';
+  characterName: string;
+  amount: number;
+  reason?: string;
+  itemName?: string;
+  chapterOrder: number;
+}
+
 const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手。你的任务是阅读章节内容，提取角色/物品/地点实体、物品装备流转、角色别名关系，以及关键时间线事件。
 
 【最高原则】必须严格从段落原文中识别名字，绝不能脑补、推测或"规范化"文中没有出现的名字。
@@ -359,8 +380,9 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
   "speechStyle":"说话风格(从原文对话提取，如'文绉绉'、'粗犷直接'、'喜欢用反问句')"
 - 物品流转行格式：{"transferType":"item_transfer","itemName":"物品名","fromCharacter":"来源角色名(无则空字符串)","toCharacter":"目标角色名(无则空字符串)","action":"gained|lost|transferred","context":"上下文片段"}
 - 角色别名行格式：{"aliasType":"alias_match","primaryName":"主名称","aliases":["别名1","别名2"],"context":"依据上下文"}
-- 事件行格式：{"title":"事件标题(15字内)","description":"具体发生了什么","type":"event|foreshadow|state_change","characterNames":["角色名"],"timestamp":"故事内时间(如有)"}
-- 先输出所有实体行，再输出别名行，再输出物品流转行，最后输出事件行
+- 积分流水行格式：{"creditType":"credit_transaction","action":"gain|spend|gift","characterName":"角色名","amount":数字,"reason":"事由","itemName":"关联物品名(可选)"}
+- 事件行格式：{"title":"事件标题(8-15字)","description":"起因—经过—结果(30-80字)","type":"event|foreshadow|state_change","characterNames":["原文中出现过的称呼"],"timestamp":"故事内时间(如有)","quote":"原文逐字片段(10-40字)"}
+- 先输出所有实体行，再输出别名行，再输出物品流转行、积分流水行，最后输出事件行
 - 逐行输出，不要换行缩进，不要输出任何其他文字
 - 实体 entityType 含义：character=角色，item=物品，location=地点
 
@@ -427,12 +449,17 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
        - 玉佩、扳指、手镯 → 佩戴在身 → clothing（若剧情强调它是身份/赠别的信物 → token；
          若剧情强调价值连城被争夺而从不佩戴 → treasure）
     4) 优先级：防护用途 > 信物用途 > 佩戴用途 > 价值用途（例：既是佩戴又是信物的玉佩 → token）
-  - 识别要求：
-    - 只要物品有具体名称（专有名词）或被角色使用/携带/争夺，就必须输出为 item 实体行
-    - 不要遗漏任何被角色使用、携带、获得、失去的物品
-    - 泛指类物品（如"一把剑"、"一杯茶"）如果没有具体名称且无剧情意义，可以不输出
-    - 但如果泛指物品在后续流转中有意义（如角色获得了一把无名宝剑），仍需输出
-    - 宁可多识别也不要遗漏，每个有名称的物品都必须输出
+  - ★ 识别要求（精度优先，宁缺毋滥）：
+    - 只输出原文中真实出现、且是**具体物件**的物品；不确定时宁可不输出
+    - 物品必须有具体名称，或被角色使用/携带/获得/失去/争夺
+    - 泛指类物品（如"一把剑"、"一杯茶"）没有专名且无流转意义时不要输出
+    - 如果泛指物品在后续流转中有意义（如角色获得了一把无名宝剑），仍需输出
+  - ★ 绝对不是物品（违反即视为识别错误）：
+    - 货币/数值/属性：积分、金币、银两、灵石、经验、等级、属性、"500 积分"、"100 金币"
+    - 系统界面元素：系统面板、属性面板、任务面板、商城界面、系统提示、对话框、按钮、菜单
+    - 功法/技能/招式本身（如"基础剑法"）——除非原文明确写的是秘籍、卷轴、玉简等实物载体
+    - 角色名、地点名、组织/门派名、抽象概念
+  - ★ 同一物品只输出一次；名称用原文中最完整的称呼，不要加书名号/引号
 
 【角色别名识别规则（极其重要，优先级最高，精度优先）】
 - 只有非常确定是同一个人的不同称呼才合并为别名关系，宁可不合并也不能误合并
@@ -480,9 +507,24 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
   - 只有当角色与物品的持有关系发生明确变化时才输出 gained/lost/transferred；无变化但有持有/使用行为 → held
   - held 行在重复扫描时会去重，不会产生重复关系
 - 事件 type 含义：event=普通剧情事件，foreshadow=伏笔铺垫，state_change=状态变化
-- 以已发生的事情为基准，按时间先后顺序排列事件
-- 如果文中有明确时间线索（如"三天后"、"次年春天"、"第二章"），填入 timestamp
-- 没有角色参与的事件 characterNames 填空数组 []
+- ★ 积分流水识别规则（只在原文明确写出时输出，绝不猜测数字）：
+  - "消耗/花费/扣除/扣掉 X 积分" → action=spend, amount=X, reason 概括用途（如"兑换基础剑法"）
+  - "获得/奖励/到账/增加 X 积分" → action=gain, amount=X, reason 概括来源（如"完成新手任务"）
+  - "系统赠送/奖励了某物"但没有积分数字 → action=gift, amount=0, itemName=赠予的物品名
+  - 普通物品获得、没有积分数字的消耗，不要当作积分流水
+  - 同一笔流水只输出一次
+
+【时间线事件识别规则（精度优先，必须严格执行）】
+- 只记录本章真实发生、推动剧情的事件；环境描写、内心感慨、纯背景交代不单独成事件
+- 以已发生的事情为基准，按原文叙事先后顺序输出事件
+- 一个独立的情节动作/转折成一条；不同时间、不同地点、不同因果的动作**不得合并**成一条；只有同一动作的分句才合并
+- title：动宾短语，8-15 字，能独立看懂；不要以"本章""故事""随后"这类空话开头
+- description：交代起因—经过—结果，30-80 字，只写原文实际发生的事，不加评价、不推测人物动机
+- characterNames：只填本事件中实际出场或直接受影响的角色，且必须是原文中**逐字出现过**的称呼；没有角色就填空数组 []
+- quote ★必填：从原文**逐字复制** 10-40 字、最能定位该事件的一段连续文字；不得改写、拼接、加省略号、不得跨段拼凑
+- ★ 如果找不到能逐字复制的 quote，说明这件事不是原文实际发生的，**不要输出这条事件**
+- timestamp 只在原文有明确故事内时间（如"三日后""子时""次年春天"）时填写，不要自己推算
+- 同一件事只输出一条；不要把同一段拆成多条同义事件，也不要把多件事压成一条
 - 已有实体列表中的角色不需要再输出为实体行（characters 字段包含 name 和 aliases，文中出现的名字若已在某角色的 name 或 aliases 中，就视为已存在，不要重复输出实体行）
 - ★ 但物品（item）必须输出：文中出现的所有物品（含已有物品）都要输出 item 实体行并带 itemType ——客户端按名称去重，已有物品缺失类型时会用 itemType 补全分类
 - 但如果发现已有角色的新别名（既不在 name 也不在 aliases 中），仍需通过 alias_match 行补充
@@ -494,6 +536,7 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
 - ★ 单字名角色是否满足全部5条单字名输出条件？若否，删除该实体
 - ★ 是否有"动词+名词"或"介词+名词"组合被误识别为人名（如"按警员"）？若有，必须删除
 - ★ 角色名是否超过6个字？若是，极可能是句子片段误识别，必须检查并删除
+- ★ 每个 item 的 name 是否是具体物件，而不是货币/数值/界面/技能/地点/角色？
 - primaryName 是否是文中真实出现的称呼？若否，必须改用文中称呼`;
 
 function buildTimelineStreamUserPrompt(input: ScannerInput): string {
@@ -525,6 +568,162 @@ function buildTimelineStreamUserPrompt(input: ScannerInput): string {
   ].join('\n');
 }
 
+// ============================================================
+// 流式 JSON 对象解析（自动扫描 / 关键词提取共用）
+// ============================================================
+
+/**
+ * 增量式流 JSON 对象扫描器。
+ *
+ * 与「每次 chunk 都把残留 buffer 从头重扫」相比：
+ * - 跨 chunk 保留 depth / inString / escaped 状态，每个字符只访问一次（O(n)）；
+ * - 对象未闭合时只把本段 chunk 追加进 parts，闭合时 join 一次，
+ *   避免长对象在多轮重扫中反复拼接；
+ * - 普通对象直接 JSON.parse，失败才走 parseAgentJson 的修复路径。
+ *
+ * 解析规则仍与旧实现一致：只取顶层 `{...}`，跳过围栏与解释文字，
+ * 允许一行多个对象 / 数组包裹，并感知字符串里的 `{}` 与 `\` 转义。
+ */
+export class JsonObjectStreamParser {
+  /** 当前未闭合对象的文本片段（按 chunk 追加，闭合时 join 一次） */
+  private parts: string[] = [];
+  private depth = 0;
+  private inString = false;
+  private escaped = false;
+  private scanning = false;
+
+  /** 喂入一段流式文本，返回本次闭合且解析成功的对象 */
+  push(chunk: string): unknown[] {
+    const values: unknown[] = [];
+    let rest = chunk;
+
+    while (rest.length > 0) {
+      if (!this.scanning) {
+        const start = rest.indexOf('{');
+        if (start === -1) break; // 没有对象开头，前缀全是噪声
+        rest = rest.slice(start);
+        this.resetObject();
+        this.scanning = true;
+      }
+
+      let closedAt = -1;
+      for (let i = 0; i < rest.length; i++) {
+        const ch = rest[i]!;
+        if (this.escaped) {
+          this.escaped = false;
+          continue;
+        }
+        if (ch === '\\') {
+          this.escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          this.inString = !this.inString;
+          continue;
+        }
+        if (this.inString) continue;
+        if (ch === '{') {
+          this.depth++;
+        } else if (ch === '}') {
+          this.depth--;
+          if (this.depth === 0) {
+            closedAt = i;
+            break;
+          }
+        }
+      }
+
+      if (closedAt === -1) {
+        this.parts.push(rest); // 未闭合：保留到下一个 chunk 续接
+        break;
+      }
+
+      this.parts.push(rest.slice(0, closedAt + 1));
+      const raw = this.parts.join('');
+      const value = parseJsonObject(raw);
+      if (value) {
+        values.push(value);
+      } else {
+        // 这个对象解析失败：尝试从中恢复完整的嵌套对象
+        values.push(...recoverCompleteObjects(raw.slice(1)));
+      }
+
+      this.scanning = false;
+      this.parts = [];
+      rest = rest.slice(closedAt + 1);
+    }
+
+    return values;
+  }
+
+  /**
+   * 流结束：返回无法闭合的残留（仅供诊断）。
+   * 同时尝试从残留中恢复完整的嵌套对象，避免「外层缺一个 } 就整批丢失」。
+   */
+  flush(): { values: unknown[]; rest: string } {
+    if (!this.scanning) return { values: [], rest: '' };
+
+    const raw = this.parts.join('');
+    this.scanning = false;
+    this.resetObject();
+    return { values: recoverCompleteObjects(raw.slice(1)), rest: raw };
+  }
+
+  private resetObject(): void {
+    this.parts = [];
+    this.depth = 0;
+    this.inString = false;
+    this.escaped = false;
+  }
+}
+
+/**
+ * 从一段可能包含残坏对象的文本中恢复**已闭合**的对象。
+ * 只 push（不再 flush），避免「一长串未闭合 {」触发递归 flush 的深调用栈。
+ */
+function recoverCompleteObjects(text: string): unknown[] {
+  return new JsonObjectStreamParser().push(text);
+}
+
+/**
+ * 一次性解析：从任意文本中抽出**已闭合**的顶层 JSON 对象，
+ * 并保留未闭合的尾部。内部复用增量扫描器。
+ */
+export function extractCompleteJsonObjects(text: string): { values: unknown[]; rest: string } {
+  const parser = new JsonObjectStreamParser();
+  const values = parser.push(text);
+  const tail = parser.flush();
+  return { values: [...values, ...tail.values], rest: tail.rest };
+}
+
+/** 解析单个已闭合对象：先走严格 JSON，失败再用 parseAgentJson 修复 */
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // 继续走修复路径
+  }
+
+  try {
+    const parsed = parseAgentJson(raw, 'StreamJson');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 只接受普通对象（排除 null / 数组） */
+function asObjectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 /**
  * 流式扫描时间线事件
  *
@@ -542,6 +741,7 @@ export async function streamTimelineEvents(
     onEntity?: (entity: StreamEntity) => void;
     onItemTransfer?: (transfer: StreamItemTransfer) => void;
     onAliasMatch?: (aliasMatch: StreamAliasMatch) => void;
+    onCreditTransaction?: (credit: StreamCreditTransaction) => void;
   } = {},
 ): Promise<StreamTimelineEvent[]> {
   const messages: ChatMessage[] = [
@@ -550,335 +750,552 @@ export async function streamTimelineEvents(
   ];
 
   const events: StreamTimelineEvent[] = [];
-  let buffer = '';
+  const scanner = new JsonObjectStreamParser();
   let totalChunkLen = 0;
   let chunkCount = 0;
 
   let entityCount = 0;
   let transferCount = 0;
   let aliasCount = 0;
-  let failedLines = 0;
+  let creditCount = 0;
+  let failedRecords = 0;
   const entityLog: string[] = []; // ★ 记录 AI 实际输出的实体名，便于诊断"AI 是否识别对了"
   const aliasLog: string[] = [];  // ★ 记录 AI 输出的别名关系
   console.log('[streamTimelineEvents] 开始流式扫描，章节内容长度=', input.chapterContent.length);
 
+  /** 按判别字段分发一条已解析的 JSON 对象 */
+  const dispatchRecord = (value: unknown) => {
+    const record = parseStreamRecord(value, input.chapterOrder, input.chapterContent);
+    if (!record) {
+      failedRecords++;
+      // ★ 打印解析失败的具体对象，便于诊断 AI 输出格式问题
+      console.warn(`[streamTimelineEvents] 解析失败对象: ${JSON.stringify(value).slice(0, 200)}`);
+      return;
+    }
+
+    switch (record.kind) {
+      case 'entity':
+        entityCount++;
+        entityLog.push(
+          `${record.entity.entityType}:${record.entity.name}` +
+            (record.entity.itemType ? `(${record.entity.itemType})` : ''),
+        );
+        options.onEntity?.(record.entity);
+        break;
+      case 'alias':
+        aliasCount++;
+        aliasLog.push(
+          `${record.aliasMatch.primaryName} ← [${record.aliasMatch.aliases.join(',')}]`,
+        );
+        options.onAliasMatch?.(record.aliasMatch);
+        break;
+      case 'transfer':
+        transferCount++;
+        options.onItemTransfer?.(record.transfer);
+        break;
+      case 'credit':
+        creditCount++;
+        options.onCreditTransaction?.(record.credit);
+        break;
+      case 'event':
+        events.push(record.event);
+        options.onEvent?.(record.event);
+        break;
+    }
+  };
+
   for await (const chunk of chatStream(messages, { temperature: 0.3, maxTokens: 8192 }, options.signal)) {
     const text = chunk.content || '';
-    buffer += text;
     totalChunkLen += text.length;
     chunkCount++;
 
-    // 按换行符分割，最后一段可能不完整，保留在 buffer 中
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      // 跳过纯 markdown 代码块标记行
-      if (/^```(?:json)?$/i.test(trimmed)) continue;
-
-      // 尝试解析为实体行（有 entityType 字段）
-      const entity = tryParseStreamEntity(trimmed);
-      if (entity) {
-        entityCount++;
-        entityLog.push(`${entity.entityType}:${entity.name}${entity.itemType ? `(${entity.itemType})` : ''}`);
-        options.onEntity?.(entity);
-        continue;
-      }
-
-      // 尝试解析为别名行（有 aliasType 字段）
-      const aliasMatch = tryParseStreamAliasMatch(trimmed);
-      if (aliasMatch) {
-        aliasCount++;
-        aliasLog.push(`${aliasMatch.primaryName} ← [${aliasMatch.aliases.join(',')}]`);
-        options.onAliasMatch?.(aliasMatch);
-        continue;
-      }
-
-      // 尝试解析为物品流转行（有 transferType 字段）
-      const transfer = tryParseStreamItemTransfer(trimmed);
-      if (transfer) {
-        transferCount++;
-        options.onItemTransfer?.(transfer);
-        continue;
-      }
-
-      // 尝试解析为时间线事件（有 title 字段）
-      const event = tryParseTimelineEvent(trimmed, input.chapterOrder);
-      if (event) {
-        events.push(event);
-        options.onEvent?.(event);
-      } else {
-        failedLines++;
-        // ★ 打印解析失败的具体行，便于诊断 AI 输出格式问题
-        console.warn(`[streamTimelineEvents] 解析失败行: ${trimmed.slice(0, 200)}`);
-      }
-    }
+    for (const value of scanner.push(text)) dispatchRecord(value);
   }
 
-  // 处理 buffer 中剩余的内容
-  const trimmed = buffer.trim();
-  if (trimmed && !/^```(?:json)?$/i.test(trimmed)) {
-    const entity = tryParseStreamEntity(trimmed);
-    if (entity) {
-      options.onEntity?.(entity);
-    } else {
-      const aliasMatch = tryParseStreamAliasMatch(trimmed);
-      if (aliasMatch) {
-        options.onAliasMatch?.(aliasMatch);
-      } else {
-        const transfer = tryParseStreamItemTransfer(trimmed);
-        if (transfer) {
-          options.onItemTransfer?.(transfer);
-        } else {
-          const event = tryParseTimelineEvent(trimmed, input.chapterOrder);
-          if (event) {
-            events.push(event);
-            options.onEvent?.(event);
-          }
-        }
-      }
-    }
+  // 流结束：正常情况 scanner 只剩半条坏数据；尽量恢复其中完整的嵌套对象，并记录丢弃量
+  const tail = scanner.flush();
+  for (const value of tail.values) dispatchRecord(value);
+  if (tail.rest.trim()) {
+    failedRecords++;
+    console.warn(`[streamTimelineEvents] 丢弃未闭合的尾部: ${tail.rest.slice(0, 200)}`);
   }
 
   console.log(
     `[streamTimelineEvents] 流式扫描完成: ${chunkCount} 个chunk, 总长度=${totalChunkLen}, ` +
     `实体=${entityCount} [${entityLog.join(' | ')}], ` +
     `别名=${aliasCount} [${aliasLog.join(' | ')}], ` +
-    `流转=${transferCount}, 事件=${events.length}, 解析失败行=${failedLines}`,
+    `流转=${transferCount}, 积分流水=${creditCount}, ` +
+    `事件=${events.length}, 解析失败对象=${failedRecords}`,
   );
 
   return events;
 }
 
+/** 扫描流记录的判别结果 */
+export type StreamRecord =
+  | { kind: 'entity'; entity: StreamEntity }
+  | { kind: 'alias'; aliasMatch: StreamAliasMatch }
+  | { kind: 'transfer'; transfer: StreamItemTransfer }
+  | { kind: 'credit'; credit: StreamCreditTransaction }
+  | { kind: 'event'; event: StreamTimelineEvent };
+
+/** 对象 → 实体（角色/物品/地点），判别字段不是 entityType 时返回 null */
+function toStreamEntity(parsed: Record<string, unknown>): StreamEntity | null {
+  const entityType = parsed.entityType;
+  if (entityType !== 'character' && entityType !== 'item' && entityType !== 'location') return null;
+
+  const name = typeof parsed.name === 'string' ? parsed.name.trim() : '';
+  if (!name) return null;
+
+  return {
+    entityType,
+    name,
+    description: typeof parsed.description === 'string' ? parsed.description : '',
+    context: typeof parsed.context === 'string' ? parsed.context : '',
+    // 扩展字段透传（角色：appearance/personality/role/speechStyle；物品：itemType）
+    ...(typeof parsed.appearance === 'string' ? { appearance: parsed.appearance } : {}),
+    ...(typeof parsed.personality === 'string' ? { personality: parsed.personality } : {}),
+    ...(parsed.role === 'protagonist' ||
+    parsed.role === 'femaleLead' ||
+    parsed.role === 'supporting' ||
+    parsed.role === 'minor'
+      ? { role: parsed.role }
+      : {}),
+    ...(typeof parsed.speechStyle === 'string' ? { speechStyle: parsed.speechStyle } : {}),
+    ...(typeof parsed.itemType === 'string' ? { itemType: parsed.itemType } : {}),
+  };
+}
+
+/** 对象 → 物品流转，判别字段不是 item_transfer 时返回 null */
+function toStreamItemTransfer(parsed: Record<string, unknown>): StreamItemTransfer | null {
+  if (parsed.transferType !== 'item_transfer') return null;
+
+  const itemName = typeof parsed.itemName === 'string' ? parsed.itemName.trim() : '';
+  if (!itemName) return null;
+
+  const action = parsed.action;
+  if (action !== 'gained' && action !== 'lost' && action !== 'transferred' && action !== 'held') {
+    return null;
+  }
+
+  return {
+    transferType: 'item_transfer',
+    itemName,
+    fromCharacter: typeof parsed.fromCharacter === 'string' ? parsed.fromCharacter.trim() : '',
+    toCharacter: typeof parsed.toCharacter === 'string' ? parsed.toCharacter.trim() : '',
+    action,
+    context: typeof parsed.context === 'string' ? parsed.context : '',
+  };
+}
+
+/** 对象 → 角色别名关系，判别字段不是 alias_match 时返回 null */
+function toStreamAliasMatch(parsed: Record<string, unknown>): StreamAliasMatch | null {
+  if (parsed.aliasType !== 'alias_match') return null;
+
+  const primaryName = typeof parsed.primaryName === 'string' ? parsed.primaryName.trim() : '';
+  if (!primaryName) return null;
+
+  const aliases = Array.isArray(parsed.aliases)
+    ? parsed.aliases
+        .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+        .map((a) => a.trim())
+    : [];
+
+  if (aliases.length === 0) return null;
+
+  return {
+    aliasType: 'alias_match',
+    primaryName,
+    aliases,
+    context: typeof parsed.context === 'string' ? parsed.context : '',
+  };
+}
+
+/** 对象 → 积分流水（系统文）；只接受明确写出的数字/赠予，不猜测 */
+function toStreamCreditTransaction(
+  parsed: Record<string, unknown>,
+  defaultChapter: number,
+): StreamCreditTransaction | null {
+  if (parsed.creditType !== 'credit_transaction') return null;
+
+  const action = parsed.action;
+  if (action !== 'gain' && action !== 'spend' && action !== 'gift') return null;
+
+  const characterName =
+    typeof parsed.characterName === 'string'
+      ? parsed.characterName.trim()
+      : typeof parsed.name === 'string'
+        ? parsed.name.trim()
+        : '';
+  if (!characterName) return null;
+
+  const rawAmount = typeof parsed.amount === 'number' ? parsed.amount : Number(parsed.amount);
+  if (!Number.isFinite(rawAmount) || rawAmount < 0) return null;
+
+  // 赠予不涉及积分；gain/spend 必须是明确的正数
+  const amount = action === 'gift' ? 0 : rawAmount;
+  if (action !== 'gift' && amount <= 0) return null;
+
+  const reason = typeof parsed.reason === 'string' ? parsed.reason.trim() : '';
+  const itemName = typeof parsed.itemName === 'string' ? parsed.itemName.trim() : '';
+  if (action === 'gift' && !reason && !itemName) return null;
+
+  return {
+    creditType: 'credit_transaction',
+    action,
+    characterName,
+    amount,
+    ...(reason ? { reason } : {}),
+    ...(itemName ? { itemName } : {}),
+    chapterOrder: defaultChapter,
+  };
+}
+
+/** 对象 → 时间线事件（扫描始终针对当前章节，不采信模型编造的 chapterOrder） */
+function toTimelineEvent(
+  parsed: Record<string, unknown>,
+  defaultChapter: number,
+  chapterContent?: string,
+): StreamTimelineEvent | null {
+  const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
+  if (!title) return null;
+  // 模型偶尔会把格式示例原样吐出来，直接丢弃
+  if (title === '事件标题' || title.toLowerCase() === 'title') return null;
+
+  const { quote, fabricated } = validateEventQuote(parsed.quote, chapterContent);
+  // ★ 给了 quote 却对不上原文 = 这条事件是编的；宁可不记，也不能污染时间线
+  if (fabricated) return null;
+
+  const description = typeof parsed.description === 'string' ? parsed.description.trim() : '';
+
+  return {
+    title: title.slice(0, 30),
+    description: description || quote || title,
+    type: normalizeEventType(parsed.type),
+    // ★ 只保留原文里真的出现过的称呼，避免模型把不相干的角色挂到事件上
+    characterNames: filterNamesPresentInText(
+      normalizeStringArray(parsed.characterNames ?? parsed.participants),
+      chapterContent,
+    ),
+    chapterOrder: defaultChapter,
+    timestamp:
+      typeof parsed.timestamp === 'string' && parsed.timestamp.trim()
+        ? parsed.timestamp.trim()
+        : undefined,
+    ...(quote ? { quote } : {}),
+  };
+}
+
 /**
- * 清理 AI 输出中常见的 markdown 代码块标记和多余空白。
- * 处理 ```json ... ```、``` ... ```、前后多余空白等情况。
+ * 按判别字段把一条 JSON 对象转换为扫描记录。
+ * 顺序与旧实现保持一致：实体 → 别名 → 流转 → 积分流水 → 事件。
  */
-function cleanJsonLine(line: string): string {
-  let cleaned = line.trim();
-  // 去除开头的 ```json 或 ``` 标记
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '');
-  }
-  // 去除结尾的 ``` 标记
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.replace(/\s*```$/i, '');
-  }
-  return cleaned.trim();
-}
+export function parseStreamRecord(
+  value: unknown,
+  defaultChapter: number,
+  chapterContent?: string,
+): StreamRecord | null {
+  const parsed = asObjectRecord(value);
+  if (!parsed) return null;
 
-/** 尝试解析一行 JSON 为时间线事件，失败返回 null */
-function tryParseTimelineEvent(line: string, defaultChapter: number): StreamTimelineEvent | null {
-  const cleaned = cleanJsonLine(line);
-  // 跳过非 JSON 行（如 AI 可能输出的解释文字）
-  if (!cleaned.startsWith('{')) return null;
+  const entity = toStreamEntity(parsed);
+  if (entity) return { kind: 'entity', entity };
 
-  try {
-    const parsed = JSON.parse(cleaned);
-    const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
-    if (!title) return null;
+  const aliasMatch = toStreamAliasMatch(parsed);
+  if (aliasMatch) return { kind: 'alias', aliasMatch };
 
-    return {
-      title,
-      description: typeof parsed.description === 'string' ? parsed.description : '',
-      type: normalizeEventType(parsed.type),
-      characterNames: normalizeStringArray(parsed.characterNames ?? parsed.participants),
-      chapterOrder: typeof parsed.chapterOrder === 'number' ? parsed.chapterOrder : defaultChapter,
-      timestamp: typeof parsed.timestamp === 'string' && parsed.timestamp ? parsed.timestamp : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
+  const transfer = toStreamItemTransfer(parsed);
+  if (transfer) return { kind: 'transfer', transfer };
 
-/** 尝试解析一行 JSON 为实体（角色/物品/地点），失败返回 null */
-function tryParseStreamEntity(line: string): StreamEntity | null {
-  const cleaned = cleanJsonLine(line);
-  if (!cleaned.startsWith('{')) return null;
+  const credit = toStreamCreditTransaction(parsed, defaultChapter);
+  if (credit) return { kind: 'credit', credit };
 
-  try {
-    const parsed = JSON.parse(cleaned);
-    const entityType = parsed.entityType;
-    if (entityType !== 'character' && entityType !== 'item' && entityType !== 'location') return null;
+  const event = toTimelineEvent(parsed, defaultChapter, chapterContent);
+  if (event) return { kind: 'event', event };
 
-    const name = typeof parsed.name === 'string' ? parsed.name.trim() : '';
-    if (!name) return null;
-
-    return {
-      entityType,
-      name,
-      description: typeof parsed.description === 'string' ? parsed.description : '',
-      context: typeof parsed.context === 'string' ? parsed.context : '',
-      // 扩展字段透传（角色：appearance/personality/role/speechStyle；物品：itemType）
-      ...(typeof parsed.appearance === 'string' ? { appearance: parsed.appearance } : {}),
-      ...(typeof parsed.personality === 'string' ? { personality: parsed.personality } : {}),
-      ...(parsed.role === 'protagonist' || parsed.role === 'femaleLead' || parsed.role === 'supporting' || parsed.role === 'minor'
-        ? { role: parsed.role } : {}),
-      ...(typeof parsed.speechStyle === 'string' ? { speechStyle: parsed.speechStyle } : {}),
-      ...(typeof parsed.itemType === 'string' ? { itemType: parsed.itemType } : {}),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** 尝试解析一行 JSON 为物品流转，失败返回 null */
-function tryParseStreamItemTransfer(line: string): StreamItemTransfer | null {
-  const cleaned = cleanJsonLine(line);
-  if (!cleaned.startsWith('{')) return null;
-
-  try {
-    const parsed = JSON.parse(cleaned);
-    if (parsed.transferType !== 'item_transfer') return null;
-
-    const itemName = typeof parsed.itemName === 'string' ? parsed.itemName.trim() : '';
-    if (!itemName) return null;
-
-    const action = parsed.action;
-    if (action !== 'gained' && action !== 'lost' && action !== 'transferred' && action !== 'held') return null;
-
-    return {
-      transferType: 'item_transfer',
-      itemName,
-      fromCharacter: typeof parsed.fromCharacter === 'string' ? parsed.fromCharacter.trim() : '',
-      toCharacter: typeof parsed.toCharacter === 'string' ? parsed.toCharacter.trim() : '',
-      action,
-      context: typeof parsed.context === 'string' ? parsed.context : '',
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** 尝试解析一行 JSON 为角色别名关系，失败返回 null */
-function tryParseStreamAliasMatch(line: string): StreamAliasMatch | null {
-  const cleaned = cleanJsonLine(line);
-  if (!cleaned.startsWith('{')) return null;
-
-  try {
-    const parsed = JSON.parse(cleaned);
-    if (parsed.aliasType !== 'alias_match') return null;
-
-    const primaryName = typeof parsed.primaryName === 'string' ? parsed.primaryName.trim() : '';
-    if (!primaryName) return null;
-
-    const aliases = Array.isArray(parsed.aliases)
-      ? parsed.aliases
-          .filter((a: unknown) => typeof a === 'string' && a.trim())
-          .map((a: string) => a.trim())
-      : [];
-
-    if (aliases.length === 0) return null;
-
-    return {
-      aliasType: 'alias_match',
-      primaryName,
-      aliases,
-      context: typeof parsed.context === 'string' ? parsed.context : '',
-    };
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 // ============================================================
 // 按关键词提取事件（用于时间线手动添加时的智能推荐）
 // ============================================================
 
-const EXTRACT_BY_KEYWORD_SYSTEM_PROMPT = `你是一个专业的小说分析助手。用户会给你一个关键词（如角色名"陈星"），你需要从章节内容中找出与该关键词相关的所有事件。
+const EXTRACT_BY_KEYWORD_SYSTEM_PROMPT = `你是一个专业的小说时间线编辑。用户会给出一个关键词（通常是角色名、地点名或物品名），你要从章节原文中提取与它【直接相关】的剧情事件，供时间线使用。
 
-输出格式要求（极其重要）：
-- 每行输出一个完整的 JSON 对象，不要有数组包裹，不要有缩进
-- 事件行格式：{"title":"事件标题(15字内)","description":"完整的事件描述，包括起因、经过、结果","type":"event|foreshadow|state_change","characterNames":["角色名"],"timestamp":"故事内时间(如有)","quote":"原文相关片段(50字内)"}
-- 事件 type 含义：event=普通剧情事件，foreshadow=伏笔铺垫，state_change=状态变化
-- 以已发生的事情为基准，按时间先后顺序排列事件
-- description 必须完整描述事件，让用户能看懂发生了什么
-- quote 字段填写原文中与该事件最相关的片段，帮助用户定位
-- 没有角色参与的事件 characterNames 填空数组 []
-- 逐行输出，不要输出任何其他文字
-- 尽可能完整地提取所有相关事件，不要遗漏`;
+【相关性判定】
+- 关键词所指的人/物/地参与了这个事件，或事件的经过、结果直接作用于它；
+- 只是在环境、回忆或旁白里被顺带提到、没有推动剧情的，不算；
+- 关键词可能有别名、简称或尊称，请结合上下文判断是否指同一对象；
+- 绝不能脑补原文没有发生的情节。宁可少提，也不要编造。
+
+【提取规则】
+- ★ 先逐段通读全文，再输出：每个包含关键词的段落都要判断一次，不要只看开头几段就收尾；
+- 按原文的叙事先后顺序输出；
+- 一个独立的情节动作/转折成一条；不同时间、不同地点、不同因果的动作**不得合并**；只有描述同一动作的分句才合并；
+- title：动宾短语，8～15 字，能独立看懂（如「陈星夜探藏经阁」）；不要以「本章」「故事」「随后」这类空话开头，也不要把角色名当标题；
+- description：交代起因—经过—结果，30～80 字，只写原文实际发生的事，不加评价、不推测动机；
+- type：event=剧情推进；foreshadow=埋线/暗示；state_change=身份、关系、位置、能力等状态改变；
+- characterNames：只列在本事件中实际出场或直接受影响的角色，且必须是原文中**逐字出现过**的称呼；没有角色就输出空数组；
+- timestamp：原文有明确故事内时间（如「三日后」「子时」）才填，不要自己推算，否则省略该字段；
+- quote ★必填：从原文【逐字复制】10～40 字、最能定位该事件的连续片段；不得改写、拼接、加省略号、不得跨段拼凑；
+- ★ 如果找不到能逐字复制的 quote，说明这件事不是原文实际发生的，**不要输出这条事件**；
+- 不要输出纯环境描写、内心感慨、背景交代；不要为了凑数编造，也不要因为已经提取到几条就停止。
+
+【输出格式（极其重要）】
+- 每个事件输出一行 JSON，行与行之间用换行分隔；
+- 不要输出数组括号、Markdown 代码块、编号或任何解释文字；
+- 字段示例：{"title":"...","description":"...","type":"event","characterNames":["..."],"timestamp":"...","quote":"..."}`;
+
+/** 单次提取的事件上限：防止模型失控刷屏拖垮时间线 UI */
+const MAX_KEYWORD_EVENTS = 80;
+
+export interface KeywordExtractInput {
+  chapterContent: string;
+  chapterTitle: string;
+  chapterOrder: number;
+  keyword: string;
+  /** 关键词在人物设定里的别名/全名（可选，用于判断「星儿」与「陈星」是同一人） */
+  keywordAliases?: string[];
+}
+
+export interface KeywordEventParseState {
+  /** 跨 chunk 的增量 JSON 扫描器（保留未闭合对象状态，避免重扫） */
+  scanner: JsonObjectStreamParser;
+  /** 本次提取内已发出的事件标题键，用于去重 */
+  seenTitles: Set<string>;
+}
+
+export function createKeywordEventParseState(): KeywordEventParseState {
+  return { scanner: new JsonObjectStreamParser(), seenTitles: new Set() };
+}
+
+/** 标题归一化：去空白/标点、转小写，用于同一批提取内的去重 */
+function eventTitleKey(title: string): string {
+  return title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/** 去掉模型习惯性添加的引号/省略号，保留可逐字检索的原文片段 */
+function normalizeQuoteText(s: string): string {
+  return s
+    .replace(/^[\s「『“‘"'（(]+/, '')
+    .replace(/[\s」』”’"'）)]+$/, '')
+    .replace(/^(?:…|\.{3,}|。{2,})+/, '')
+    .replace(/(?:…|\.{3,})+$/, '')
+    .trim();
+}
+
+function compactForMatch(s: string): string {
+  // 注意：JS 的 \s 已包含全角空格 U+3000，无需再单列
+  return s.replace(/\s+/g, '').replace(/[「」『』“”"']/g, '');
+}
+
+/**
+ * 校验 quote 是否真的出自原文。
+ * 模型经常改写、拼接或加省略号，导致前端按 quote 定位章节时找不到锚点；
+ * 这里只保留能在原文中连续命中的片段，命中不了就丢弃 quote（事件本身仍保留）。
+ */
+export function sanitizeKeywordQuote(quote: unknown, chapterContent: string): string | undefined {
+  if (typeof quote !== 'string') return undefined;
+  const cleaned = normalizeQuoteText(quote);
+  const compactQuote = compactForMatch(cleaned);
+  if (compactQuote.length < 6) return undefined;
+  return compactForMatch(chapterContent).includes(compactQuote) ? cleaned.slice(0, 80) : undefined;
+}
+
+/**
+ * 校验模型给出的事件证据（quote）。
+ *
+ * 三种情况要区分开：
+ *  - 没给 quote      → 不判伪（兼容旧输出/模型偷懒），事件保留；
+ *  - 给了且能对上原文 → 保留并回填规范化后的 quote；
+ *  - 给了却对不上原文 → fabricated=true，调用方应丢弃该事件。
+ *
+ * 只有第三种是「编造」的确定性信号，也是这次提升准确率的核心闸门。
+ */
+export function validateEventQuote(
+  rawQuote: unknown,
+  chapterContent?: string,
+): { quote?: string; fabricated: boolean } {
+  if (typeof rawQuote !== 'string' || !rawQuote.trim()) {
+    return { fabricated: false };
+  }
+  if (!chapterContent) {
+    return { quote: rawQuote.trim(), fabricated: false };
+  }
+  const quote = sanitizeKeywordQuote(rawQuote, chapterContent);
+  return { quote, fabricated: !quote };
+}
+
+/**
+ * 只保留在章节原文中真实出现过的角色称呼。
+ *
+ * 模型常见的两种「挂错」：把传闻/回忆里的人物挂到当前事件，
+ * 或把文中称呼规范化成原文没写过的全名。名字对不上原文就不挂关系——
+ * 宁可少挂，也不能把关系挂到错误的人身上。
+ */
+export function filterNamesPresentInText(names: string[], chapterContent?: string): string[] {
+  if (!chapterContent) return names;
+  const compactChapter = compactForMatch(chapterContent);
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+    const compactName = compactForMatch(trimmed);
+    if (!compactName || !compactChapter.includes(compactName)) continue;
+    if (seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    kept.push(trimmed);
+  }
+  return kept;
+}
+
+/** 把一条原始 JSON 对象规整为时间线事件；不合格返回 null */
+function toKeywordEvent(
+  value: unknown,
+  defaultChapter: number,
+  chapterContent: string,
+): (StreamTimelineEvent & { quote?: string }) | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const parsed = value as Record<string, unknown>;
+
+  const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
+  if (!title) return null;
+  // 模型偶尔会把格式示例原样吐出来，直接丢弃
+  if (title === '事件标题' || title.toLowerCase() === 'title') return null;
+
+  const { quote, fabricated } = validateEventQuote(parsed.quote, chapterContent);
+  // ★ 给了 quote 却对不上原文 = 这条事件是编的，直接丢弃
+  if (fabricated) return null;
+
+  const description = typeof parsed.description === 'string' ? parsed.description.trim() : '';
+
+  return {
+    title: title.slice(0, 24),
+    description: description || quote || title,
+    type: normalizeEventType(parsed.type),
+    // ★ 只保留原文里真的出现过的称呼，避免模型把不相干的角色挂到事件上
+    characterNames: filterNamesPresentInText(
+      normalizeStringArray(parsed.characterNames ?? parsed.participants),
+      chapterContent,
+    ),
+    // 关键词提取始终针对当前章节，不采信模型可能编造的 chapterOrder
+    chapterOrder: defaultChapter,
+    timestamp:
+      typeof parsed.timestamp === 'string' && parsed.timestamp.trim()
+        ? parsed.timestamp.trim()
+        : undefined,
+    ...(quote ? { quote } : {}),
+  };
+}
+
+/** 把解析出的原始对象规整、去重后转为事件 */
+function collectKeywordEvents(
+  state: KeywordEventParseState,
+  values: unknown[],
+  defaultChapter: number,
+  chapterContent: string,
+): (StreamTimelineEvent & { quote?: string })[] {
+  const emitted: (StreamTimelineEvent & { quote?: string })[] = [];
+  for (const value of values) {
+    if (state.seenTitles.size >= MAX_KEYWORD_EVENTS) break;
+    const event = toKeywordEvent(value, defaultChapter, chapterContent);
+    if (!event) continue;
+
+    const key = eventTitleKey(event.title);
+    if (!key || state.seenTitles.has(key)) continue;
+    state.seenTitles.add(key);
+    emitted.push(event);
+  }
+  return emitted;
+}
+
+/** 消费一个流式 chunk，返回本次新解析出的、去重后的事件 */
+export function drainKeywordEventChunk(
+  state: KeywordEventParseState,
+  chunk: string,
+  defaultChapter: number,
+  chapterContent: string,
+): (StreamTimelineEvent & { quote?: string })[] {
+  return collectKeywordEvents(
+    state,
+    state.scanner.push(chunk),
+    defaultChapter,
+    chapterContent,
+  );
+}
+
+/** 流结束：把增量扫描器残留的完整嵌套对象也恢复出来 */
+export function flushKeywordEventChunk(
+  state: KeywordEventParseState,
+  defaultChapter: number,
+  chapterContent: string,
+): (StreamTimelineEvent & { quote?: string })[] {
+  return collectKeywordEvents(
+    state,
+    state.scanner.flush().values,
+    defaultChapter,
+    chapterContent,
+  );
+}
 
 /**
  * 按关键词流式提取事件
  *
  * @param chatStream Provider 的流式聊天函数
- * @param input 章节内容 + 关键词
+ * @param input 章节内容 + 关键词 + 可选别名
  * @param options.signal 外部取消信号
  * @param options.onEvent 每解析出一个完整事件时回调
  */
 export async function streamEventsByKeyword(
   chatStream: (messages: ChatMessage[], options?: { temperature?: number; maxTokens?: number }, signal?: AbortSignal) => AsyncGenerator<StreamChunk>,
-  input: { chapterContent: string; chapterTitle: string; chapterOrder: number; keyword: string },
+  input: KeywordExtractInput,
   options: {
     signal?: AbortSignal;
     onEvent?: (event: StreamTimelineEvent & { quote?: string }) => void;
   } = {},
 ): Promise<(StreamTimelineEvent & { quote?: string })[]> {
+  const aliases = (input.keywordAliases ?? [])
+    .map((a) => a.trim())
+    .filter((a) => a.length > 0 && a !== input.keyword)
+    .slice(0, 10);
+  const aliasNote =
+    aliases.length > 0
+      ? `\n\n（该关键词在设定中也可能被称为：${aliases.join('、')}；判断相关性时请视为同一对象。）`
+      : '';
+
   const messages: ChatMessage[] = [
     { role: 'system', content: EXTRACT_BY_KEYWORD_SYSTEM_PROMPT },
-    { role: 'user', content: `请从以下章节中提取与"${input.keyword}"相关的所有事件。
+    { role: 'user', content: `请从以下章节中提取与「${input.keyword}」直接相关的所有事件。${aliasNote}
 
 章节：第${input.chapterOrder}章 ${input.chapterTitle}
 
-章节内容：
+章节原文：
 ${input.chapterContent}` },
   ];
 
   const events: (StreamTimelineEvent & { quote?: string })[] = [];
-  let buffer = '';
+  const state = createKeywordEventParseState();
 
   for await (const chunk of chatStream(messages, { temperature: 0.3, maxTokens: 8192 }, options.signal)) {
-    buffer += chunk.content || '';
-
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      const event = tryParseKeywordEvent(trimmed, input.chapterOrder);
-      if (event) {
-        events.push(event);
-        options.onEvent?.(event);
-      }
-    }
-  }
-
-  // 处理剩余 buffer
-  const trimmed = buffer.trim();
-  if (trimmed) {
-    const event = tryParseKeywordEvent(trimmed, input.chapterOrder);
-    if (event) {
+    const emitted = drainKeywordEventChunk(
+      state,
+      chunk.content || '',
+      input.chapterOrder,
+      input.chapterContent,
+    );
+    for (const event of emitted) {
       events.push(event);
       options.onEvent?.(event);
     }
+    if (events.length >= MAX_KEYWORD_EVENTS) break;
+  }
+
+  // 流结束时处理残留 buffer
+  for (const event of flushKeywordEventChunk(state, input.chapterOrder, input.chapterContent)) {
+    events.push(event);
+    options.onEvent?.(event);
   }
 
   return events;
-}
-
-/** 解析关键词提取的事件行（含可选 quote 字段） */
-function tryParseKeywordEvent(line: string, defaultChapter: number): (StreamTimelineEvent & { quote?: string }) | null {
-  if (!line.startsWith('{')) return null;
-
-  try {
-    const parsed = JSON.parse(line);
-    const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
-    if (!title) return null;
-
-    return {
-      title,
-      description: typeof parsed.description === 'string' ? parsed.description : '',
-      type: normalizeEventType(parsed.type),
-      characterNames: normalizeStringArray(parsed.characterNames ?? parsed.participants),
-      chapterOrder: defaultChapter,
-      timestamp: typeof parsed.timestamp === 'string' && parsed.timestamp ? parsed.timestamp : undefined,
-      quote: typeof parsed.quote === 'string' && parsed.quote ? parsed.quote : undefined,
-    };
-  } catch {
-    return null;
-  }
 }

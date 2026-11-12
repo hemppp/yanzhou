@@ -30,6 +30,7 @@ export {
   scanChapter,
   type StreamTimelineEvent,
   type StreamEntity,
+  type StreamCreditTransaction,
   streamTimelineEvents,
   streamEventsByKeyword,
 } from './agents/scanner-agent.js';

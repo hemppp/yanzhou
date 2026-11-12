@@ -445,6 +445,7 @@ aiRouter.post('/scan-timeline-stream', requireAuth, ensureConfigMiddleware, aiRa
             onEntity: (entity) => send(entity),
             onItemTransfer: (transfer) => send(transfer),
             onAliasMatch: (aliasMatch) => send(aliasMatch),
+            onCreditTransaction: (credit) => send(credit),
           });
           console.log(`[scan-timeline-stream] AI 扫描成功完成`);
           send({ done: true });
@@ -481,6 +482,8 @@ const extractEventsSchema = z.object({
   chapterTitle: z.string(),
   chapterOrder: z.number().int().min(0),
   keyword: z.string().min(1, '关键词不能为空'),
+  /** 关键词在人物设定里的别名/全名（可选）：帮助模型把「星儿」和「陈星」认成同一人 */
+  keywordAliases: z.array(z.string()).max(10).optional(),
   projectId: z.string().uuid(),
 });
 
@@ -525,6 +528,7 @@ aiRouter.post('/extract-events-stream', requireAuth, ensureConfigMiddleware, aiR
             chapterTitle: body.chapterTitle,
             chapterOrder: body.chapterOrder,
             keyword: body.keyword,
+            keywordAliases: body.keywordAliases,
           }, {
             signal,
             onEvent: (event) => send(event),
