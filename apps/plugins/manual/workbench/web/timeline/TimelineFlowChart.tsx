@@ -88,26 +88,27 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
     return result;
   }, [projectEvents, projectChapters, selectedChapter]);
 
-  /** 点击事件节点跳转到对应章节，并触发编辑器段落高亮 */
-  const handleJumpToChapter = useCallback((chapterOrder: number | null | undefined, title?: string, description?: string, charNames?: string[]) => {
+  /** 点击事件节点跳转到对应章节，并触发编辑器片段高亮 */
+  const handleJumpToChapter = useCallback((chapterOrder: number | null | undefined, title?: string, description?: string, charNames?: string[], timestamp?: string) => {
     const order = chapterOrder ?? 1;
     const target = projectChapters.find((c) => c.order === order)
       ?? projectChapters.slice().sort((a, b) => a.order - b.order)[0];
+    // ★ timestamp 也带上：它常常是原文里的字面短语（「第二天一早」），
+    //   比概括性的 title/description 更适合当定位锚点（见 editor/jumpHighlight.ts）。
+    const anchor = JSON.stringify({
+      title: title ?? '',
+      desc: description ?? '',
+      chars: charNames ?? [],
+      time: timestamp ?? '',
+      chapter: order, // 编辑器确认切到本章后才开始定位（见 EditorPage 的跳转 effect）
+    });
     if (target) {
       // ★ 2026-10-26：跳章必须走 openChapterInEditor —— 时间线面板本身也占着中心区，
       //   只 setCurrentChapter 的话用户看不到编辑器（表现为"点了没反应"）。
       openChapterInEditor(target.id);
-      triggerJumpHighlight(JSON.stringify({
-        title: title ?? '',
-        desc: description ?? '',
-        chars: charNames ?? [],
-      }));
+      triggerJumpHighlight(anchor);
     } else {
-      triggerJumpHighlight(JSON.stringify({
-        title: title ?? '',
-        desc: description ?? '',
-        chars: charNames ?? [],
-      }));
+      triggerJumpHighlight(anchor);
     }
   }, [projectChapters, triggerJumpHighlight]);
 
@@ -254,11 +255,11 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
                         <div
                           role="button"
                           tabIndex={0}
-                          onClick={() => handleJumpToChapter(ev.chapter, ev.title, ev.description, charNames)}
+                          onClick={() => handleJumpToChapter(ev.chapter, ev.title, ev.description, charNames, ev.timestamp)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              handleJumpToChapter(ev.chapter, ev.title, ev.description, charNames);
+                              handleJumpToChapter(ev.chapter, ev.title, ev.description, charNames, ev.timestamp);
                             }
                           }}
                           className="w-full rounded-2xl border overflow-hidden backdrop-blur-md transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-opacity-80 group"

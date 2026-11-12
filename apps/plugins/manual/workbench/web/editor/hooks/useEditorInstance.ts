@@ -11,6 +11,7 @@ import { nanoid } from 'nanoid';
 import { AnnotationExtension } from '../extensions/AnnotationExtension';
 import { AnnotationBlockExtension } from '../extensions/AnnotationBlockExtension';
 import { LeadCharacterHighlight } from '../extensions/LeadCharacterHighlight';
+import { JumpHighlightExtension } from '../extensions/JumpHighlightExtension';
 import { useChapterStore, useStatsStore, useForeshadowStore, useAnnotationStore, useCharacterStore, cascadeCleanChapterClient } from '@novel-plugins/data-core/stores';
 import { useEditorStore } from '@novel-plugins/data-core/stores';
 import { saveSnapshot } from '@novel-plugins/data-core/data/databaseService';
@@ -222,6 +223,8 @@ export function useEditorInstance({ initialContent, styleProfile }: UseEditorIns
       Underline,
       CharacterCount,
       LeadCharacterHighlight.configure({ names: [] }),
+      // 时间线跳转后的正文片段高亮（Decoration 驱动，见编辑器扩展注释）
+      JumpHighlightExtension,
     ];
     // 单个插件扩展构造失败只跳过该扩展，不能让整个编辑器起不来
     for (const def of pluginEditorExtensions) {

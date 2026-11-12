@@ -30,6 +30,13 @@ import { FindReplaceBar } from './FindReplaceBar';
 // ★ 2026-10-26 页面视图（A4 稿纸分页）：纸卡片/页码层 + 分页行为（量页/翻页/缩放/光标跟随）
 import { PageLayer } from './PageLayer';
 import { usePageView } from './hooks/usePageView';
+import {
+  collectEditorBlocks,
+  parseJumpAnchor,
+  planJumpHighlight,
+  segmentToDocRange,
+} from './jumpHighlight';
+import { JUMP_HIGHLIGHT_META } from './extensions/JumpHighlightExtension';
 import { saveSnapshot, saveChapter } from '@novel-plugins/data-core/data/databaseService';
 import { getCachedChapterContent, cacheChapterContent } from '@novel-plugins/data-core/data/chapterLocalCache';
 import { nanoid } from 'nanoid';
@@ -304,125 +311,124 @@ export function EditorPage() {
     );
   }, [currentChapterId]);
 
-  // 时间线跳转：监听 jumpSignal，定位到目标段落并高亮 3 秒
-  // jumpSignal 从 0 起步，首次跳转才触发；避免挂载时误触
-  const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 时间线跳转：在正文里定位事件对应的「内容片段」并高亮
+  // jumpSignal 从 0 起步，只有真正的跳转才触发（避免挂载时误触）。
+  // 定位/切句/打分逻辑见 ./jumpHighlight.ts —— 事件标题与描述是 AI 概括、
+  // 不是原文摘录，旧的 `includes` 整段匹配在实际数据上恒为 0 分（一次都不亮）。
+  //
+  // ★ 高亮必须走 ProseMirror Decoration（Transaction meta），不能直接包 DOM：
+  //   实测把文本包进 <span> 后高亮会在 60ms 内消失 —— ProseMirror 的 DOM
+  //   观察器把外来节点当作篡改并重绘该段。Decoration 是编辑器自己的渲染产物。
   useEffect(() => {
     if (jumpSignal === 0) return;
 
-    // 章节内容加载是异步的（editor.commands.setContent 在另一个 effect 中），
-    // 用 setTimeout 400ms 延迟查找，确保 ProseMirror DOM 已更新完毕
-    let delayTimer: ReturnType<typeof setTimeout> | null = null;
-    let highlightTimer: ReturnType<typeof setTimeout> | null = null;
-
-    // 解析锚点：jumpAnchor 是 JSON 字符串 { title, desc, chars }
-    let anchorTitle = '';
-    let anchorDesc = '';
-    let anchorChars: string[] = [];
-    try {
-      if (jumpAnchor) {
-        const parsed = JSON.parse(jumpAnchor);
-        anchorTitle = parsed.title ?? '';
-        anchorDesc = parsed.desc ?? '';
-        anchorChars = Array.isArray(parsed.chars) ? parsed.chars : [];
-      }
-    } catch {
-      anchorTitle = jumpAnchor ?? '';
+    const anchor = parseJumpAnchor(jumpAnchor);
+    if (
+      !anchor.title &&
+      !anchor.description &&
+      !anchor.timestamp &&
+      anchor.characters.length === 0
+    ) {
+      return; // 没有可定位的锚点（例如只点了时间线里的章节标题卡）
     }
 
-    /** 从文本中提取有意义的关键词（2 字以上的片段） */
-    const extractKeywords = (text: string): string[] => {
-      if (!text) return [];
-      const tokens = text.split(/[，。！？、；：\s,.;!?()[\]{}""''《》\-—…]+/).filter(t => t.length >= 2);
-      return tokens;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let clearTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearHighlight = () => {
+      const ed = editorRef.current;
+      if (ed && !ed.isDestroyed) {
+        ed.view.dispatch(ed.state.tr.setMeta(JUMP_HIGHLIGHT_META, null));
+      }
     };
 
-    /** 计算段落与锚点的匹配得分（命中关键词数越多越好） */
-    const scoreParagraph = (paraText: string): number => {
-      let score = 0;
-      // 1. description 完整包含 → 最高分
-      if (anchorDesc && anchorDesc.length >= 4 && paraText.includes(anchorDesc)) return 100;
-      // 2. title 完整包含 → 高分
-      if (anchorTitle && anchorTitle.length >= 2 && paraText.includes(anchorTitle)) return 80;
-      // 3. 角色名命中（原文必定出现角色名，强信号）
-      for (const cn of anchorChars) {
-        if (cn.length >= 2 && paraText.includes(cn)) score += 4;
-      }
-      // 4. description 的关键词命中
-      const descKeywords = extractKeywords(anchorDesc);
-      for (const kw of descKeywords) {
-        if (kw.length >= 2 && paraText.includes(kw)) score += 3;
-      }
-      // 5. title 的关键词命中
-      const titleKeywords = extractKeywords(anchorTitle);
-      for (const kw of titleKeywords) {
-        if (kw.length >= 2 && paraText.includes(kw)) score += 5;
-      }
-      return score;
+    const retryLater = (attempt: number, next: (n: number) => void) => {
+      // 10 次 × 200ms ≈ 2s：足以等章节内容从 store/缓存注入；
+      // 再久就是真的没匹配上，继续重试只会和用户下一次点击抢渲染。
+      if (attempt >= 10) return;
+      retryTimer = setTimeout(() => next(attempt + 1), 200);
     };
 
-    const findAndHighlight = (attempt: number) => {
-      const host = editorAreaRef.current;
-      if (!host) return;
-
-      const paragraphs = Array.from(
-        host.querySelectorAll<HTMLParagraphElement>('.ProseMirror p, .ProseMirror h1, .ProseMirror h2, .ProseMirror h3')
-      ).filter(p => (p.textContent || '').trim().length > 0); // 排除空段落
-
-      console.debug('[JumpHighlight] attempt', attempt, '段落数', paragraphs.length, '锚点', { anchorTitle, anchorDesc, anchorChars });
-
-      // 编辑器内容可能还没加载完，空段落时重试（最多 5 次，每次间隔 200ms）
-      if (paragraphs.length === 0) {
-        if (attempt < 5) {
-          delayTimer = setTimeout(() => findAndHighlight(attempt + 1), 200);
-        }
+    /**
+     * 章节内容是异步注入的（`editor.commands.setContent` 在另一个 effect 里），
+     * 首轮等 300ms；编辑器未就绪 / 内容为空 / 没匹配上时再重试 —— 但重试只
+     * 解决"慢"，不解决"概括句与原文不共享字面"，后者由 jumpHighlight 的模糊匹配负责。
+     */
+    const run = (attempt: number) => {
+      if (cancelled) return;
+      const ed = editorRef.current;
+      if (!ed || ed.isDestroyed) {
+        retryLater(attempt, run);
         return;
       }
 
-      // 评分匹配：找得分最高的段落
-      let bestP: HTMLElement | null = null;
-      let bestScore = 0;
-      const scores: number[] = [];
-      for (const p of paragraphs) {
-        const score = scoreParagraph((p.textContent || '').trim());
-        scores.push(score);
-        if (score > bestScore) {
-          bestScore = score;
-          bestP = p;
+      // ★ 等编辑器真的切到目标章再开始找：跳转瞬间 doc 里可能还是上一章，
+      //   拿旧章内容匹配会亮错位置（上一章恰好有相近词时尤甚）。
+      if (anchor.chapter != null) {
+        const liveChapter = useChapterStore.getState().getCurrentChapter();
+        if (liveChapter?.order !== anchor.chapter) {
+          retryLater(attempt, run);
+          return;
         }
       }
-      console.debug('[JumpHighlight] 各段落得分', scores, '最高分', bestScore);
 
-      // 得分为 0 说明完全没匹配到，首次尝试时重试（内容可能还在加载）
-      if ((!bestP || bestScore === 0) && attempt < 5) {
-        delayTimer = setTimeout(() => findAndHighlight(attempt + 1), 200);
-        return;
-      }
-      if (!bestP || bestScore === 0) {
-        console.debug('[JumpHighlight] 匹配失败，不高亮');
+      const blocks = collectEditorBlocks(ed.state.doc);
+      if (blocks.length === 0) {
+        retryLater(attempt, run);
         return;
       }
 
-      console.debug('[JumpHighlight] 命中段落:', (bestP.textContent || '').slice(0, 50));
-      // 滚动到目标段落
-      bestP.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // 给段落添加淡红色背景
-      bestP.style.transition = 'background-color 0.5s ease';
-      bestP.style.backgroundColor = 'rgba(220, 120, 120, 0.18)';
-      if (highlightTimer) clearTimeout(highlightTimer);
-      highlightTimer = setTimeout(() => {
-        bestP!.style.backgroundColor = '';
-      }, 3000);
+      const plan = planJumpHighlight(blocks.map((b) => b.text), anchor);
+      if (plan.length === 0) {
+        retryLater(attempt, run);
+        return;
+      }
+
+      const ranges = plan
+        .map((segment) => {
+          const block = blocks[segment.paragraphIndex];
+          return block ? segmentToDocRange(block, segment) : null;
+        })
+        .filter((range): range is { from: number; to: number } => range !== null);
+      if (ranges.length === 0) return;
+
+      ed.view.dispatch(ed.state.tr.setMeta(JUMP_HIGHLIGHT_META, ranges));
+
+      // Decoration 在这一帧已渲染成 span：滚动到片段（读 DOM 是安全的，不写）
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const mark = editorAreaRef.current?.querySelector<HTMLElement>(
+          '[data-nm-jump-highlight]',
+        );
+        mark?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      });
+
+      // 5s 后撤掉高亮；插件 state 的旧值会随文档编辑自动 mapping，期间不干扰输入
+      if (clearTimer) clearTimeout(clearTimer);
+      clearTimer = setTimeout(() => {
+        if (!cancelled) clearHighlight();
+      }, 5000);
     };
 
-    delayTimer = setTimeout(() => findAndHighlight(0), 300);
+    retryTimer = setTimeout(() => run(0), 300);
 
     return () => {
-      if (delayTimer) clearTimeout(delayTimer);
-      if (highlightTimer) clearTimeout(highlightTimer);
-      if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (clearTimer) clearTimeout(clearTimer);
+      clearHighlight(); // 重复点击 / 切章时立刻撤掉上一次高亮
     };
   }, [jumpSignal, jumpAnchor]);
+
+  // ★ 手动切章时清掉上一章的跳转高亮：Decoration 会随 `setContent` 的
+  //   replace 步骤被 mapping 到新文档的前部，表现为"新章开头莫名有一块底色"。
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (ed && !ed.isDestroyed) {
+      ed.view.dispatch(ed.state.tr.setMeta(JUMP_HIGHLIGHT_META, null));
+    }
+  }, [currentChapterId]);
 
   // 旧「滚动进度 → 渐隐遮罩」监听已移除：卡片透明化后玻璃渐隐条失去意义
 
