@@ -116,6 +116,15 @@ export interface AIProvider {
 // ---- 默认配置 ----
 
 const DEFAULT_TIMEOUT_MS = 120_000;
+/**
+ * 流式响应**两次数据之间**的最大间隔。
+ *
+ * 响应头回来之后 `DEFAULT_TIMEOUT_MS` 就被清了（它只管「等第一个字节」）；
+ * 若上游发了头再挂住，读循环会永久 pending，finally 里的定时器/监听清理
+ * 永远不执行，一条 SSE 就永久占住 socket + 15s 心跳。这里按「空闲」而不是
+ * 「总时长」计：长回复可以跑很久，只要一直在出数据。
+ */
+const STREAM_IDLE_TIMEOUT_MS = 120_000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 1000;
 
@@ -490,6 +499,11 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
     // 导致前端显示重复内容。失败由上层（断路器/用户手动重试）处理。
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    // 流内空闲计时器；声明在 try 之外，finally 才能清掉。
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    // 读取器也提到 try 之外：无论成功/异常/取消，finally 都要 cancel 它，
+    // 否则上游连接与它背后的缓冲区会一直挂着。
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
     // 外部 signal abort 时透传给内部 controller。
     const onAbort = () => controller.abort();
@@ -546,16 +560,26 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
 
       console.log(`[AI Provider Stream] response ok, Content-Type=${response.headers.get('content-type')}, model=${model}`);
 
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let totalBytes = 0;
       let yieldedCount = 0;
       let firstChunkLogged = false;
 
+      // ★ 流内空闲超时：响应头回来后原 120s 定时器就被 clear 了，若上游
+      //   「发了头再挂住」（不断开、也不再发数据），`reader.read()` 会永久
+      //   pending —— finally 不执行，上层 SSE 心跳也不会被清理。每收到一块
+      //   就重置该计时器；超时 abort 同一个 controller（与外部取消同一条路）。
+      idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (idleTimer !== null) {
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+        }
 
         const decoded = decoder.decode(value, { stream: true });
         totalBytes += decoded.length;
@@ -641,8 +665,17 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
       throw err;
     } finally {
       clearTimeout(timeoutId);
+      if (idleTimer !== null) clearTimeout(idleTimer);
       if (signal) {
         signal.removeEventListener('abort', onAbort);
+      }
+      // 正常结束、异常、取消都要把读取器关掉：cancel 会顺着流往下游传播。
+      if (reader !== null) {
+        try {
+          await reader.cancel();
+        } catch {
+          /* 已结束 */
+        }
       }
     }
   }
