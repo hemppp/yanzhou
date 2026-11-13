@@ -272,6 +272,12 @@ export class ServerProcessController {
   private restartTimes: number[] = [];
   private lastSpawnMode: ServerSpawnMode = 'import';
 
+  /** 当前子进程的两条 readline 读取器（丢弃 child 时必须显式关闭）。 */
+  private outReader: readline.Interface | null = null;
+  private errReader: readline.Interface | null = null;
+  /** `restarting` 闩锁期间被吞掉的退出，出闩后补跑一次。 */
+  private pendingRestart: { code: number | null; signalCode: string | null } | null = null;
+
   constructor(options: ServerProcessOptions) {
     this.options = options;
     this.log = options.logger.log;
@@ -310,13 +316,19 @@ export class ServerProcessController {
    * @returns 成功返回 null（此时 `this.ready` 非空）；失败返回 `ServerStartFailure`。
    */
   async start(): Promise<ServerStartFailure | null> {
+    // ★ 粘性关停：`stop()` 之后（或关停流程进行中）绝不能再拉新子进程。
+    //   `resetForStart()` 曾把 stopping 重置为 false，于是「before-quit 已开始关停、
+    //   重启策略正好在一次 await 之后调 start()」会新起一个没人负责停的 child。
+    if (this.stopping) {
+      return this.failure('shutdown-requested', '启动请求到达时已进入关停流程。', null, null);
+    }
     this.resetForStart();
     const bootStart = Date.now();
 
     try {
       this.child = this.spawnChild();
     } catch (error) {
-      return this.failure('spawn', `server 子进程启动失败：${String(error)}`, null, null);
+      return this.failStart('spawn', `server 子进程启动失败：${String(error)}`, null, null);
     }
 
     const child = this.child;
@@ -332,13 +344,14 @@ export class ServerProcessController {
     // ---- ① 端口握手（D5.1 / D5.3）----
     const handshake = await this.waitForHandshake();
     if (handshake.kind === 'spawn-error') {
-      return this.failure('spawn', `server 子进程启动失败：${handshake.message}`, null, null);
+      return this.failStart('spawn', `server 子进程启动失败：${handshake.message}`, null, null);
     }
     if (handshake.kind === 'stopped') {
+      // 关停由 stop() 自己负责（它正在走优雅协议），这里不能再抢着 taskkill。
       return this.failure('shutdown-requested', '启动过程中收到关停请求。', null, null);
     }
     if (handshake.kind === 'early-exit') {
-      return this.failure(
+      return this.failStart(
         'early-exit',
         `server 子进程在握手完成前退出（exitCode=${String(handshake.exitCode)}，` +
           `signal=${String(handshake.signalCode)}）。`,
@@ -347,7 +360,7 @@ export class ServerProcessController {
       );
     }
     if (handshake.kind === 'timeout') {
-      return this.failure(
+      return this.failStart(
         'handshake-timeout',
         `等待 server 端口握手超时（${HANDSHAKE_TIMEOUT_MS} ms 内未在 stderr 匹配到 ` +
           `"[Server] Cordis 基座已就绪 → http://localhost:<port>"）。`,
@@ -363,6 +376,9 @@ export class ServerProcessController {
     // ---- ② 就绪探针（D5.3 / D5.4）----
     const healthOutcome = await this.waitForHealth(port, bootStart);
     if (healthOutcome.kind === 'failure') {
+      // 探针失败时子进程通常还活着（只是 /api/health 没达判据）：必须回收，
+      // 否则重启策略下一次 start() 会再拉一个，旧的就成了孤儿。
+      await this.abandonChild(healthOutcome.failure.stage);
       return healthOutcome.failure;
     }
     const health = healthOutcome.health;
@@ -477,9 +493,74 @@ export class ServerProcessController {
     this.handshakeResolve = null;
     this.pendingSpawnError = null;
     this.readyInfo = null;
-    this.stopping = false;
+    // ★ 不在这里清 `stopping`：关停是粘性的（start() 入口会据此拒绝再拉起）。
     this.adminPassword = null;
     this.child = null;
+    this.closeReaders();
+  }
+
+  /** 关闭当前子进程的两条读流（丢弃 child / 子进程退出时调用）。 */
+  private closeReaders(): void {
+    for (const reader of [this.outReader, this.errReader]) {
+      try {
+        reader?.close();
+      } catch {
+        /* 已关闭 */
+      }
+    }
+    this.outReader = null;
+    this.errReader = null;
+  }
+
+  /**
+   * 启动失败后的统一收尾：**先结束仍存活的子进程**，再返回结构化失败。
+   *
+   * 为什么必须在 start() 内部做：`handshake-timeout` 与 `health-timeout` 这两种
+   * 失败发生时子进程还活着（它只是没握手成功 / 探针没通过）。若直接返回失败，
+   * 调用方（D12.4 重启策略）会在下一轮 `start()` 里 `resetForStart()` 覆盖 child
+   * 引用 —— 旧进程从此无人认领：占着端口与项目库句柄，它的 stderr 读流还继续
+   * 往共享的握手/密码状态里写，重启满 3 次就能攒出 3 个孤儿。
+   *
+   * 这里不走 `stop()` 的优雅协议：启动都失败了，不能指望它对 stdin 有响应。
+   */
+  private async failStart(
+    stage: ServerStartFailure['stage'],
+    reason: string,
+    exitCode: number | null,
+    signalCode: string | null,
+  ): Promise<ServerStartFailure> {
+    await this.abandonChild(stage);
+    return this.failure(stage, reason, exitCode, signalCode);
+  }
+
+  /** 无条件结束当前子进程（并丢弃它的读流），不做优雅等待。 */
+  private async abandonChild(stage: string): Promise<void> {
+    const child = this.child;
+    if (child === null) return;
+    if (this.exitInfo !== null) {
+      // 已自行退出：只需清引用与读流。
+      this.child = null;
+      this.closeReaders();
+      return;
+    }
+    const pid = child.pid ?? null;
+    this.log(
+      'warn',
+      `启动失败（stage=${stage}）⇒ 结束遗留子进程（pid=${String(pid)}），` +
+        `避免它继续占用端口与项目库句柄。`,
+    );
+    this.closeReaders();
+    try {
+      child.stdin?.destroy();
+    } catch {
+      /* 已关闭 */
+    }
+    if (pid !== null) {
+      await taskkillTree(pid, this.log);
+    }
+    if (this.child === child) {
+      this.child = null;
+    }
   }
 
   private spawnChild(): ChildProcess {
@@ -508,19 +589,25 @@ export class ServerProcessController {
   }
 
   private attachStreams(child: ChildProcess): void {
+    this.closeReaders();
     if (child.stdout !== null) {
       const outReader = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
       outReader.on('line', (line: string) => {
+        // 被丢弃的旧子进程即使还在跑，也不能再往日志/握手状态里写。
+        if (this.child !== child) return;
         // 逐字落盘（logger.writeRaw 保证不加时间戳前缀）
         this.options.logger.serverLine('out', line);
       });
+      this.outReader = outReader;
     }
 
     if (child.stderr !== null) {
       const errReader = readline.createInterface({ input: child.stderr, crlfDelay: Infinity });
       errReader.on('line', (line: string) => {
+        if (this.child !== child) return;
         this.handleStderrLine(line);
       });
+      this.errReader = errReader;
     }
   }
 
@@ -569,6 +656,8 @@ export class ServerProcessController {
 
   private attachLifecycle(child: ChildProcess): void {
     child.once('error', (error: Error) => {
+      // 已被丢弃的旧子进程：不许再改共享状态（否则会把新 child 的握手搞乱）。
+      if (this.child !== child) return;
       const message = `${error.name}: ${error.message}`;
       this.pendingSpawnError = message;
       this.log('error', `server 子进程 spawn/运行错误：${message}`);
@@ -580,7 +669,11 @@ export class ServerProcessController {
     });
 
     child.once('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      // 旧子进程的退出不得覆盖当前 child 的退出信息（会让 stop() 误判「不在运行」）。
+      if (this.child !== child) return;
       this.exitInfo = { code, signal: signal === null ? null : String(signal) };
+      this.child = null;
+      this.closeReaders();
       this.notifyExitWaiters();
 
       if (this.stopping) {
@@ -725,6 +818,9 @@ export class ServerProcessController {
 
   private async runRestartPolicy(exitCode: number | null, signalCode: string | null): Promise<void> {
     if (this.restarting) {
+      // 重启进行中又收到一次退出：不能直接丢掉，否则这个孩子死了也没人管，
+      // 界面上就是「窗口还在、后端没了」。出闩后补跑一次。
+      this.pendingRestart = { code: exitCode, signalCode };
       return;
     }
     this.restarting = true;
@@ -772,6 +868,11 @@ export class ServerProcessController {
       });
     } finally {
       this.restarting = false;
+      const pending = this.pendingRestart;
+      this.pendingRestart = null;
+      if (pending !== null && !this.stopping) {
+        void this.runRestartPolicy(pending.code, pending.signalCode);
+      }
     }
   }
 
