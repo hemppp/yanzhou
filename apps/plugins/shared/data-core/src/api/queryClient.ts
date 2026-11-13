@@ -59,6 +59,16 @@ const DEFAULT_OPTIONS: Required<QueryOptions> = {
 const cache = new Map<string, QueryEntry<unknown>>();
 
 /**
+ * 每 N 次查询顺带做一次过期清理。
+ *
+ * `garbageCollect()` 原先只在 `invalidateQuery()` 里跑；只查询、不失效的
+ * 页面（例如带 id 的详情键）会让 `cache` 一路只增不减。做满 N 次清一次
+ * 的摊销成本可以忽略，却把表压回 gcTime 窗口内。
+ */
+const GC_EVERY_N_QUERIES = 50;
+let queriesSinceGc = 0;
+
+/**
  * 正在进行的请求去重映射
  * 避免同一查询键并发请求多次
  */
@@ -127,6 +137,11 @@ export async function query<T>(
 ): Promise<T> {
   const { staleTime = DEFAULT_OPTIONS.staleTime } = options;
   const cacheKey = serializeKey(key);
+  queriesSinceGc += 1;
+  if (queriesSinceGc >= GC_EVERY_N_QUERIES) {
+    queriesSinceGc = 0;
+    garbageCollect();
+  }
   const cached = cache.get(cacheKey);
 
   // 1. 如果有缓存且未过期，直接返回

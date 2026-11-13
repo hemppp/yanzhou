@@ -100,6 +100,20 @@ function colorOf(agent: string, fallback: string): string {
   return AGENT_COLOR[agent] ?? fallback;
 }
 
+/**
+ * 交流流最多保留多少条。
+ *
+ * 长跑最多 400 批、每批多角色发言，`turns` 只增不减会随运行时长线性吃内存
+ * （每条还带整段正文与思维链）。超出后丢最旧的 —— 与讨论历史「只看最近」的
+ * 用途一致。
+ */
+const MAX_TURNS = 400;
+
+function appendTurn(prev: ChatTurn[], turn: ChatTurn): ChatTurn[] {
+  const next = [...prev, turn];
+  return next.length > MAX_TURNS ? next.slice(-MAX_TURNS) : next;
+}
+
 /** 交流流里的一条发言 */
 interface ChatTurn {
   id: string;
@@ -501,7 +515,7 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
    * 它的 stage_turn 事件与单章讨论的 turn 是同一种东西，都该出现在同一交流流里。
    */
   const pushTurn = useCallback((turn: Omit<ChatTurn, 'id' | 'time'>) => {
-    setTurns((prev) => [...prev, { ...turn, id: nanoid(), time: nowHHMM() }]);
+    setTurns((prev) => appendTurn(prev, { ...turn, id: nanoid(), time: nowHHMM() }));
     scrollStreamToEnd();
   }, [scrollStreamToEnd]);
   onTurnRef.current = pushTurn;
@@ -531,9 +545,12 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
     setLiveThinking(null);
     return t.trim() ? t : undefined;
   }, []);
-  // 卸载时别把定时器留下
+  // 卸载时别把定时器/长连接留下：离开工作台或切模式时，正在跑的讨论/连写
+  // 必须立刻中断，否则 SSE 会一直读到服务端自然结束（长跑最多 400 批）。
   useEffect(() => () => {
     if (thinkingFlushRef.current !== null) clearTimeout(thinkingFlushRef.current);
+    abortRef.current?.abort();
+    abortRef.current = null;
   }, []);
 
   /** 一轮设计讨论：后端逐个扮演角色把发言推回来，事件自带身份（不再靠前端猜） */
@@ -721,10 +738,10 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
     if (busy) {
       // 插话：先乐观落进时间线（标 queued），投递失败再改成 warn
       const id = nanoid();
-      setTurns((prev) => [...prev, {
+      setTurns((prev) => appendTurn(prev, {
         id, from: 'user', name: '你', color: 'hsl(var(--ink))', short: '我',
         text, time: nowHHMM(), interject: 'queued',
-      }]);
+      }));
       setDraft('');
       scrollStreamToEnd();
       void apiClient.post('plugins/autowrite/interject', { text })
@@ -735,11 +752,11 @@ export function AutoWriteWorkbench({ project, onBack, onProjectDataChanged }: Au
         });
       return;
     }
-    setTurns((prev) => [...prev, {
+    setTurns((prev) => appendTurn(prev, {
       id: nanoid(),
       from: 'user', name: '你', color: 'hsl(var(--ink))', short: '我',
       text, time: nowHHMM(),
-    }]);
+    }));
     setDraft('');
     scrollStreamToEnd();
     void runAgent(text);

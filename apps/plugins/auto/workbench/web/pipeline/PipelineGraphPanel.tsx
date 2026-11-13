@@ -171,6 +171,13 @@ export function PipelineGraphPanel({
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // 卸载时中断在跑的长任务（同 PipelinePanel：否则 SSE 循环与 setState 会留在
+  // 已卸载的组件上，连接要等服务端自然结束才断）。
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
   /** 状态变更上报（气泡徽标用）—— 收在一处，避免每个 setStatus 都补一遍 */
   useEffect(() => {
     onStatus?.(status?.view ?? null, status);
