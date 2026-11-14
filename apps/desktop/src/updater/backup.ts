@@ -122,6 +122,13 @@ export async function backupDir(
     await fsp.rm(backupPath, { recursive: true, force: true });
     await copyDirRecursive(srcDir, backupPath, { excludeNames });
   } catch (err) {
+    // 复制中途失败会留下半棵树：清掉再抛，免得下次备份叠加，也免得
+    // 回滚逻辑误把半份备份当成可用备份。
+    try {
+      await fsp.rm(backupPath, { recursive: true, force: true });
+    } catch {
+      /* 清不掉只能留给下次同名清理 */
+    }
     throw new BackupError(`备份失败: ${srcDir} → ${backupPath}：${(err as Error).message}`);
   }
 

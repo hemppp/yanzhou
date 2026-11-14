@@ -136,6 +136,13 @@ export function PipelinePanel({ projectId, onProjectDataChanged, onTurn, hasChap
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // 卸载（关面板 / 切模式 / 返回书架）时中断在跑的长任务：
+  // 否则 `for(;;)` 会继续拉 SSE，并把 setStatus/setPhase 打到已卸载的组件上。
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
   /** 状态变更上报（气泡徽标用）—— 收在一处，避免每个 setStatus 都补一遍 */
   useEffect(() => {
     onStatus?.(status?.view ?? null, status);

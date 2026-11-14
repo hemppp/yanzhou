@@ -199,9 +199,20 @@ async function copyTree(src: string, dest: string): Promise<void> {
 async function replacePathSafely(src: string, destPath: string): Promise<void> {
   const tmp = `${destPath}.nmnew-${process.pid}-${Date.now().toString(36)}`;
   await removeTreeSafely(tmp);
-  await copyTree(src, tmp);
-  await removeTreeSafely(destPath);
-  await fsp.rename(tmp, destPath);
+  try {
+    await copyTree(src, tmp);
+    await removeTreeSafely(destPath);
+    await fsp.rename(tmp, destPath);
+  } catch (err) {
+    // 复制中途失败（ENOSPC/EACCES）或被占用的 rename 失败：临时树可能已经是
+    // 整份载荷，不清掉会永久留在目标目录旁，反复失败即持续增长。
+    try {
+      await removeTreeSafely(tmp);
+    } catch {
+      /* 清不掉就让下一次同名清理兜底（名字带 pid+时间戳，不会误删） */
+    }
+    throw err;
+  }
 }
 
 /**
@@ -564,6 +575,8 @@ export function createUpdater(ctx: UpdaterContext): Updater {
     const backupsForVersion = path.join(layout.backupsDir, currentVersion || 'unknown');
     /** 失败时用于「明确报告已备份位置」的后缀。 */
     const backupHint = `已备份位置：${backupsForVersion}`;
+    /** 本次解包目录（纯临时产物，成功/失败都要清）。 */
+    let extractDirToClean: string | null = null;
 
     try {
       // ---- 步骤 1：读 config + check，无更新直接返回 ----
@@ -615,6 +628,7 @@ export function createUpdater(ctx: UpdaterContext): Updater {
 
       // ---- 步骤 4：安全解压（防路径穿越由 zip.ts 实现）----
       const extractDir = path.join(layout.updatesDir, 'extract', sha256);
+      extractDirToClean = extractDir;
       await removeTreeSafely(extractDir);
       try {
         const extracted = await extractZipSecurelyLazy(downloadPath, extractDir);
@@ -732,6 +746,12 @@ export function createUpdater(ctx: UpdaterContext): Updater {
 
       // ---- 步骤 9：成功 ----
       currentVersion = targetVersion;
+      // 安装包已装好，压缩包留着没有意义（每份可达数百 MB）。
+      try {
+        await fsp.rm(downloadPath, { force: true });
+      } catch {
+        /* 删不掉不影响更新结果，next 次同版本会覆盖同一路径 */
+      }
       log('info', `应用本体更新完成：v${targetVersion}（重启后生效）`);
 
       const ok: UpdaterApplyAppResult = { ok: true, version: targetVersion };
@@ -747,6 +767,17 @@ export function createUpdater(ctx: UpdaterContext): Updater {
         ok: false,
         error: `应用更新失败：${errText(err)}。已尝试从备份回滚（${restoreNote}）；${backupHint}`,
       };
+    } finally {
+      // ★ 解包树是纯临时产物：原实现只在「下一次更新开始时」清同名目录，
+      //   于是每次更新都在 <userData>/updates/extract/<sha> 留一份完整载荷
+      //   （app-server + web-dist，数百 MB），只增不减。
+      if (extractDirToClean !== null) {
+        try {
+          await removeTreeSafely(extractDirToClean);
+        } catch (cleanupErr) {
+          log('warn', `清理解包目录失败（${extractDirToClean}）：${errText(cleanupErr)}`);
+        }
+      }
     }
   }
 

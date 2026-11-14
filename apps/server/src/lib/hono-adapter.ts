@@ -17,6 +17,15 @@ async function readBody(req: IncomingMessage): Promise<Buffer | null> {
 /** 把 node:http 请求转成 Web Request 并调用 Hono 应用。 */
 export function honoListener(app: Hono) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    // ★ 断连信号：客户端关页面/断网时 `res` 会 `close`。必须把它接到
+    //   `Request.signal` 上 —— 各 SSE 路由都用 `c.req.raw.signal` 取消上游
+    //   AI 生成；原来构造 Request 时没传 signal，等于所有取消全部失效，
+    //   断开的连接还在全速烧 token，并且下面的读循环会一直等 drain。
+    const controller = new AbortController();
+    res.once('close', () => {
+      if (!res.writableFinished) controller.abort();
+    });
+
     try {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       const method = req.method ?? 'GET';
@@ -34,6 +43,7 @@ export function honoListener(app: Hono) {
         method,
         headers,
         body: rawBody ?? undefined,
+        signal: controller.signal,
       });
 
       const response = await app.fetch(request);
@@ -56,20 +66,43 @@ export function honoListener(app: Hono) {
         return;
       }
       const reader = body.getReader();
+      // 客户端断开时 `res` 的 'close'：用它把「等 drain」「等 read」都唤醒，
+      // 否则下面两处 await 会永久挂起，而 Hono 侧的心跳 interval 还在往
+      // 一个没人读的流里 enqueue —— 这就是「断开的长连接越攒越多」的根因。
+      const closed = new Promise<void>((resolve) => {
+        if (res.destroyed || res.writableEnded) {
+          resolve();
+          return;
+        }
+        res.once('close', () => resolve());
+      });
       try {
         for (;;) {
-          const { done, value } = await reader.read();
+          const { done, value } = await Promise.race([
+            reader.read(),
+            closed.then(() => ({ done: true as const, value: undefined })),
+          ]);
           if (done) break;
           if (!value) continue;
           if (!res.write(value)) {
-            await new Promise<void>((resolve) => res.once('drain', () => resolve()));
+            await Promise.race([
+              new Promise<void>((resolve) => res.once('drain', () => resolve())),
+              closed,
+            ]);
           }
         }
-        res.end();
+        if (!res.writableEnded) res.end();
       } catch (streamErr) {
         // 上游流中断/客户端断开：尽力终止响应
         console.warn('[hono-adapter] 响应流中断:', streamErr instanceof Error ? streamErr.message : streamErr);
         if (!res.writableEnded) res.destroy();
+      } finally {
+        // 无论如何都要把上游流关掉：让 AI 生成侧的 finally / 心跳清理跑起来。
+        try {
+          await reader.cancel();
+        } catch {
+          /* 已结束 */
+        }
       }
     } catch (err) {
       // C9：生产环境不向客户端泄露内部错误详情（与 error-handler.ts 脱敏口径一致），

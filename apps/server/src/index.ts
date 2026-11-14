@@ -22,6 +22,22 @@ import { initDatabase, closeDatabase, closeAllProjectDbs, getDb, schema, getMain
 import { initProxy } from './lib/proxy-agent.js';
 import { ensureLocalUser } from './services/local-user-service.js';
 
+// ------------------------------------------------------------
+// stdout/stderr 断管守卫（与 apps/desktop/src/logger.ts 同款）
+//
+// 桌面壳用管道接本进程的 stdout/stderr；壳一退出（崩溃 / 用户强杀终端），
+// 管道就断，之后每次 console.* 都抛 EPIPE。**没有 error 监听时 EPIPE 会升级成
+// uncaughtException**，而下面的 handleFatal 又要 console.error ⇒ 自激循环：
+// 实测（2026-11-13）1.2 s 内跑进 3544 次异常处理，CPU 空转、每次还 dispose 一遍
+// 插件宿主。挂上 error 监听后 EPIPE 只被吞掉，不再升级。
+// ------------------------------------------------------------
+let stdioBroken = false;
+const onStdioError = (): void => {
+  stdioBroken = true;
+};
+process.stdout.on('error', onStdioError);
+process.stderr.on('error', onStdioError);
+
 // 端口：支持 PORT 环境变量覆盖（Docker/容器化场景必需），默认 3774
 // PORT=0 时让操作系统自动分配可用端口（Electron 桌面端场景）
 const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 3774;
@@ -181,21 +197,39 @@ console.warn(`[Server] HOST_MODE=${hostMode}${process.env.HOST_MODE && hostMode 
     process.exit(0);
   };
 
+  /**
+   * 异常处理中的日志：管道已断时直接丢弃。
+   *
+   * 桌面壳退出后 stdout/stderr 是死管道，再往里写字面意义上没有任何人能读到，
+   * 只会白白占用每次异常的处理时间（这正是上面那条自激循环的燃料）。
+   */
+  const fatalLog = (message: string, detail: unknown): void => {
+    if (stdioBroken) return;
+    console.error(message, detail);
+  };
+
+  // 重入闸门：一次异常若在处理期间又抛异常，不能层层递归（每次都会 dispose 宿主）。
+  let handlingFatal = false;
+
   const handleFatal = async (err: unknown, type: string) => {
-    console.error('[Server] 致命错误 (' + type + '):', err);
+    fatalLog('[Server] 致命错误 (' + type + '):', err);
+    if (handlingFatal) return;
+    handlingFatal = true;
     // 尽力释放资源，但**不退出进程**：dev 模式下 tsx watch 依赖进程存活；
     // 单独一次异步异常不应拖垮整个服务（原实现 process.exit(1) 会让端口静默消失）。
     try {
       await serverPluginHost.dispose();
     } catch {
       // 忽略释放错误
+    } finally {
+      handlingFatal = false;
     }
   };
 
   process.on('SIGINT', () => void closeGracefully('SIGINT'));
   process.on('SIGTERM', () => void closeGracefully('SIGTERM'));
   process.on('uncaughtException', (err) => void handleFatal(err, 'uncaughtException'));
-  process.on('unhandledRejection', (reason) => { console.error('[Server] 未处理的 Promise 拒绝（已忽略，不影响服务）:', reason); });
+  process.on('unhandledRejection', (reason) => { fatalLog('[Server] 未处理的 Promise 拒绝（已忽略，不影响服务）:', reason); });
 
   // ---- stdin 控制通道（桌面端优雅关闭，ADR-0008 D13.3）----
   // 背景：Windows 上 Node 的 child.kill('SIGTERM'/'SIGINT') 走 TerminateProcess，

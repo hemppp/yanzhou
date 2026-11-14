@@ -19,6 +19,10 @@
 //   - 环形缓冲按**行**保存（不是字节），保证对话框里不会截断半行。
 //   - `stderrTail(n)` 返回**字符**数而非字节数：D5.3 冻结的措辞是
 //     「stderr 末 2000 字符」，中文按字符计。
+//   - stdout/stderr 断管（EPIPE）后全局静默 console：管道没了就该闭嘴，
+//     不能因为「观察日志」把壳自己拖崩；落盘与环形缓冲不受影响。
+//   - 单文件超过 64MB 滚动为 `<file>.1`（只留一份旧档），避免长期运行
+//     把 server.out.log 涨成几个 GB。
 // ============================================================
 
 import fs from 'node:fs';
@@ -34,6 +38,36 @@ const RING_MAX_LINE_CHARS = 8000;
 
 /** stderr 末尾快照的默认字符数（D5.3 冻结值 2000）。 */
 export const STDERR_TAIL_CHARS = 2000;
+
+/** 单文件滚动阈值：64MB，超过后归档为 `<file>.1`，只保留一份旧档。 */
+const MAX_LOG_BYTES = 64 * 1024 * 1024;
+
+/** 滚动期间最多缓存多少行，避免断管/慢盘时内存无上限增长。 */
+const MAX_PENDING_LINES = 200;
+
+/**
+ * stdout/stderr 是否已断管。
+ *
+ * 桌面壳常由终端（`npm run dev` / `electron .`）拉起，终端一关管道就断；
+ * 之后每次 `console.*` 都会再抛一次 EPIPE，最终把主进程的
+ * `uncaughtException` 处理器拖出来弹崩溃框。断管后全局静默 console，
+ * **文件落盘与内存环形缓冲不受影响**。
+ */
+let consoleBroken = false;
+
+/** 断管监听只装一次：ShellLogger 会建 3 个 FileLogger，不能装 3 份。 */
+let pipeGuardsInstalled = false;
+
+function installPipeGuards(): void {
+  if (pipeGuardsInstalled) return;
+  pipeGuardsInstalled = true;
+  const onPipeError = (): void => {
+    consoleBroken = true;
+  };
+  // 挂上 error 监听后，后续 EPIPE 不再升级为 uncaughtException。
+  process.stdout.on('error', onPipeError);
+  process.stderr.on('error', onPipeError);
+}
 
 interface RingBuffer {
   lines: string[];
@@ -73,16 +107,30 @@ function ringTailChars(ring: RingBuffer, chars: number): string {
  * 单文件日志器：一个追加写流 + 一个内存环形缓冲。
  */
 class FileLogger {
-  private readonly stream: fs.WriteStream | null;
+  private stream: fs.WriteStream | null;
   private readonly ring: RingBuffer = createRing();
   private readonly filePath: string;
   private writeFailed = false;
 
-  constructor(filePath: string, private readonly echoToConsole: boolean) {
+  /** 当前落盘字节数，用于 64MB 滚动；滚动后清零。 */
+  private written = 0;
+  /** 正在滚动：期间的日志先入 pending，重开后再补写。 */
+  private rotating = false;
+  private pending: string[] = [];
+  private echoToConsole: boolean;
+
+  constructor(filePath: string, echoToConsole: boolean) {
     this.filePath = filePath;
+    this.echoToConsole = echoToConsole;
     let stream: fs.WriteStream | null = null;
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      // 既有文件可能是上次运行留下的：接上它的体积，重启后也能按 64MB 滚动。
+      try {
+        this.written = fs.statSync(filePath).size;
+      } catch {
+        this.written = 0;
+      }
       stream = fs.createWriteStream(filePath, { flags: 'a', encoding: 'utf8' });
       // 流错误（磁盘满 / 权限）不能让主进程崩：置标志位，后续只写内存。
       stream.on('error', () => {
@@ -92,20 +140,17 @@ class FileLogger {
       this.writeFailed = true;
     }
     this.stream = stream;
+    installPipeGuards();
   }
 
   /** 写一行（自动补 ISO8601 前缀与级别）。 */
   write(level: LogLevel, message: string): void {
     const line = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`;
     ringPush(this.ring, line);
-    if (this.echoToConsole) {
-      const sink =
-        level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
-      sink(line);
-    }
-    if (this.stream !== null && !this.writeFailed) {
-      this.stream.write(`${line}\n`);
-    }
+    const sink =
+      level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+    this.echo(sink, line);
+    this.persist(line);
   }
 
   /**
@@ -118,11 +163,92 @@ class FileLogger {
    */
   writeRaw(line: string): void {
     ringPush(this.ring, line);
-    if (this.echoToConsole) {
-      console.log(line);
+    this.echo(console.log, line);
+    this.persist(line);
+  }
+
+  /**
+   * console 回声：断管或同步 EPIPE 后**永久**关掉本实例的 echo。
+   *
+   * 断管后 echo 本身就是再次抛错的原因之一，因此这里只做止损，
+   * 不重试、不告警 —— 文件落盘仍照常进行。
+   */
+  private echo(sink: (line: string) => void, line: string): void {
+    if (!this.echoToConsole || consoleBroken) return;
+    try {
+      sink(line);
+    } catch {
+      this.echoToConsole = false;
     }
-    if (this.stream !== null && !this.writeFailed) {
+  }
+
+  /** 落盘一行并维护字节计数；超过阈值触发滚动。 */
+  private persist(line: string): void {
+    if (this.stream === null || this.writeFailed) return;
+    if (this.rotating) {
+      if (this.pending.length < MAX_PENDING_LINES) this.pending.push(line);
+      return;
+    }
+    this.writeLine(line);
+    if (this.written > MAX_LOG_BYTES) this.rotate();
+  }
+
+  private writeLine(line: string): void {
+    if (this.stream === null || this.writeFailed) return;
+    try {
       this.stream.write(`${line}\n`);
+      this.written += Buffer.byteLength(line, 'utf8') + 1;
+    } catch {
+      this.writeFailed = true;
+    }
+  }
+
+  /**
+   * 滚动：`main.log` → `main.log.1`（覆盖旧档），随后重开新文件。
+   *
+   * 必须等旧流 `close`（文件句柄释放）再 rename —— Windows 下句柄未释放
+   * 时 rename 会 EBUSY/EPERM。滚动是异步的，期间的日志先进 pending，
+   * 重开后补写，保证不丢行。
+   */
+  private rotate(): void {
+    const old = this.stream;
+    if (old === null || this.rotating || this.writeFailed) return;
+    this.rotating = true;
+    let done = false;
+    const reopen = (): void => {
+      if (done) return;
+      done = true;
+      try {
+        fs.renameSync(this.filePath, `${this.filePath}.1`);
+      } catch {
+        // 改名失败（被占用/无权限）：继续追加写，只重置计数避免反复触发
+      }
+      try {
+        const stream = fs.createWriteStream(this.filePath, { flags: 'a', encoding: 'utf8' });
+        stream.on('error', () => {
+          this.writeFailed = true;
+        });
+        this.stream = stream;
+        this.written = 0;
+        const backlog = this.pending;
+        this.pending = [];
+        for (const line of backlog) this.writeLine(line);
+      } catch {
+        this.writeFailed = true;
+        this.stream = null;
+      }
+      this.rotating = false;
+    };
+    // 已关闭/已销毁的流不会再抛 close，直接重开，避免卡死在 rotating。
+    if (old.closed || old.destroyed) {
+      reopen();
+      return;
+    }
+    old.once('close', reopen);
+    try {
+      old.end();
+    } catch {
+      reopen();
     }
   }
 

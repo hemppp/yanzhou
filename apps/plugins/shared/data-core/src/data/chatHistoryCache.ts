@@ -19,6 +19,14 @@
 const PREFIX = 'nm:chat:';
 
 /**
+ * 单会话最多保留的消息条数。
+ *
+ * 不裁剪的话：一次长对话（含每轮完整回答）会把整段正文反复写进 localStorage，
+ * 迟早撑爆配额（之后写入静默失败，刷新即丢）。丢最旧的、留最近的。
+ */
+const MAX_PERSISTED_MESSAGES = 200;
+
+/**
  * 统一的最小形状。
  * 两侧的 ChatMessage 结构不同：手写台有 `id/status/tools`，自动写作只有
  * `role/content/timestamp`。所以只要求「能取到一个稳定键」——
@@ -80,8 +88,15 @@ export function saveChatHistory<T extends PersistableMessage>(
 ): void {
   if (!projectId || !storageAvailable()) return;
   try {
-    const stable = messages.filter((m) => m.status !== 'streaming');
-    localStorage.setItem(keyOf(projectId, scope), JSON.stringify(stable));
+    const stable = messages
+      .filter((m) => m.status !== 'streaming')
+      .slice(-MAX_PERSISTED_MESSAGES);
+    // 思维链只在内存里供当前会话查看，不落盘（与 chatHistoryStore 口径一致）。
+    localStorage.setItem(
+      keyOf(projectId, scope),
+      JSON.stringify(stable, (key, value) =>
+        key === 'thinking' && typeof value === 'string' ? undefined : value),
+    );
   } catch {
     /* 配额满 / 隐私模式：静默降级，不阻塞对话 */
   }

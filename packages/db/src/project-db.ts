@@ -26,6 +26,8 @@ interface ProjectDbEntry {
 
 /** LRU 缓存：projectId → 项目库实例 */
 const _projectDbCache = new Map<string, ProjectDbEntry>();
+/** 在途的首次打开（并发去重；完成后即删除）。 */
+const _projectDbOpening = new Map<string, Promise<DrizzleDb>>();
 
 // ---- 项目库初始化钩子 ----
 // 用途：插件正式表迁移通道（ctx.db.migrate scope:'project'）——插件把迁移登记为
@@ -240,6 +242,20 @@ export async function initProjectDb(projectId: string): Promise<DrizzleDb> {
     return cached.db;
   }
 
+  // ★ 并发首次打开去重：中间有 `await loadModules()`，页面同时发起的多个
+  //   项目级请求会一起穿透缓存，各开一条 better-sqlite3 连接；后写缓存者
+  //   覆盖先写者，先开的连接从此无人 close（句柄/WAL 只能等进程退出）。
+  const opening = _projectDbOpening.get(projectId);
+  if (opening !== undefined) return opening;
+  const task = openProjectDb(projectId).finally(() => {
+    _projectDbOpening.delete(projectId);
+  });
+  _projectDbOpening.set(projectId, task);
+  return task;
+}
+
+/** `initProjectDb` 的实际打开逻辑（同一项目保证只有一个在途）。 */
+async function openProjectDb(projectId: string): Promise<DrizzleDb> {
   await loadModules();
 
   const fs = await import('fs');

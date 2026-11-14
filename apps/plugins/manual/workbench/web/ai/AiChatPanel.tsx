@@ -231,9 +231,14 @@ export function AiChatPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, chatScope]);
 
-  // 消息变化 → 落盘（streaming 中的消息由 saveChatHistory 自动剔除）
+  // 消息变化 → 落盘（streaming 中的消息由 saveChatHistory 自动剔除）。
+  // ★ 防抖 500ms：流式回复时 messages 每个 chunk 都变，同步 JSON.stringify
+  //   整个会话 + localStorage.setItem 会持续阻塞主线程（长对话尤其明显）。
   useEffect(() => {
-    saveChatHistory(project?.id, chatScope, messages);
+    const timer = window.setTimeout(() => {
+      saveChatHistory(project?.id, chatScope, messages);
+    }, 500);
+    return () => window.clearTimeout(timer);
   }, [project?.id, chatScope, messages]);
 
   // 流式追加 → 自动到底（内容每帧都在变，故依赖 messages 整体）

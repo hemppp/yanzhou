@@ -150,32 +150,45 @@ function delay(ms: number): Promise<void> {
  */
 const LOG_FLUSH_GRACE_MS = 150;
 
-/** 优雅关停子进程并关闭日志（D13.4）。 */
-async function gracefulShutdown(reason: string): Promise<void> {
-  if (controller !== null) {
-    try {
-      await controller.stop(reason);
-    } catch (error) {
-      earlyLog('error', `关停 server 子进程时抛错：${String(error)}`);
+/** 关停的 single-flight：并发触发（连点重启 / fatal 与 before-quit 撞车）只跑一次。 */
+let shutdownPromise: Promise<void> | null = null;
+/** 退出/重启动作是否已经执行过：防止 relaunch 与 exit 各自跑一遍。 */
+let finalActionTaken = false;
+
+/** 优雅关停子进程并关闭日志（D13.4）。重复调用复用同一次关停。 */
+function gracefulShutdown(reason: string): Promise<void> {
+  if (shutdownPromise !== null) return shutdownPromise;
+  shutdownPromise = (async () => {
+    if (controller !== null) {
+      try {
+        await controller.stop(reason);
+      } catch (error) {
+        earlyLog('error', `关停 server 子进程时抛错：${String(error)}`);
+      }
     }
-  }
-  if (logger !== null) {
-    logger.info(`优雅关停完成（reason=${reason}）⇒ 退出进程。`);
-    logger.close();
-    // close() 是异步落盘 ⇒ 退出前显式让出有界窗口，否则上面这行会丢。
-    await delay(LOG_FLUSH_GRACE_MS);
-  }
+    if (logger !== null) {
+      logger.info(`优雅关停完成（reason=${reason}）⇒ 退出进程。`);
+      logger.close();
+      // close() 是异步落盘 ⇒ 退出前显式让出有界窗口，否则上面这行会丢。
+      await delay(LOG_FLUSH_GRACE_MS);
+    }
+  })();
+  return shutdownPromise;
 }
 
 /** 完成关停后退出（D13.4 步骤 ④）。 */
 async function shutdownAndExit(code: number, reason: string): Promise<void> {
   await gracefulShutdown(reason);
+  if (finalActionTaken) return;
+  finalActionTaken = true;
   app.exit(code);
 }
 
 /** 完成关停后重启（`relaunch` / `updaterRelaunch` 共用）。 */
 async function shutdownAndRelaunch(reason: string): Promise<void> {
   await gracefulShutdown(reason);
+  if (finalActionTaken) return;
+  finalActionTaken = true;
   app.relaunch();
   app.exit(0);
 }
@@ -368,6 +381,15 @@ async function startServer(
       `首选启动方式（--import tsx）失败（stage=${failureInfo.stage}）：${failureInfo.reason}` +
         ` ⇒ 按 D4.2 备选方式改用 tsx cli.mjs 重试。`,
     );
+    // ★ 必须先收掉上一个控制器：handshake-timeout / health-timeout 这两种失败
+    //   发生时子进程**还活着**（只是没握手成功 / 探针没通过）。直接换控制器
+    //   等于把它变成孤儿：端口与项目库句柄都被它占着，第二个 server 只会
+    //   撞端口再失败一次，而孤儿进程会一直留在任务管理器里。
+    try {
+      await controller.stop('fallback:spawn-mode');
+    } catch (error) {
+      logger!.warn(`切换启动方式前关停旧子进程失败：${String(error)}`);
+    }
     controller = new ServerProcessController({
       ...controllerOptions,
       spawnMode: 'cli',
