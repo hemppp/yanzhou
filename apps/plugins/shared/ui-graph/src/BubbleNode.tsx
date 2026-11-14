@@ -10,16 +10,81 @@ export interface BubbleNodeData {
   isHovered?: boolean;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const h = hex.replace('#', '');
-  const bigint = parseInt(h.length === 3
-    ? h.split('').map(c => c + c).join('')
-    : h, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+// ============================================================
+// 颜色工具
+//
+// ★ 2026-11-14 修复：业务侧传进来的是 `hsl(0 0% 12%)` 这类 CSS 颜色，
+//   而旧实现只有 hexToRgba() —— parseInt('hsl(...)', 16) = NaN，
+//   全部退化成黑色。于是不同角色/物品的颜色根本没生效，整张图只剩黑球。
+//   这里同时支持 hex / rgb() / hsl()，并优先用 color-mix 让任意 CSS 颜色都能带透明度。
+// ============================================================
+
+function parseCssColorToRgb(color: string): [number, number, number] | null {
+  const value = color.trim();
+
+  // #rgb / #rrggbb
+  if (value.startsWith('#')) {
+    const hex = value.slice(1);
+    const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    if (!/^[0-9a-f]{6}$/i.test(full)) return null;
+    const n = parseInt(full, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  // rgb(r g b) / rgba(r, g, b, a)
+  const rgbMatch = value.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i);
+  if (rgbMatch) {
+    return [Number(rgbMatch[1]), Number(rgbMatch[2]), Number(rgbMatch[3])];
+  }
+
+  // hsl(h s% l%)
+  const hslMatch = value.match(/^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/i);
+  if (hslMatch) {
+    const h = Number(hslMatch[1]) / 360;
+    const s = Number(hslMatch[2]) / 100;
+    const l = Number(hslMatch[3]) / 100;
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    if (s === 0) {
+      const gray = Math.round(l * 255);
+      return [gray, gray, gray];
+    }
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    return [
+      Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+      Math.round(hue2rgb(p, q, h) * 255),
+      Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+    ];
+  }
+
+  return null;
 }
+
+/** 给任意 CSS 颜色附加透明度（hex / rgb / hsl 都支持） */
+export function colorWithAlpha(color: string, alpha: number): string {
+  const clamped = Math.max(0, Math.min(1, alpha));
+  const rgb = parseCssColorToRgb(color);
+  if (rgb) return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${clamped})`;
+  // 兜底：color-mix 能处理 var()/颜色关键字等无法静态解析的值（Chromium 111+）
+  return `color-mix(in srgb, ${color} ${Math.round(clamped * 100)}%, transparent)`;
+}
+
+/**
+ * 文字颜色跟随主题前景色，而不是跟随气泡颜色。
+ *
+ * 气泡填充是「角色色 × 0.4 透明度」叠在画布上：浅色主题下最深也就中灰，
+ * 深色主题下则会落到近黑。用固定白字/黑字都会在某个主题里失去对比度，
+ * 而 `--foreground` 本身就是与背景成对定义的，交给它最稳。
+ */
+const INK_TEXT = 'hsl(var(--foreground))';
+const INK_SUBTLE = 'hsl(var(--muted-foreground))';
 
 function getFontSize(size: number, labelLength: number): number {
   if (labelLength <= 2) {
@@ -47,18 +112,20 @@ export const BubbleNode = memo(function BubbleNode({ data }: NodeProps) {
   const label = d.label || '';
   const fontSize = getFontSize(size, label.length);
 
-  const bgColor = hexToRgba(d.color, 0.22);
-  const borderColor = hexToRgba(d.color, 0.45);
-  const glowColor = hexToRgba(d.color, 0.35);
-  const glowColorStrong = hexToRgba(d.color, 0.55);
-  const textColor = hexToRgba(d.color, 0.9);
+  // 边框改用 0.5px 的 inset 阴影：CSS border 会被浏览器向上取整到 1px，
+  // 而 box-shadow 的 0.5px 能保留亚像素，在 1x 屏上也不会显得"描了一圈粗边"。
+  const ring = `inset 0 0 0 0.5px ${colorWithAlpha(d.color, 0.35)}`;
+  const bgTop = colorWithAlpha(d.color, 0.38);
+  const bgMid = colorWithAlpha(d.color, 0.16);
+  const bgBottom = colorWithAlpha(d.color, 0.09);
 
-  const scale = d.isSelected ? 1.12 : d.isHovered ? 1.06 : 1;
+  const scale = d.isSelected ? 1.03 : d.isHovered ? 1.015 : 1;
+
   const boxShadow = d.isSelected
-    ? `0 0 0 3px ${glowColor}, 0 0 30px ${glowColorStrong}, 0 4px 16px ${glowColor}`
+    ? `${ring}, 0 0 0 1px ${colorWithAlpha(d.color, 0.42)}, 0 5px 14px ${colorWithAlpha(d.color, 0.12)}`
     : d.isHovered
-    ? `0 0 20px ${glowColor}, 0 2px 10px ${glowColor}`
-    : `0 0 12px ${hexToRgba(d.color, 0.2)}, 0 2px 8px ${hexToRgba(d.color, 0.12)}`;
+      ? `${ring}, 0 0 0 0.75px ${colorWithAlpha(d.color, 0.3)}, 0 3px 10px ${colorWithAlpha(d.color, 0.1)}`
+      : `${ring}, 0 1px 2px ${colorWithAlpha(d.color, 0.08)}`;
 
   return (
     <div
@@ -67,47 +134,65 @@ export const BubbleNode = memo(function BubbleNode({ data }: NodeProps) {
         width: size,
         height: size,
         transform: `scale(${scale})`,
-        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        animation: `bubble-float ${3 + (size % 5) * 0.4}s ease-in-out infinite alternate`,
+        // 只对交互做过渡；不再让每个节点永久上下浮动（既晃眼又持续触发重绘）
+        transition: 'transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         position: 'relative',
+        zIndex: d.isSelected ? 20 : d.isHovered ? 10 : 1,
+        willChange: d.isSelected || d.isHovered ? 'transform' : undefined,
       }}
     >
       <Handle type="target" position={Position.Top} className="bubble-handle-target" />
       <div
-        className="w-full h-full rounded-full flex items-center justify-center font-bold"
+        className="w-full h-full rounded-full flex items-center justify-center"
         style={{
-          background: `radial-gradient(circle at 30% 25%, ${hexToRgba(d.color, 0.45)} 0%, ${bgColor} 60%, ${hexToRgba(d.color, 0.18)} 100%)`,
-          border: `1px solid ${borderColor}`,
+          background: `radial-gradient(circle at 32% 26%, ${bgTop} 0%, ${bgMid} 58%, ${bgBottom} 100%)`,
+          border: 'none',
           fontSize,
-          color: textColor,
+          color: INK_TEXT,
           boxShadow,
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
           position: 'relative',
+          overflow: 'hidden',
         }}
       >
+        {/* 左上高光 */}
         <div
           style={{
             position: 'absolute',
-            top: '15%',
-            left: '20%',
-            width: '35%',
-            height: '25%',
+            top: '12%',
+            left: '18%',
+            width: '38%',
+            height: '26%',
             borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 70%)',
+            background:
+              'radial-gradient(ellipse at center, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 70%)',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* 底部内阴影，增加球体体积感 */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle at 50% 120%, rgba(0,0,0,0.16) 0%, rgba(0,0,0,0) 55%)',
             pointerEvents: 'none',
           }}
         />
         <span
-          className="px-1 text-center leading-tight break-all relative z-10"
+          className="px-1 text-center leading-tight relative z-10"
           style={{
-            textShadow: '0 1px 2px rgba(255,255,255,0.3), 0 -1px 1px rgba(0,0,0,0.1)',
-            wordBreak: 'break-word',
+            textShadow: '0 1px 2px rgba(0,0,0,0.18)',
+            overflowWrap: 'anywhere',
+            wordBreak: 'normal',
             display: '-webkit-box',
             WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             fontWeight: 600,
+            letterSpacing: '0.01em',
           }}
         >
           {label}
@@ -121,9 +206,8 @@ export const BubbleNode = memo(function BubbleNode({ data }: NodeProps) {
             top: '100%',
             left: '50%',
             transform: 'translateX(-50%)',
-            marginTop: 'var(--space-1)',
-            color: d.color,
-            textShadow: '0 1px 2px rgba(255,255,255,0.7)',
+            marginTop: 4,
+            color: INK_SUBTLE,
           }}
         >
           {d.subtitle}

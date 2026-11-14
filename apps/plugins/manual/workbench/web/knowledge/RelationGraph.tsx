@@ -175,8 +175,8 @@ export function CharacterGraph() {
           animated: false,
           style: {
             stroke: lineColor,
-            strokeWidth: 1,
-            strokeOpacity: 0.35,
+            strokeWidth: 0.75,
+            strokeOpacity: 0.48,
           },
           labelStyle: {
             fill: lineColor,
@@ -231,9 +231,9 @@ export function CharacterGraph() {
           animated: false,
           style: {
             stroke: HOLD_EDGE_COLOR,
-            strokeWidth: 1,
+            strokeWidth: 0.75,
             strokeDasharray: '5 3',
-            strokeOpacity: 0.45,
+            strokeOpacity: 0.55,
           },
           labelStyle: {
             fill: HOLD_EDGE_COLOR,
@@ -310,7 +310,7 @@ export function CharacterGraph() {
         const isDimmed = !!selectedNodeId && !isSelected;
         const isEdgeHovered = !!hoveredNodeId && (sourceId === hoveredNodeId || targetId === hoveredNodeId);
 
-        const strokeWidth = isHovered || isSelected || isEdgeHovered ? 2 : 1;
+        const strokeWidth = isHovered || isSelected || isEdgeHovered ? 1.1 : 0.75;
         const strokeOpacity = isDimmed ? 0.1 : isHovered || isSelected || isEdgeHovered ? 0.9 : 0.35;
         const showLabel = isHovered || isSelected || isEdgeHovered;
 
@@ -339,7 +339,6 @@ export function CharacterGraph() {
     nodes: graphData.nodes,
     edges: graphData.edges,
     sizeMap,
-    trigger: characters.length,
     onTick: useCallback((posMap: Map<string, { x: number; y: number }>) => {
       setNodes((nds) =>
         nds.map((node) => {
@@ -585,8 +584,8 @@ export function CharacterGraph() {
         onEdgeMouseEnter={onEdgeMouseEnter}
         onEdgeMouseLeave={onEdgeMouseLeave}
         onConnect={onConnect}
-        connectionLineStyle={{ stroke: 'hsl(var(--border))', strokeWidth: 2 }}
-        defaultEdgeOptions={{ type: 'bubble', style: { strokeWidth: 1.5 } }}
+        connectionLineStyle={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+        defaultEdgeOptions={{ type: 'bubble', style: { strokeWidth: 0.9 } }}
         getNodeColor={getNodeColor}
         legend={legend}
         detail={detail}

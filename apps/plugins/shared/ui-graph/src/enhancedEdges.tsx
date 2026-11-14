@@ -21,6 +21,72 @@ import {
   type EdgeProps,
   useStore,
 } from '@xyflow/react';
+import { colorWithAlpha } from './BubbleNode';
+
+/** 统一的边视觉：圆头、圆角、缩放时线宽不跟着变粗 */
+function edgeStyleOf(style: React.CSSProperties | undefined): React.CSSProperties {
+  return {
+    ...style,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    vectorEffect: 'non-scaling-stroke',
+  } as React.CSSProperties;
+}
+
+/** 关系标签：小胶囊 + 颜色圆点，保证在任意底色上都能读清 */
+function EdgeLabelPill({
+  x,
+  y,
+  label,
+  color,
+  opacity,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+  opacity: number;
+}) {
+  return (
+    <EdgeLabelRenderer>
+      <div
+        className="nodrag nopan"
+        style={{
+          position: 'absolute',
+          transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+          pointerEvents: 'all',
+          opacity,
+          transition: 'opacity 120ms ease',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '2px 7px',
+          borderRadius: 999,
+          background: 'hsl(var(--card))',
+          border: `1px solid ${colorWithAlpha(color, 0.38)}`,
+          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+          fontSize: 10,
+          fontWeight: 600,
+          lineHeight: 1.5,
+          color: 'hsl(var(--foreground))',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: '50%',
+            background: color,
+            flex: '0 0 auto',
+          }}
+        />
+        {label}
+      </div>
+    </EdgeLabelRenderer>
+  );
+}
 
 // ---------- 类型扩展 ----------
 
@@ -208,27 +274,24 @@ export const BubbleEdge = memo(function BubbleEdge({
     midY = invT * invT * sy + 2 * invT * t * cpy + t * t * ey;
   }
 
+  const color = data?.color ?? 'hsl(var(--muted-foreground))';
+
   return (
     <>
       <BaseEdge
         path={path}
-        style={style}
+        style={edgeStyleOf(style)}
         markerEnd={markerEnd}
+        interactionWidth={18}
       />
       {label && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${midX}px, ${midY}px)`,
-              pointerEvents: 'all',
-              ...labelStyle,
-            }}
-            className="nodrag nopan"
-          >
-            {label}
-          </div>
-        </EdgeLabelRenderer>
+        <EdgeLabelPill
+          x={midX}
+          y={midY}
+          label={String(label)}
+          color={color}
+          opacity={Number((labelStyle as React.CSSProperties | undefined)?.opacity ?? 1)}
+        />
       )}
     </>
   );
@@ -251,6 +314,7 @@ export const SelfLoopEdge = memo(function SelfLoopEdge({
   markerEnd,
   label,
   labelStyle,
+  data,
 }: EdgeProps) {
   // 自环：source 与 target 是同一个节点，坐标相近
   // 构造一个从顶部出发、向上拱起、回到顶部的小弧线
@@ -267,27 +331,25 @@ export const SelfLoopEdge = memo(function SelfLoopEdge({
   // 用 SVG arc 命令绘制顶部小拱门（large-arc-flag=1, sweep-flag=1）
   const arcPath = `M ${sx} ${sy} A ${loopRadius} ${loopRadius} 0 1 1 ${tx} ${ty}`;
 
+  const color = (data as { color?: string } | undefined)?.color
+    ?? 'hsl(var(--muted-foreground))';
+
   return (
     <>
       <BaseEdge
         path={arcPath}
-        style={style}
+        style={edgeStyleOf(style)}
         markerEnd={markerEnd}
+        interactionWidth={18}
       />
       {label && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${(sx + tx) / 2}px, ${sy - loopRadius - 8}px)`,
-              pointerEvents: 'all',
-              ...labelStyle,
-            }}
-            className="nodrag nopan"
-          >
-            {label}
-          </div>
-        </EdgeLabelRenderer>
+        <EdgeLabelPill
+          x={(sx + tx) / 2}
+          y={sy - loopRadius - 8}
+          label={String(label)}
+          color={color}
+          opacity={Number((labelStyle as React.CSSProperties | undefined)?.opacity ?? 1)}
+        />
       )}
     </>
   );

@@ -122,7 +122,7 @@ export function LocationGraph() {
           target: charId,
           label: '位于',
           type: 'bubble',
-          style: { stroke: locationColor, strokeWidth: 1.5, strokeOpacity: 0.4 },
+          style: { stroke: locationColor, strokeWidth: 0.9, strokeOpacity: 0.4 },
           labelStyle: { fill: locationColor, fontSize: 9.5, fontWeight: 600, opacity: 0 },
           labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
@@ -185,8 +185,8 @@ export function LocationGraph() {
         const isDimmed = !!selectedNodeId && !isSelected;
         const isEdgeHovered = !!hoveredNodeId && (sourceId === hoveredNodeId || targetId === hoveredNodeId);
 
-        const baseWidth = (edge.style?.strokeWidth as number) || 1.5;
-        const strokeWidth = isHovered || isSelected || isEdgeHovered ? Math.max(2, baseWidth + 0.5) : baseWidth;
+        const baseWidth = (edge.style?.strokeWidth as number) || 0.9;
+        const strokeWidth = isHovered || isSelected || isEdgeHovered ? Math.max(1.2, baseWidth + 0.3) : baseWidth;
         const strokeOpacity = isDimmed ? 0.1 : isHovered || isSelected || isEdgeHovered ? 0.9 : (edge.style?.strokeOpacity as number) || 0.4;
         const showLabel = isHovered || isSelected || isEdgeHovered;
 
@@ -215,7 +215,6 @@ export function LocationGraph() {
     nodes: graphData.nodes,
     edges: graphData.edges,
     sizeMap,
-    trigger: locations.length + characters.length,
     onTick: useCallback((posMap: Map<string, { x: number; y: number }>) => {
       setNodes((nds) =>
         nds.map((node) => {
@@ -391,7 +390,7 @@ export function LocationGraph() {
       onNodeMouseLeave={onNodeMouseLeave}
       onEdgeMouseEnter={onEdgeMouseEnter}
       onEdgeMouseLeave={onEdgeMouseLeave}
-      defaultEdgeOptions={{ type: 'bubble', style: { strokeWidth: 1.5 } }}
+      defaultEdgeOptions={{ type: 'bubble', style: { strokeWidth: 0.9 } }}
       getNodeColor={getNodeColor}
       legend={legend}
       detail={detail}

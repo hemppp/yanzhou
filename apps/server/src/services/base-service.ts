@@ -9,8 +9,25 @@
 // ============================================================
 
 import { getDb, getProjectDbSync, eq, saveToDisk } from '@novel/db';
+import { v4 as uuidv4 } from 'uuid';
 
 type RawRow = Record<string, unknown>;
+
+/**
+ * 解析实体主键：空字符串 / 纯空白 / null / undefined 一律视为「未提供」，生成新 UUID。
+ *
+ * ★ 2026-11-13 修复：AI 工具会传 `id: ''`，而各 service 里写的是
+ *   `data.id ?? uuidv4()` —— `??` 只挡 null/undefined，空字符串会原样成为主键。
+ *   第一次插入 id='' 成功，第二次就报 `UNIQUE constraint failed: characters.id`。
+ *   把判断收口到这里，所有实体（角色/物品/地点/伏笔…）与后续新增服务都自动受益。
+ */
+export function resolveEntityId(id: unknown): string {
+  if (typeof id === 'string') {
+    const trimmed = id.trim();
+    if (trimmed) return trimmed;
+  }
+  return uuidv4();
+}
 
 /** Drizzle 返回行原始类型，含时间戳转换 */
 export function toNumber(v: unknown): number {
@@ -140,6 +157,10 @@ export class BaseService<T extends { id: string; createdAt: number; updatedAt: n
 
   async save(entity: T, upsert = false, projectId?: string): Promise<void> {
     const db = this.requireDb(projectId);
+
+    // ★ 主键兜底：空字符串不是合法 id（见 resolveEntityId 注释）。
+    //   在序列化前修正，调用方拿到的仍是同一个对象引用，返回的 id 也是新生成的。
+    entity.id = resolveEntityId(entity.id);
 
     const row = this.modelToRow(entity);
     if (upsert) {

@@ -1,7 +1,8 @@
-import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   type Node,
@@ -11,6 +12,7 @@ import {
   type OnEdgesChange,
   type OnConnect,
   type EdgeTypes,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Network } from 'lucide-react';
@@ -103,12 +105,71 @@ export function GraphShell({
   exportFileNamePrefix = 'graph',
 }: GraphShellProps) {
   const flowRef = useRef<HTMLDivElement>(null);
+  const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const fittedRef = useRef(false);
+  /** 当前节点数（用 ref 读取，避免每次增删节点都重跑 fit effect） */
+  const nodeCountRef = useRef(nodes.length);
+  nodeCountRef.current = nodes.length;
+
+  // 视图模式：2D（React Flow 精确编辑）| 3D（three.js 沉浸浏览）
+  // ★ 必须在下面的 fitView effect 之前声明：effect 的依赖数组会读取它。
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  /** 右侧详情栏是否打开 —— 打开/关闭会改变画布宽度，需要重新 fit 一次 */
+  const detailOpen = Boolean(detail);
+
+  /**
+   * ★ 面板刚打开时容器可能是 0 宽高，React Flow 的 fitView 会把缩放钳到 minZoom（0.2），
+   *   节点看起来缩成十几个像素、像"空画布"。这里等容器真正有尺寸后再补一次 fitView。
+   */
+  const handleInit = useCallback((instance: ReactFlowInstance) => {
+    flowInstanceRef.current = instance;
+  }, []);
+
+  useEffect(() => {
+    fittedRef.current = false;
+    const el = flowRef.current;
+    if (!el) return;
+
+    const fitWhenReady = () => {
+      if (fittedRef.current) return;
+      const { width, height } = el.getBoundingClientRect();
+      if (width < 80 || height < 80) return;
+
+      // 等所有节点都挂载并完成测量再 fit：
+      // 只测到 0/1 个节点时 fitView 会把视图放大到 maxZoom，看起来像"糊在脸上"。
+      const rendered = el.querySelectorAll('.react-flow__node');
+      if (rendered.length < Math.max(1, nodeCountRef.current)) return;
+      const first = rendered[0]?.getBoundingClientRect();
+      if (!first || first.width < 2) return;
+
+      fittedRef.current = true;
+      // 延后一帧，等 xyflow 写完节点尺寸缓存
+      requestAnimationFrame(() => {
+        flowInstanceRef.current?.fitView({ padding: 0.22, duration: 250 });
+      });
+    };
+
+    const observer = new ResizeObserver(fitWhenReady);
+    observer.observe(el);
+    const raf = requestAnimationFrame(fitWhenReady);
+    const timer = window.setTimeout(fitWhenReady, 300);
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+  }, [viewMode, detailOpen]);
+
+  /** 画布底色：中心略亮、四周回落，给纯白/纯黑的图一个空间层次 */
+  const canvasGradient = {
+    background:
+      'radial-gradient(circle at 50% 42%, hsl(var(--card)) 0%, hsl(var(--background)) 72%)',
+  } as React.CSSProperties;
   const graph3dRef = useRef<Graph3DHandle>(null);
   // 边标签全局开关：默认关闭，避免边密集时视觉混乱
   // hover/selected 时业务方可单独覆盖 opacity 显示
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
-  // 视图模式：2D（React Flow 精确编辑）| 3D（three.js 沉浸浏览）
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
 
   const isEmpty = nodes.length === 0;
 
@@ -249,7 +310,7 @@ export function GraphShell({
 
       {/* 画布 + 侧栏 */}
       <div className="flex-1 flex" ref={flowRef}>
-        <div className="flex-1">
+        <div className="flex-1" style={canvasGradient}>
           {viewMode === '3d' ? (
             <Suspense
               fallback={(
@@ -278,6 +339,7 @@ export function GraphShell({
             <ReactFlow
               nodes={nodes}
               edges={enhancedEdges}
+              onInit={handleInit}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={onNodeClick}
@@ -290,18 +352,27 @@ export function GraphShell({
               nodeTypes={nodeTypes}
               edgeTypes={mergedEdgeTypes}
               fitView
-              fitViewOptions={{ padding: 0.2 }}
+              fitViewOptions={{ padding: 0.22, duration: 250 }}
+              minZoom={0.2}
+              maxZoom={2.5}
               proOptions={{ hideAttribution: true }}
-              className="bg-background"
               connectionLineStyle={connectionLineStyle}
               defaultEdgeOptions={{ type: 'bubble', ...defaultEdgeOptions }}
             >
-              <Background color="hsl(var(--border))" gap={20} />
+              <Background
+                variant={BackgroundVariant.Dots}
+                color="hsl(var(--border))"
+                gap={22}
+                size={1}
+              />
               <Controls className="!bg-card !border-border !shadow-lg" />
               {getNodeColor && (
                 <MiniMap
                   nodeColor={getNodeColor}
-                  className="!bg-card !border-border"
+                  nodeStrokeWidth={2}
+                  pannable
+                  zoomable
+                  className="!bg-card !border-border !rounded-lg !shadow-lg"
                   // ★ 必须包 `hsl()`：`--background` 存的是**裸三元组**（`0 0% 98%`），
                   //   直接当颜色用是非法值 → SVG fill 回退成黑色，整个 MiniMap 变成一块黑板
                   //   （2026-09-15 真机截图发现）。同理 nodeColor 返回的也必须是完整颜色。

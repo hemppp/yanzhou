@@ -188,7 +188,7 @@ export function ItemGraph() {
           target: holderId,
           label: '持有',
           type: 'bubble',
-          style: { stroke: itemColor, strokeWidth: 1.5, strokeOpacity: 0.4 },
+          style: { stroke: itemColor, strokeWidth: 0.9, strokeOpacity: 0.4 },
           labelStyle: { fill: itemColor, fontSize: 9.5, fontWeight: 600, opacity: 0 },
           labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.9 },
           labelBgPadding: [4, 2] as [number, number],
@@ -232,7 +232,7 @@ export function ItemGraph() {
           animated: rel.type === 'opposite_of' || rel.type === 'transforms_into',
           style: {
             stroke: color,
-            strokeWidth: 1.5,
+            strokeWidth: 0.9,
             strokeOpacity: 0.4,
             strokeDasharray: rel.type === 'related_to' ? '4 2' : undefined,
           },
@@ -289,7 +289,7 @@ export function ItemGraph() {
             target: idB,
             label: '同属',
             type: 'bubble',
-            style: { stroke: color, strokeWidth: 1, strokeOpacity: 0.25 },
+            style: { stroke: color, strokeWidth: 0.75, strokeOpacity: 0.25 },
             labelStyle: { fill: color, fontSize: 8.5, fontWeight: 500, opacity: 0 },
             labelBgStyle: { fill: 'hsl(var(--card))', fillOpacity: 0.7 },
             labelBgPadding: [3, 1] as [number, number],
@@ -352,8 +352,8 @@ export function ItemGraph() {
         const isDimmed = !!selectedNodeId && !isSelected;
         const isEdgeHovered = !!hoveredNodeId && (sourceId === hoveredNodeId || targetId === hoveredNodeId);
 
-        const baseWidth = (edge.style?.strokeWidth as number) || 1.5;
-        const strokeWidth = isHovered || isSelected || isEdgeHovered ? Math.max(2, baseWidth + 0.5) : baseWidth;
+        const baseWidth = (edge.style?.strokeWidth as number) || 0.9;
+        const strokeWidth = isHovered || isSelected || isEdgeHovered ? Math.max(1.2, baseWidth + 0.3) : baseWidth;
         const strokeOpacity = isDimmed ? 0.1 : isHovered || isSelected || isEdgeHovered ? 0.9 : (edge.style?.strokeOpacity as number) || 0.4;
         const showLabel = isHovered || isSelected || isEdgeHovered;
 
@@ -382,7 +382,6 @@ export function ItemGraph() {
     nodes: graphData.nodes,
     edges: graphData.edges,
     sizeMap,
-    trigger: items.length + characters.length,
     onTick: useCallback((posMap: Map<string, { x: number; y: number }>) => {
       setNodes((nds) =>
         nds.map((node) => {
@@ -592,8 +591,8 @@ export function ItemGraph() {
         onEdgeMouseEnter={onEdgeMouseEnter}
         onEdgeMouseLeave={onEdgeMouseLeave}
         onConnect={onConnect}
-        connectionLineStyle={{ stroke: 'hsl(var(--border))', strokeWidth: 2 }}
-        defaultEdgeOptions={{ type: 'bubble', style: { strokeWidth: 1.5 } }}
+        connectionLineStyle={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+        defaultEdgeOptions={{ type: 'bubble', style: { strokeWidth: 0.9 } }}
         getNodeColor={getNodeColor}
         legend={legend}
         detail={detail}
