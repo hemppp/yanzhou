@@ -27,9 +27,11 @@ import { htmlToText } from '@novel-plugins/data-core/editor/entityDetector';
 import { getCapability } from '@/plugin/registry';
 import type { Location } from '@novel/shared';
 import { ScanSkippedError } from '../hooks/aiScanCapability';
-import type { AIScanCapability, StreamEntity } from '../hooks/aiScanCapability';
+import type { AIScanCapability, StreamEntity, StreamRelationAssertion } from '../hooks/aiScanCapability';
 import { applyLocationCandidate, prepareLocationContext } from './locationRecognition';
 import { assignAutoCoords } from './locationCoords';
+import { inferLocationPresence, prepareRelationContext } from './relationRecognition';
+import { applyRelationAssertion, buildRelationDedupe, buildRelationEntityRefs } from './relationApply';
 
 /** 一次最多扫多少章：扫描是逐章一次 AI 调用，避免超长书一次点出几百次请求 */
 export const MAX_LOCATION_SCAN_CHAPTERS = 30;
@@ -175,6 +177,10 @@ export async function recognizeLocations(opts: {
       existingItems: itemEntities,
     });
     const locationNames = [...new Set(chapterLocations.map((l) => l.name))];
+    // 关系断言：地点识别同样会产出地点↔地点/角色 的关系，与自动扫描共用同一套校验
+    const relationRefs = buildRelationEntityRefs(projectId);
+    const relationCtx = prepareRelationContext({ chapterContent: chapter.plain, ...relationRefs });
+    const relationDedupe = buildRelationDedupe(projectId);
 
     const handleEntity = (entity: StreamEntity) => {
       if (signal?.aborted) return;
@@ -196,6 +202,7 @@ export async function recognizeLocations(opts: {
           name: result.name,
           description: result.description,
           states: [],
+          relations: [],
           chapters: [chapter.order],
           tags: [],
           createdAt: now,
@@ -203,6 +210,7 @@ export async function recognizeLocations(opts: {
         };
         useLocationStore.getState().addLocation(newLocation);
         locationCtx.addLocation(newLocation);
+        relationCtx.addLocation({ id: newLocation.id, name: newLocation.name });
         created++;
         return;
       }
@@ -234,7 +242,28 @@ export async function recognizeLocations(opts: {
         undefined,
         signal,
         projectId,
+        undefined,
+        // onRelation — 地点关系（地点↔地点 / 地点↔角色），与自动扫描同一套校验
+        (assertion: StreamRelationAssertion) => {
+          if (signal?.aborted) return;
+          if (assertion.assertionType !== 'location_relation') return;
+          const outcome = applyRelationAssertion(assertion, chapter.order, relationCtx, relationDedupe);
+          if (!outcome.added) {
+            console.debug(
+              `[recognizeLocations] 跳过第 ${chapter.order} 章关系「${assertion.subject}→${assertion.object}」：${outcome.reason}`,
+            );
+          }
+        },
       );
+      // ★ 句内证据补「角色在某地」：地图只关心地点，但地点与角色的连线同样靠它
+      const presenceRefs = buildRelationEntityRefs(projectId);
+      for (const assertion of inferLocationPresence(
+        chapter.plain,
+        presenceRefs.locations,
+        presenceRefs.characters,
+      )) {
+        applyRelationAssertion(assertion, chapter.order, relationCtx, relationDedupe);
+      }
       consecutiveFailures = 0;
     } catch (e) {
       if (signal?.aborted) {

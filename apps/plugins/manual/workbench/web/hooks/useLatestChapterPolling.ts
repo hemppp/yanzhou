@@ -20,8 +20,8 @@ import {
   useItemStore,
   useTimelineStore,
 } from '@novel-plugins/data-core/stores';
-import type { Item, Location, TimelineEvent } from '@novel/shared';
-import { mergeSimilarCharacters, updateItemHoldersForMerge } from '../knowledge/characterMerge';
+import type { Character, Item, Location, TimelineEvent } from '@novel/shared';
+import { mergeSimilarCharacters, remapLocationRelations, updateItemHoldersForMerge } from '../knowledge/characterMerge';
 import { htmlToText } from '@novel-plugins/data-core/editor/entityDetector';
 import {
   type AIScanCapability,
@@ -29,11 +29,17 @@ import {
   type StreamCreditTransaction,
   type StreamEntity,
   type StreamItemTransfer,
+  type StreamRelationAssertion,
+  type StreamSystemBind,
   type StreamTimelineEvent,
 } from './aiScanCapability';
-import { processCreditTransactionShared } from './useScanProcessors';
+import { handleItemTransferShared, processCreditTransactionShared } from './useScanProcessors';
 import { prepareItemContext, validateItemCandidate } from '../knowledge/itemRecognition';
 import { applyLocationCandidate, prepareLocationContext } from '../knowledge/locationRecognition';
+import { applySystemBind, isSystemEntityName } from '../knowledge/systemRecognition';
+import { inferLocationPresence, prepareRelationContext } from '../knowledge/relationRecognition';
+import { applyRelationAssertion, buildRelationDedupe, buildRelationEntityRefs } from '../knowledge/relationApply';
+import { isItemAutoDetectEnabled } from '../stores/entityDetectionPrefs';
 
 function aiScan(): AIScanCapability | null {
   return getCapability<AIScanCapability>('ai.scan');
@@ -216,73 +222,8 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
       const pendingCredits: StreamCreditTransaction[] = [];
 
       const handleItemTransfer = (transfer: StreamItemTransfer) => {
-        if (controller.signal.aborted) return;
-        const itemState = useItemStore.getState();
-        const charState = useCharacterStore.getState();
-
-        const item = itemState.items.find(i => 
-          i.name === transfer.itemName || 
-          i.name.includes(transfer.itemName) || 
-          transfer.itemName.includes(i.name)
-        );
-        if (!item) return;
-
-        const charNameToId = new Map<string, string>();
-        for (const c of charState.characters) {
-          if (c.name && !charNameToId.has(c.name)) charNameToId.set(c.name, c.id);
-          for (const alias of c.aliases ?? []) {
-            if (alias && !charNameToId.has(alias)) charNameToId.set(alias, c.id);
-          }
-        }
-
-        // 查找角色的辅助函数：先精确匹配，再模糊匹配
-        const findCharId = (name: string): string | null => {
-          if (!name) return null;
-          if (charNameToId.has(name)) return charNameToId.get(name)!;
-          const found = charState.characters.find(c =>
-            c.name.includes(name) || name.includes(c.name) ||
-            c.aliases?.some(a => a.includes(name) || name.includes(a))
-          );
-          return found ? found.id : null;
-        };
-
-        const fromId = transfer.fromCharacter ? findCharId(transfer.fromCharacter) : null;
-        const toId = transfer.toCharacter ? findCharId(transfer.toCharacter) : null;
-
-        const existingInChapter = item.holders.some(
-          h => h.chapter === chapterOrder && 
-               ((fromId && h.characterId === fromId && h.action === 'lost') ||
-                (toId && h.characterId === toId && (h.action === 'gained' || h.action === 'transferred')))
-        );
-        if (existingInChapter) return;
-
-        const newHolders = [...item.holders];
-        const currentHoldersSet = new Set(item.currentHolders ?? []);
-
-        if (transfer.action === 'gained' && toId) {
-          newHolders.push({ characterId: toId, chapter: chapterOrder, action: 'gained' });
-          currentHoldersSet.add(toId);
-          newTransfers++;
-        } else if (transfer.action === 'lost' && (fromId || toId)) {
-          const loserId = fromId || toId!;
-          newHolders.push({ characterId: loserId, chapter: chapterOrder, action: 'lost' });
-          currentHoldersSet.delete(loserId);
-          newTransfers++;
-        } else if (transfer.action === 'transferred' && fromId && toId) {
-          newHolders.push({ characterId: fromId, chapter: chapterOrder, action: 'lost' });
-          newHolders.push({ characterId: toId, chapter: chapterOrder, action: 'gained' });
-          currentHoldersSet.delete(fromId);
-          currentHoldersSet.add(toId);
-          newTransfers++;
-        }
-
-        if (newHolders.length !== item.holders.length) {
-          itemState.updateItem(item.id, {
-            holders: newHolders,
-            currentHolders: Array.from(currentHoldersSet),
-            updatedAt: Date.now(),
-          });
-        }
+        // ★ 统一走共享实现：按项目过滤物品/角色，并把「系统」当作来源而不是人
+        newTransfers += handleItemTransferShared(transfer, chapterOrder, controller, projectId);
       };
 
       const handleAliasMatch = (aliasMatch: StreamAliasMatch) => {
@@ -398,6 +339,10 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
         existingCharacters: scanCharacters,
         existingItems: scanItems,
       });
+      // 关系断言：实体解析索引 + 去重索引各建一次（同章新实体在后面增量登记）
+      const relationRefs = buildRelationEntityRefs(projectId);
+      const relationCtx = prepareRelationContext({ chapterContent: plainText, ...relationRefs });
+      const relationDedupe = buildRelationDedupe(projectId);
       await scan.scanTimelineStream(
           plainText,
           chapterOrder,
@@ -452,29 +397,15 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
             useTimelineStore.getState().addEvent(newTimelineEvent);
             newEvents++;
 
-            // ≥2 个已知角色 → 两两建立关联
-            if (matchedIds.length >= 2) {
-              for (let i = 0; i < matchedIds.length - 1; i++) {
-                for (let j = i + 1; j < matchedIds.length; j++) {
-                  const aId = matchedIds[i]!;
-                  const bId = matchedIds[j]!;
-                  if (aId === bId) continue;
-                  const aChar = useCharacterStore.getState().characters.find(c => c.id === aId);
-                  if (!(aChar?.relations ?? []).some(r => r.targetId === bId && r.type === '关联')) {
-                    useCharacterStore.getState().addRelation(aId, { targetId: bId, type: '关联', direction: 'mutual', chapter: chapterOrder });
-                  }
-                  const bChar = useCharacterStore.getState().characters.find(c => c.id === bId);
-                  if (!(bChar?.relations ?? []).some(r => r.targetId === aId && r.type === '关联')) {
-                    useCharacterStore.getState().addRelation(bId, { targetId: aId, type: '关联', direction: 'mutual', chapter: chapterOrder });
-                  }
-                }
-              }
-            }
+            // ★ 关系不再由「同事件共现」推断（会连出完全图），
+            //   改由 relation 断言经确定性校验后落库，见 onRelation 回调。
           },
           // onEntity — 角色/物品/地点
           (entity: StreamEntity) => {
             if (controller.signal.aborted) return;
             if (!entity.name) return;
+            // ★ 系统不是角色（系统面板 / 系统空间 / 主神空间…）
+            if (entity.entityType === 'character' && isSystemEntityName(entity.name)) return;
 
             if (entity.entityType === 'character') {
               const charState = useCharacterStore.getState();
@@ -515,7 +446,7 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
               }
 
               // 完全新角色，创建
-              useCharacterStore.getState().addCharacter({
+              const newCharacter: Character = {
                 ...entityBase(projectId),
                 name: entity.name,
                 backstory: entity.context || entity.description || '',
@@ -524,9 +455,12 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
                 relations: [],
                 chapters: [chapterOrder],
                 tags: [],
-              });
+              };
+              useCharacterStore.getState().addCharacter(newCharacter);
               itemCtx.addEntityName(entity.name); // 同章物品撞名检查立即生效
               locationCtx.addEntityName(entity.name); // 同章地点撞名检查立即生效
+              // 关系行排在实体行之后：新角色必须立刻能被关系断言解析到
+              relationCtx.addCharacter({ id: newCharacter.id, name: newCharacter.name });
               newChars++;
             } else if (entity.entityType === 'item') {
               const itemState = useItemStore.getState();
@@ -535,6 +469,11 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
                 console.debug(
                   `[PollScan] 跳过疑似非物品 "${entity.name}": ${validation.reason}`,
                 );
+                return;
+              }
+              // ★ 物品自动识别关闭：只给已有物品补类型，不再新建
+              if (!isItemAutoDetectEnabled() && !validation.existingItem) {
+                console.debug(`[PollScan] 物品自动识别已关闭，跳过新建 "${validation.name}"`);
                 return;
               }
               if (validation.existingItem) {
@@ -568,6 +507,7 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
               useItemStore.getState().addItem(newItem);
               itemCtx.addItem(newItem); // 同章后续重复输出直接命中索引
               locationCtx.addEntityName(newItem.name); // 同章地点撞名检查立即生效
+              relationCtx.addItem({ id: newItem.id, name: newItem.name }); // 关系行在后，需能解析到
               newItems++;
             } else if (entity.entityType === 'location') {
               const result = applyLocationCandidate(entity, chapterOrder, locationCtx);
@@ -596,6 +536,7 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
                 name: result.name,
                 description: result.description,
                 states: [],
+                relations: [],
                 chapters: [chapterOrder],
                 tags: [],
                 createdAt: now,
@@ -604,6 +545,7 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
               useLocationStore.getState().addLocation(newLoc);
               locationCtx.addLocation(newLoc);
               itemCtx.addEntityName(result.name); // 同章物品撞名检查立即生效
+              relationCtx.addLocation({ id: newLoc.id, name: newLoc.name });
               newLocs++;
             }
           },
@@ -615,6 +557,19 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
             if (controller.signal.aborted) return;
             pendingCredits.push(credit);
           },
+          // onRelation — 关系断言（角色↔角色 / 物品↔物品 / 地点↔地点·角色）
+          (assertion: StreamRelationAssertion) => {
+            if (controller.signal.aborted) return;
+            const outcome = applyRelationAssertion(assertion, chapterOrder, relationCtx, relationDedupe);
+            if (!outcome.added) {
+              console.debug(`[PollScan] 跳过关系「${assertion.subject}→${assertion.object}」：${outcome.reason}`);
+            }
+          },
+          // onSystemBind — 系统绑定/解绑
+          (bind: StreamSystemBind) => {
+            if (controller.signal.aborted) return;
+            applySystemBind(bind, projectId);
+          },
         ).catch((e) => {
           if (!controller.signal.aborted) {
             console.warn('[PollScan] 流式扫描失败', e);
@@ -624,17 +579,38 @@ export function useLatestChapterPolling(currentChapterId: string | null | undefi
 
         if (controller.signal.aborted) return;
 
+        // ★ 兜底召回：句内证据补「某人在某地」（同自动检测，见 relationRecognition 头注）
+        const presenceRefs = buildRelationEntityRefs(projectId);
+        for (const assertion of inferLocationPresence(
+          plainText,
+          presenceRefs.locations,
+          presenceRefs.characters,
+        )) {
+          const outcome = applyRelationAssertion(assertion, chapterOrder, relationCtx, relationDedupe);
+          if (outcome.added) newRelations++;
+        }
+
         // 扫描完成后合并相似角色
         const charState = useCharacterStore.getState();
         const itemState = useItemStore.getState();
         const projectChars = charState.characters.filter(c => c.projectId === projectId);
         const projectItems = itemState.items.filter(i => i.projectId === projectId);
-        const { mergedCharacters, mergedItems, mergeCount } = mergeSimilarCharacters(projectChars, projectItems);
+        const { mergedCharacters, mergedItems, mergeCount, idRemap } = mergeSimilarCharacters(projectChars, projectItems);
         if (mergeCount > 0) {
           const otherChars = charState.characters.filter(c => c.projectId !== projectId);
           const otherItems = itemState.items.filter(i => i.projectId !== projectId);
           charState.setCharacters([...otherChars, ...mergedCharacters]);
           itemState.setItems([...otherItems, ...mergedItems]);
+          // 地点关系里的角色引用同步改写（否则留下指向已删角色的悬空边）
+          if (idRemap.size > 0) {
+            const locState = useLocationStore.getState();
+            const remapped = remapLocationRelations(
+              locState.locations.filter(l => l.projectId === projectId),
+              idRemap,
+            );
+            const otherLocs = locState.locations.filter(l => l.projectId !== projectId);
+            locState.setLocations([...otherLocs, ...remapped]);
+          }
           console.debug(`[PollScan] 自动合并了 ${mergeCount} 对相似角色`);
         }
 

@@ -7,11 +7,12 @@ import type { Location } from '@novel/shared';
 import { BaseService, normalizeTimestamps, toDbTimestamps, parseJson } from './base-service.js';
 import { v4 as uuidv4 } from 'uuid';
 
-const JSON_FIELDS = ['states', 'chapters', 'tags'];
+const JSON_FIELDS = ['states', 'relations', 'chapters', 'tags'];
 
 function rowToLocation(r: Record<string, unknown>): Location {
   const result = normalizeTimestamps<Location>(r);
   (result as unknown as Record<string, unknown>).states = parseJson(r.states, []);
+  (result as unknown as Record<string, unknown>).relations = parseJson(r.relations, []) as Location['relations'];
   (result as unknown as Record<string, unknown>).chapters = parseJson(r.chapters, []) as number[];
   (result as unknown as Record<string, unknown>).tags = parseJson(r.tags, []) as string[];
   return result;
@@ -20,6 +21,7 @@ function rowToLocation(r: Record<string, unknown>): Location {
 function locationToRow(l: Location): Record<string, unknown> {
   const row = { ...l } as unknown as Record<string, unknown>;
   row.states = JSON.stringify(l.states ?? []);
+  row.relations = JSON.stringify(l.relations ?? []);
   row.chapters = JSON.stringify(l.chapters ?? []);
   row.tags = JSON.stringify(l.tags ?? []);
   toDbTimestamps(row);
@@ -41,6 +43,7 @@ export async function createLocation(data: Omit<Location, 'createdAt' | 'updated
     ...data,
     id: data.id ?? uuidv4(),
     states: data.states ?? [],
+    relations: data.relations ?? [],
     chapters: data.chapters ?? [],
     tags: data.tags ?? [],
     createdAt: now,

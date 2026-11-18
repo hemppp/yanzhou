@@ -273,9 +273,34 @@ export interface Location extends BaseEntity {
   /** 所属世界（用于多世界/穿越小说） */
   world?: string;
   states: EntityState[];
+  /** 地点间/地点与角色的显式关系（扫描断言 + 手工编辑） */
+  relations?: LocationRelation[];
   chapters: number[];
   tags: string[];
 }
+
+/**
+ * 地点关系（「藏经阁位于青云山」「陈星在藏经阁」「客栈挨着码头」）。
+ *
+ * 为什么不再用「角色与地点同章共现」推断：一部书里主角几乎每章都换地点，
+ * 共现推断会把主角连到几十个地点上，地图越写越糊。关系必须来自原文里
+ * 明确的断言（扫描输出 + 本地校验），而不是巧合。
+ */
+export interface LocationRelation {
+  /** 关系对象的 ID（地点或角色，由 targetKind 决定） */
+  targetId: string;
+  targetKind: 'location' | 'character';
+  type: LocationRelationType;
+  description?: string;
+  /** 关系建立/变化的章节 */
+  chapter?: number | null;
+}
+
+export type LocationRelationType =
+  | 'located_in'   // 位于：子地点在母地点之内（青云山 → 藏经阁），或角色在某地
+  | 'nearby'       // 邻近：两处相邻/挨着
+  | 'routes_to'    // 通往：一条路/传送阵连接两处
+  | 'related_to';  // 泛关联
 
 // ---- 事件 ----
 

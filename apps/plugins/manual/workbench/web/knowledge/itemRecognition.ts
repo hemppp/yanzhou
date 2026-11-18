@@ -148,7 +148,8 @@ function compactText(s: string): string {
 const SYSTEM_UI_WORDS = [
   '系统面板', '属性面板', '任务面板', '商城界面', '系统界面', '系统提示', '系统消息',
   '任务提示', '任务列表', '任务奖励弹窗', '对话框', '提示框', '弹窗', '状态栏', '属性栏',
-  '技能栏', '任务栏', '菜单栏', '按钮', '面板', '界面', '菜单', '系统商城', '商城',
+  '技能栏', '任务栏', '菜单栏', '按钮', '面板', '界面',
+  '新手礼包', '礼包', '菜单', '系统商城', '商城',
   '背包界面', '聊天框', '加载条', '进度条', '弹幕', '屏幕', '信号格', '直播间', '广告牌', '告示板',
 ];
 
@@ -408,8 +409,56 @@ export interface PreparedItemContext {
   entityKeys: Set<string>;
   /** 已有物品：归一化键 → Item（同名取第一个，与旧 find 语义一致） */
   itemsByKey: Map<string, Item>;
+  /**
+   * 名称变体索引：短键（前缀/后缀片段）→ 已有物品的完整归一化键。
+   * 用于把「刀鞘」并回「乌木刀鞘」、「旧剑鞘」并回「剑鞘」——
+   * 模型同章常先用全称再写简称，按精确键去重会建出两个物品。
+   * 值冲突时记为 AMBIGUOUS_VARIANT，宁可不合并也不并入错的物品。
+   */
+  variantIndex: Map<string, string>;
   addEntityName(name: string): void;
   addItem(item: Item): void;
+}
+
+/** 变体索引中「同一个短键对应多个物品」的占位值 */
+const AMBIGUOUS_VARIANT = '\u0000ambiguous';
+/** 参与变体匹配的前后缀长度范围（太短会误并，太长就失去意义） */
+const VARIANT_MIN_LEN = 2;
+const VARIANT_MAX_LEN = 4;
+
+function variantSlices(key: string): string[] {
+  const slices: string[] = [];
+  const maxLen = Math.min(VARIANT_MAX_LEN, key.length - 1);
+  for (let len = VARIANT_MIN_LEN; len <= maxLen; len++) {
+    slices.push(key.slice(0, len)); // 前缀（旧剑鞘 → 剑鞘）
+    slices.push(key.slice(key.length - len)); // 后缀（乌木刀鞘 → 刀鞘）
+  }
+  return slices;
+}
+
+function registerVariant(index: Map<string, string>, key: string): void {
+  for (const slice of variantSlices(key)) {
+    const existing = index.get(slice);
+    if (existing === undefined) index.set(slice, key);
+    else if (existing !== key) index.set(slice, AMBIGUOUS_VARIANT);
+  }
+}
+
+/** 按变体索引找已有物品；歧义/找不到返回 undefined */
+function findVariantItem(prepared: PreparedItemContext, key: string): Item | undefined {
+  const hit = prepared.variantIndex.get(key);
+  if (hit && hit !== AMBIGUOUS_VARIANT) {
+    const item = prepared.itemsByKey.get(hit);
+    if (item) return item;
+  }
+  // 候选本身更长（旧剑鞘 vs 剑鞘）：用候选的前后缀切片反查精确键
+  const candidates = new Set<string>();
+  for (const slice of variantSlices(key)) {
+    if (prepared.itemsByKey.has(slice)) candidates.add(slice);
+  }
+  if (candidates.size !== 1) return undefined;
+  const [only] = candidates;
+  return only ? prepared.itemsByKey.get(only) : undefined;
 }
 
 export function prepareItemContext(ctx: ItemCandidateContext = {}): PreparedItemContext {
@@ -420,25 +469,34 @@ export function prepareItemContext(ctx: ItemCandidateContext = {}): PreparedItem
   }
 
   const itemsByKey = new Map<string, Item>();
+  const variantIndex = new Map<string, string>();
   for (const item of ctx.existingItems ?? []) {
     const key = itemNameKey(item.name);
-    if (key && !itemsByKey.has(key)) itemsByKey.set(key, item);
+    if (!key) continue;
+    if (!itemsByKey.has(key)) {
+      itemsByKey.set(key, item);
+      registerVariant(variantIndex, key);
+    }
   }
 
-  return {
+  const prepared: PreparedItemContext = {
     chapterCompact: ctx.chapterContent ? compactText(ctx.chapterContent) : undefined,
     hasChapterContent: Boolean(ctx.chapterContent),
     entityKeys,
     itemsByKey,
-    addEntityName(name: string) {
+    variantIndex,
+    addEntityName(name) {
       const key = itemNameKey(name);
       if (key) entityKeys.add(key);
     },
-    addItem(item: Item) {
+    addItem(item) {
       const key = itemNameKey(item.name);
-      if (key && !itemsByKey.has(key)) itemsByKey.set(key, item);
+      if (!key || itemsByKey.has(key)) return;
+      itemsByKey.set(key, item);
+      registerVariant(variantIndex, key);
     },
   };
+  return prepared;
 }
 
 function isPreparedItemContext(
@@ -472,6 +530,18 @@ export function validateItemCandidate(
     return { accept: false, reason: nonItem.reason ?? '非物品' };
   }
 
+  // ★ 被击杀的野兽不是「获得的物品」：模型会把「斩杀城东妖狼」里的妖狼写成 item，
+  //   真正该入库的是掉落物（妖狼牙）。只在上下文明确是击杀/打死时拦截，
+  //   避免误伤「灵兽/坐骑」这类正常动物型物品。
+  const killVerb = /(斩杀|杀死|击杀|砍死|打死|宰了|诛杀|除掉)/;
+  const contextText = candidate.context ?? '';
+  if (
+    killVerb.test(contextText) &&
+    /(狼|虎|熊|蛇|豹|兽|妖|魔)$/.test(name) &&
+    !/(灵兽|坐骑|宠物|伙伴)/.test(contextText)
+  ) {
+    return { accept: false, reason: '被击杀的野兽' };
+  }
   const key = itemNameKey(name);
   if (!key) return { accept: false, reason: '空名称' };
 
@@ -492,7 +562,8 @@ export function validateItemCandidate(
     return { accept: false, reason: '原文中找不到名称' };
   }
 
-  const existingItem = prepared.itemsByKey.get(key);
+  // 精确键优先；没有再按「全称/简称」变体匹配（乌木刀鞘 ← 刀鞘）
+  const existingItem = prepared.itemsByKey.get(key) ?? findVariantItem(prepared, key);
   return {
     accept: true,
     name,

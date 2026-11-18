@@ -274,3 +274,104 @@ describe('streamTimelineEvents', () => {
     expect(result.returned[0]?.characterNames).toEqual(['陈星']);
   });
 });
+
+describe('系统绑定（parseStreamRecord）', () => {
+  it('bindType=system_bind 分发出 system_bind 记录', () => {
+    expect(
+      parseStreamRecord(
+        { bindType: 'system_bind', characterName: '林晚', systemName: '人生模拟器', action: 'bind', context: '绑定成功' },
+        1,
+        '人生模拟器已激活，宿主：林晚。绑定成功。',
+      ),
+    ).toMatchObject({
+      kind: 'system_bind',
+      systemBind: { characterName: '林晚', systemName: '人生模拟器', action: 'bind' },
+    });
+  });
+
+  it('缺 characterName / 宿主写成系统 时丢弃', () => {
+    expect(parseStreamRecord({ bindType: 'system_bind', characterName: '' }, 1)).toBeNull();
+    expect(parseStreamRecord({ bindType: 'system_bind', characterName: '系统' }, 1)).toBeNull();
+  });
+
+  it('默认 action=bind，解绑识别为 unbind', () => {
+    expect(
+      parseStreamRecord({ bindType: 'system_bind', characterName: '林晚' }, 1),
+    ).toMatchObject({ systemBind: { action: 'bind' } });
+    expect(
+      parseStreamRecord({ bindType: 'system_bind', characterName: '林晚', action: 'unbind' }, 1),
+    ).toMatchObject({ systemBind: { action: 'unbind' } });
+  });
+});
+describe('关系断言（parseStreamRecord → onRelation）', () => {
+  it('三种 assertionType 都按 assertionType 分发', () => {
+    for (const assertionType of ['character_relation', 'item_relation', 'location_relation']) {
+      expect(
+        parseStreamRecord(
+          { assertionType, subject: '陈星', object: '藏经阁', type: '位于' },
+          3,
+          '陈星推开藏经阁的木门',
+        ),
+      ).toMatchObject({ kind: 'relation', assertion: { assertionType } });
+    }
+  });
+
+  it('缺主体/客体/类型或自指的断言一律丢弃', () => {
+    const base = { assertionType: 'character_relation', subject: '陈星', object: '藏经阁', type: '师徒' };
+    expect(parseStreamRecord({ ...base, subject: '' }, 3, INPUT.chapterContent)).toBeNull();
+    expect(parseStreamRecord({ ...base, type: '' }, 3, INPUT.chapterContent)).toBeNull();
+    expect(parseStreamRecord({ ...base, object: '陈星' }, 3, INPUT.chapterContent)).toBeNull();
+    // 判别字段不认识 ⇒ 不是关系行（会继续落到其它分支）
+    expect(parseStreamRecord({ ...base, assertionType: 'foo' }, 3, INPUT.chapterContent)).toBeNull();
+  });
+
+  it('主体/客体未逐字出现在原文时丢弃', () => {
+    expect(
+      parseStreamRecord(
+        { assertionType: 'character_relation', subject: '陈星', object: '王五', type: '师徒' },
+        3,
+        INPUT.chapterContent,
+      ),
+    ).toBeNull();
+  });
+
+  it('给了证据却对不上原文时丢弃（防编造关系）', () => {
+    expect(
+      parseStreamRecord(
+        {
+          assertionType: 'location_relation',
+          subject: '藏经阁',
+          object: '陈星',
+          type: '位于',
+          context: '藏经阁里空无一人',
+        },
+        3,
+        INPUT.chapterContent,
+      ),
+    ).toBeNull();
+  });
+
+  it('证据逐字命中原文时保留断言', () => {
+    expect(
+      parseStreamRecord(
+        {
+          assertionType: 'location_relation',
+          subject: '藏经阁',
+          object: '陈星',
+          type: '位于',
+          context: '陈星推开藏经阁的木门',
+        },
+        3,
+        INPUT.chapterContent,
+      ),
+    ).toMatchObject({
+      kind: 'relation',
+      assertion: {
+        subject: '藏经阁',
+        object: '陈星',
+        type: '位于',
+        context: '陈星推开藏经阁的木门',
+      },
+    });
+  });
+});

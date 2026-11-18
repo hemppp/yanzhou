@@ -49,6 +49,30 @@ export interface StreamItemTransfer {
   context: string;
 }
 
+/**
+ * 流式关系断言（角色↔角色 / 物品↔物品 / 地点↔地点·角色）。
+ * 服务端已做「主体客体逐字出现在原文」「证据逐字命中原文」两道校验，
+ * 客户端还要按实体库解析 id 并做类型归一/去重（见 knowledge/relationRecognition）。
+ */
+export interface StreamRelationAssertion {
+  assertionType: 'character_relation' | 'item_relation' | 'location_relation';
+  subject: string;
+  object: string;
+  type: string;
+  direction?: 'mutual' | 'to' | 'from';
+  context: string;
+  description?: string;
+}
+
+/** 流式系统绑定（系统文：绑定/解绑是角色属性，不是事件） */
+export interface StreamSystemBind {
+  bindType: 'system_bind';
+  characterName: string;
+  systemName?: string;
+  action?: 'bind' | 'unbind';
+  context: string;
+}
+
 /** 流式角色别名关系 */
 export interface StreamAliasMatch {
   aliasType: 'alias_match';
@@ -102,6 +126,8 @@ export interface AIScanCapability {
     signal?: AbortSignal,
     projectId?: string,
     onCreditTransaction?: (credit: StreamCreditTransaction) => void,
+    onRelation?: (assertion: StreamRelationAssertion) => void,
+    onSystemBind?: (bind: StreamSystemBind) => void,
   ): Promise<StreamTimelineEvent[]>;
   extractEventsByKeyword(
     content: string,

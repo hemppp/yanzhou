@@ -389,6 +389,7 @@ export function StoryMap() {
       latitude: geo.latitude,
       longitude: geo.longitude,
       states: [],
+      relations: [],
       chapters: [],
       tags: [],
       createdAt: Date.now(),

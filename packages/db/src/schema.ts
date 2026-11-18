@@ -168,6 +168,7 @@ export const locations = sqliteTable('locations', {
   mapZoom: integer('map_zoom'),
   world: text('world'),
   states: text('states'),       // JSON EntityState[]
+  relations: text('relations'), // JSON LocationRelation[]
   chapters: text('chapters'),   // JSON 数字数组
   tags: text('tags'),           // JSON 字符串数组
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),

@@ -38,6 +38,15 @@ const createItemSchema = z.object({
   })).optional(),
   // ★ 当前持有者：此前 schema 漏掉该字段，更新时被静默剥离，导致人物-物品归属永远存不进去
   currentHolders: z.array(z.string()).optional(),
+  // ★ 物品间关系：同 currentHolders —— schema 漏字段 ⇒ zod 静默剥离 ⇒
+  //   图上画得出来、刷新即消失。字段形状与 @novel/shared 的 ItemRelation 一致。
+  relations: z.array(z.object({
+    targetItemId: z.string().min(1),
+    type: z.enum(['paired_with', 'contains', 'part_of', 'opposite_of', 'transforms_into', 'related_to']),
+    description: z.string().optional(),
+    // ItemRelation.chapter 是 number | undefined（与 LocationRelation 不同，后者可为 null）
+    chapter: z.number().optional(),
+  })).optional(),
   chapters: z.array(z.number()).optional(),
   tags: z.array(z.string()).optional(),
 });

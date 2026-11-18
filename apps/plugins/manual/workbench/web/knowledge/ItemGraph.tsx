@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 import { useItemStore } from '@novel-plugins/data-core/stores';
 import { useCharacterStore } from '@novel-plugins/data-core/stores';
+import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
 import { deriveCurrentHolders, type ItemRelationType } from '@novel/shared';
 import { safeConfirm } from '@novel-plugins/ui-kit/safeConfirm';
 import { BubbleNode } from '@novel-plugins/ui-graph/BubbleNode';
@@ -90,10 +91,21 @@ const nodeTypes: NodeTypes = {
 };
 
 export function ItemGraph() {
-  const items = useItemStore((s) => s.items);
+  // ★ 按项目过滤（store 是全局的，不过滤会把别的书的物品/角色画进来）
+  // ★ useMemo 缓存过滤结果（裸 .filter 每次渲染都是新数组，下游 useMemo 会无限重算）
+  const projectId = useCurrentProjectId();
+  const allItems = useItemStore((s) => s.items);
+  const items = useMemo(
+    () => allItems.filter((i) => !projectId || i.projectId === projectId),
+    [allItems, projectId],
+  );
   const addItemRelation = useItemStore((s) => s.addItemRelation);
   const removeItemRelation = useItemStore((s) => s.removeItemRelation);
-  const characters = useCharacterStore((s) => s.characters);
+  const allCharacters = useCharacterStore((s) => s.characters);
+  const characters = useMemo(
+    () => allCharacters.filter((c) => !projectId || c.projectId === projectId),
+    [allCharacters, projectId],
+  );
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);

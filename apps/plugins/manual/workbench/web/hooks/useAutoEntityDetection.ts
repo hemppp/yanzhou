@@ -11,13 +11,17 @@ import { getCapability } from '@/plugin/registry';
 import { useEffect, useRef, useCallback, useState, useSyncExternalStore } from 'react';
 import { nanoid } from 'nanoid';
 import { useCharacterStore, useLocationStore, useTimelineStore, useChapterStore, useItemStore, useProjectStore } from '@novel-plugins/data-core/stores';
-import { mergeSimilarCharacters, updateItemHoldersForMerge } from '../knowledge/characterMerge';
-import { processCreditTransactionShared } from './useScanProcessors';
+import { mergeSimilarCharacters, remapLocationRelations, updateItemHoldersForMerge } from '../knowledge/characterMerge';
+import { handleItemTransferShared, processCreditTransactionShared } from './useScanProcessors';
 import { prepareItemContext, validateItemCandidate } from '../knowledge/itemRecognition';
 import { applyLocationCandidate, prepareLocationContext } from '../knowledge/locationRecognition';
+import { applySystemBind, isSystemEntityName } from '../knowledge/systemRecognition';
+import { inferLocationPresence, prepareRelationContext } from '../knowledge/relationRecognition';
+import { applyRelationAssertion, buildRelationDedupe, buildRelationEntityRefs } from '../knowledge/relationApply';
+import { isItemAutoDetectEnabled } from '../stores/entityDetectionPrefs';
 import { assignAutoCoords } from '../knowledge/locationCoords';
 import { dispatchToastEvent } from '@novel-plugins/ui-kit/errors';
-import type { Item, Location, TimelineEvent } from '@novel/shared';
+import type { Character, Item, Location, TimelineEvent } from '@novel/shared';
 import { htmlToText } from '@novel-plugins/data-core/editor/entityDetector';
 import {
   ScanSkippedError,
@@ -26,6 +30,8 @@ import {
   type StreamCreditTransaction,
   type StreamEntity,
   type StreamItemTransfer,
+  type StreamRelationAssertion,
+  type StreamSystemBind,
   type StreamTimelineEvent,
 } from './aiScanCapability';
 
@@ -211,33 +217,9 @@ export function useAutoEntityDetection(
       };
       useTimelineStore.getState().addEvent(newTimelineEvent);
 
-      // 同事件中出现 ≥2 个已知角色 → 两两建立 mutual 关联关系
-      let newRelations = 0;
-      if (matchedIds.length >= 2) {
-        const addRelation = useCharacterStore.getState().addRelation;
-        for (let i = 0; i < matchedIds.length - 1; i++) {
-          for (let j = i + 1; j < matchedIds.length; j++) {
-            const aId = matchedIds[i]!;
-            const bId = matchedIds[j]!;
-            if (aId === bId) continue;
-
-            const aChar = useCharacterStore.getState().characters.find(c => c.id === aId);
-            const aHas = (aChar?.relations ?? []).some(r => r.targetId === bId && r.type === '关联');
-            if (!aHas) {
-              addRelation(aId, { targetId: bId, type: '关联', direction: 'mutual', chapter: chapterOrder });
-              newRelations++;
-            }
-            const bChar = useCharacterStore.getState().characters.find(c => c.id === bId);
-            const bHas = (bChar?.relations ?? []).some(r => r.targetId === aId && r.type === '关联');
-            if (!bHas) {
-              addRelation(bId, { targetId: aId, type: '关联', direction: 'mutual', chapter: chapterOrder });
-              newRelations++;
-            }
-          }
-        }
-      }
-
-      return { added: true, relations: newRelations };
+      // ★ 关系不再由「同一事件里出现」推断（群戏会连出完全图），
+      //   改由扫描的 relation 断言行经确定性校验后落库 —— 见 onRelation 回调。
+      return { added: true, relations: 0 };
     },
     [],
   );
@@ -307,90 +289,13 @@ export function useAutoEntityDetection(
     let newTransfers = 0;
     let newAliases = 0;
     let newCredits = 0;
+    let newSystemBinds = 0;
     // 积分流水先缓存，等实体/物品都落库后再处理，避免模型把流水排在实体前面时匹配不到角色
     const pendingCredits: StreamCreditTransaction[] = [];
 
     const handleItemTransfer = (transfer: StreamItemTransfer) => {
-      if (controller.signal.aborted) return;
-      const itemState = useItemStore.getState();
-      const charState = useCharacterStore.getState();
-
-      // 按名称查找物品（支持部分匹配）
-      const item = itemState.items.find(i => 
-        i.name === transfer.itemName || 
-        i.name.includes(transfer.itemName) || 
-        transfer.itemName.includes(i.name)
-      );
-      if (!item) return;
-
-      // 构建 名字→ID 映射（含别名）
-      const charNameToId = new Map<string, string>();
-      for (const c of charState.characters) {
-        if (c.name && !charNameToId.has(c.name)) charNameToId.set(c.name, c.id);
-        for (const alias of c.aliases ?? []) {
-          if (alias && !charNameToId.has(alias)) charNameToId.set(alias, c.id);
-        }
-      }
-
-      // 查找角色的辅助函数：先精确匹配，再模糊匹配（名字互相包含）
-      const findCharId = (name: string): string | null => {
-        if (!name) return null;
-        // 精确匹配
-        if (charNameToId.has(name)) return charNameToId.get(name)!;
-        // 模糊匹配：名字互相包含
-        const found = charState.characters.find(c =>
-          c.name.includes(name) || name.includes(c.name) ||
-          c.aliases?.some(a => a.includes(name) || name.includes(a))
-        );
-        return found ? found.id : null;
-      };
-
-      const fromId = transfer.fromCharacter ? findCharId(transfer.fromCharacter) : null;
-      const toId = transfer.toCharacter ? findCharId(transfer.toCharacter) : null;
-
-      // 检查本章是否已经记录过相同流转（去重）
-      const existingInChapter = item.holders.some(
-        h => h.chapter === chapterOrder &&
-             ((fromId && h.characterId === fromId && h.action === 'lost') ||
-              (toId && h.characterId === toId && (h.action === 'gained' || h.action === 'transferred')))
-      );
-      if (existingInChapter && transfer.action !== 'held') return;
-
-      const newHolders = [...item.holders];
-      const currentHoldersSet = new Set(item.currentHolders ?? []);
-      let currentChanged = false;
-
-      if (transfer.action === 'held') {
-        // ★ 持有/使用/穿戴（无流转变化）：仅确保当前持有者包含该角色，不写流转史。
-        //   这是人物-物品关系的基础数据（如"把罗盘摊在掌心"、"裹紧斗篷"）。
-        if (toId && !currentHoldersSet.has(toId)) {
-          currentHoldersSet.add(toId);
-          currentChanged = true;
-        }
-      } else if (transfer.action === 'gained' && toId) {
-        newHolders.push({ characterId: toId, chapter: chapterOrder, action: 'gained' });
-        currentHoldersSet.add(toId);
-        newTransfers++;
-      } else if (transfer.action === 'lost' && (fromId || toId)) {
-        const loserId = fromId || toId!;
-        newHolders.push({ characterId: loserId, chapter: chapterOrder, action: 'lost' });
-        currentHoldersSet.delete(loserId);
-        newTransfers++;
-      } else if (transfer.action === 'transferred' && fromId && toId) {
-        newHolders.push({ characterId: fromId, chapter: chapterOrder, action: 'lost' });
-        newHolders.push({ characterId: toId, chapter: chapterOrder, action: 'gained' });
-        currentHoldersSet.delete(fromId);
-        currentHoldersSet.add(toId);
-        newTransfers++;
-      }
-
-      if (newTransfers > 0 || currentChanged || newHolders.length !== item.holders.length) {
-        itemState.updateItem(item.id, {
-          holders: newHolders,
-          currentHolders: Array.from(currentHoldersSet),
-          updatedAt: Date.now(),
-        });
-      }
+      // ★ 统一走共享实现：按项目过滤物品/角色，并把「系统」当作来源而不是人
+      newTransfers += handleItemTransferShared(transfer, chapterOrder, controller, projectId);
     };
 
     const handleAliasMatch = (aliasMatch: StreamAliasMatch) => {
@@ -564,6 +469,10 @@ export function useAutoEntityDetection(
         existingCharacters: scanCharacters,
         existingItems: scanItems,
       });
+      // 关系断言：实体解析索引（同章新实体在后面增量登记）+ 去重索引
+      const relationRefs = buildRelationEntityRefs(projectId);
+      const relationCtx = prepareRelationContext({ chapterContent: plainText, ...relationRefs });
+      const relationDedupe = buildRelationDedupe(projectId);
       const timelinePromise = scan.scanTimelineStream(
         plainText,
         chapterOrder,
@@ -571,10 +480,7 @@ export function useAutoEntityDetection(
         (event) => {
           if (controller.signal.aborted) return;
           const result = processTimelineEvent(event, newEvents, projectId);
-          if (result.added) {
-            newEvents++;
-            newRelations += result.relations;
-          }
+          if (result.added) newEvents++;
         },
         (entity: StreamEntity) => {
           if (controller.signal.aborted) return;
@@ -600,6 +506,8 @@ export function useAutoEntityDetection(
             ]);
             const isLikelyNotPersonName = (name: string): boolean => {
               if (!name || name.length === 0) return true;
+              // ★ 系统不是人（系统 / 系统面板 / 主神空间…）
+              if (isSystemEntityName(name)) return true;
               // 单字名：必须是文中反复使用的姓氏，且不是常见动词/介词
               if (name.length === 1) {
                 if (singleCharVerbs.has(name)) return true;
@@ -646,7 +554,7 @@ export function useAutoEntityDetection(
 
             // 完全新角色，创建
             console.debug(`[AutoEntity] 新角色: name="${entity.name}" context="${(entity.context || '').slice(0, 80)}"`);
-            useCharacterStore.getState().addCharacter({
+            const newCharacter: Character = {
               ...entityBase(projectId),
               name: entity.name,
               backstory: entity.context || entity.description || '',
@@ -660,9 +568,12 @@ export function useAutoEntityDetection(
               ...(entity.personality ? { personality: entity.personality } : {}),
               ...(entity.role ? { role: entity.role } : {}),
               ...(entity.speechStyle ? { speechStyle: entity.speechStyle } : {}),
-            });
+            };
+            useCharacterStore.getState().addCharacter(newCharacter);
             itemCtx.addEntityName(entity.name); // 同章物品撞名检查立即生效
             locationCtx.addEntityName(entity.name); // 同章地点撞名检查立即生效
+            // 关系行晚于实体行输出：新角色必须立刻能被关系断言解析到
+            relationCtx.addCharacter({ id: newCharacter.id, name: newCharacter.name });
             newChars++;
           } else if (entity.entityType === 'item') {
             const itemState = useItemStore.getState();
@@ -671,6 +582,11 @@ export function useAutoEntityDetection(
               console.debug(
                 `[AutoEntity] 跳过疑似非物品 "${entity.name}": ${validation.reason}`,
               );
+              return;
+            }
+            // ★ 物品自动识别关闭：已有物品仍补类型，但不再新建
+            if (!isItemAutoDetectEnabled() && !validation.existingItem) {
+              console.debug(`[AutoEntity] 物品自动识别已关闭，跳过新建 "${validation.name}"`);
               return;
             }
             if (validation.existingItem) {
@@ -703,6 +619,7 @@ export function useAutoEntityDetection(
             useItemStore.getState().addItem(newItem);
             itemCtx.addItem(newItem); // 同章后续重复输出直接命中索引
             locationCtx.addEntityName(newItem.name); // 同章地点撞名检查立即生效
+            relationCtx.addItem({ id: newItem.id, name: newItem.name });
             newItems++;
           } else if (entity.entityType === 'location') {
             const result = applyLocationCandidate(entity, chapterOrder, locationCtx);
@@ -739,6 +656,7 @@ export function useAutoEntityDetection(
             useLocationStore.getState().addLocation(newLocation);
             locationCtx.addLocation(newLocation); // 同章后续重复输出直接命中索引
             itemCtx.addEntityName(result.name); // 同章物品撞名检查立即生效
+            relationCtx.addLocation({ id: newLocation.id, name: newLocation.name });
             newLocs++;
           }
         },
@@ -749,6 +667,24 @@ export function useAutoEntityDetection(
         (credit: StreamCreditTransaction) => {
           if (controller.signal.aborted) return;
           pendingCredits.push(credit);
+        },
+        // onRelation — 关系断言（角色↔角色 / 物品↔物品 / 地点↔地点·角色）
+        (assertion: StreamRelationAssertion) => {
+          if (controller.signal.aborted) return;
+          const outcome = applyRelationAssertion(assertion, chapterOrder, relationCtx, relationDedupe);
+          if (!outcome.added) {
+            console.debug(
+              `[AutoEntity] 跳过关系「${assertion.subject}→${assertion.object}」：${outcome.reason}`,
+            );
+            return;
+          }
+          newRelations++;
+        },
+        // onSystemBind — 系统绑定/解绑（角色属性，落到角色标签上供面板显示）
+        (bind: StreamSystemBind) => {
+          if (controller.signal.aborted) return;
+          const result = applySystemBind(bind, projectId);
+          if (result.changed) newSystemBinds++;
         },
       ).catch((e) => {
         if (!controller.signal.aborted) {
@@ -761,6 +697,19 @@ export function useAutoEntityDetection(
 
       if (controller.signal.aborted) return;
 
+      // ★ 兜底召回：模型对「某人在某地」的召回不稳定，用句内证据补一轮。
+      //   只认同一句话里同时出现地点名/人物名 + 在场谓词，且照常走
+      //   validate + plan（证据接地、去重都会再校验），不会引入共现噪声。
+      const presenceRefs = buildRelationEntityRefs(projectId);
+      for (const assertion of inferLocationPresence(
+        plainText,
+        presenceRefs.locations,
+        presenceRefs.characters,
+      )) {
+        const outcome = applyRelationAssertion(assertion, chapterOrder, relationCtx, relationDedupe);
+        if (outcome.added) newRelations++;
+      }
+
       const freshLocations = useLocationStore.getState().locations;
       assignAutoCoords(freshLocations, useLocationStore.getState().updateLocation);
 
@@ -769,12 +718,22 @@ export function useAutoEntityDetection(
       const itemState = useItemStore.getState();
       const projectChars = charState.characters.filter(c => c.projectId === projectId);
       const projectItems = itemState.items.filter(i => i.projectId === projectId);
-      const { mergedCharacters, mergedItems, mergeCount } = mergeSimilarCharacters(projectChars, projectItems);
+      const { mergedCharacters, mergedItems, mergeCount, idRemap } = mergeSimilarCharacters(projectChars, projectItems);
       if (mergeCount > 0) {
         const otherChars = charState.characters.filter(c => c.projectId !== projectId);
         const otherItems = itemState.items.filter(i => i.projectId !== projectId);
         charState.setCharacters([...otherChars, ...mergedCharacters]);
         itemState.setItems([...otherItems, ...mergedItems]);
+        // 地点关系里指向被删角色的 id 要在同一拍改掉，否则留下悬空边
+        if (idRemap.size > 0) {
+          const locState = useLocationStore.getState();
+          const remapped = remapLocationRelations(
+            locState.locations.filter(l => l.projectId === projectId),
+            idRemap,
+          );
+          const otherLocs = locState.locations.filter(l => l.projectId !== projectId);
+          locState.setLocations([...otherLocs, ...remapped]);
+        }
         console.debug(`[AutoEntity] 自动合并了 ${mergeCount} 对相似角色`);
       }
 
@@ -789,7 +748,7 @@ export function useAutoEntityDetection(
         if (result.added) newCredits++;
       }
 
-      const totalNew = newChars + newLocs + newEvents + newItems + newRelations + newTransfers + newAliases + newCredits;
+      const totalNew = newChars + newLocs + newEvents + newItems + newRelations + newTransfers + newAliases + newCredits + newSystemBinds;
       if (totalNew > 0) {
         const parts: string[] = [];
         if (newEvents > 0) parts.push(`${newEvents} 事件`);
@@ -799,6 +758,7 @@ export function useAutoEntityDetection(
         if (newRelations > 0) parts.push(`${newRelations} 关系`);
         if (newTransfers > 0) parts.push(`${newTransfers} 装备流转`);
         if (newAliases > 0) parts.push(`${newAliases} 别名`);
+        if (newSystemBinds > 0) parts.push(`${newSystemBinds} 系统绑定`);
         if (newCredits > 0) parts.push(`${newCredits} 积分流水`);
         dispatchToastEvent({
           type: 'success',

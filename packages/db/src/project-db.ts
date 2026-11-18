@@ -218,6 +218,18 @@ async function runProjectMigrations(sqlite: any): Promise<void> {
     console.warn('[ProjectDB] 检查 fact_conflicts.resolution 列失败:', e);
   }
 
+  // 同理补地点的显式关系列（新增功能：地点间/地点-角色关系不再靠章节共现推断）
+  try {
+    const locCols = sqlite.pragma('table_info(locations)') as Array<{ name: string }>;
+    if (locCols.length > 0 && !locCols.some((c) => c.name === 'relations')) {
+      console.log('[ProjectDB] locations 表缺少 relations 列，正在添加...');
+      sqlite.exec('ALTER TABLE locations ADD COLUMN relations TEXT');
+      sqlite.exec("UPDATE locations SET relations = '[]' WHERE relations IS NULL");
+    }
+  } catch (e) {
+    console.warn('[ProjectDB] 检查 locations.relations 列失败:', e);
+  }
+
   // 同理补章的故事内时间（水车三层时间戳的第三层）
   try {
     const chapterCols = sqlite.pragma('table_info(chapters)') as Array<{ name: string }>;

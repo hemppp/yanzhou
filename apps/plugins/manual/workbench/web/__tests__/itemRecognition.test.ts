@@ -145,6 +145,66 @@ describe('inferItemType / resolveItemType', () => {
   });
 });
 
+describe('被击杀的野兽不算物品', () => {
+  it('斩杀妖狼时妖狼不建物品，妖狼牙才是物品', () => {
+    expect(
+      validateItemCandidate({ name: '妖狼', context: '主线任务：斩杀城东妖狼', itemType: 'animal' }),
+    ).toMatchObject({ accept: false, reason: '被击杀的野兽' });
+
+    expect(
+      validateItemCandidate({ name: '妖狼牙', context: '额外奖励：妖狼牙三枚', itemType: 'treasure' }),
+    ).toMatchObject({ accept: true });
+  });
+
+  it('灵兽/坐骑这类正常动物型物品不受影响', () => {
+    expect(
+      validateItemCandidate({ name: '青羽鹤', context: '他收服了一只青羽鹤作坐骑', itemType: 'animal' }),
+    ).toMatchObject({ accept: true });
+  });
+});
+describe('物品名称变体合并（全称 / 简称）', () => {
+  it('简称能并回全称（刀鞘 → 乌木刀鞘）', () => {
+    const ctx = prepareItemContext({
+      chapterContent: '沈砚把断水刀插回乌木刀鞘。',
+      existingItems: [makeItem({ id: 'i9', name: '乌木刀鞘', type: 'prop' })],
+    });
+    const result = validateItemCandidate({ name: '刀鞘', context: '沈砚把断水刀插回乌木刀鞘。' }, ctx);
+    expect(result).toMatchObject({ accept: true, existingItem: { id: 'i9' } });
+  });
+
+  it('带修饰的写法能并回简称（旧剑鞘 → 剑鞘）', () => {
+    const ctx = prepareItemContext({
+      chapterContent: '他把旧剑鞘挂在墙上。',
+      existingItems: [makeItem({ id: 'i8', name: '剑鞘' })],
+    });
+    const result = validateItemCandidate({ name: '旧剑鞘', context: '他把旧剑鞘挂在墙上。' }, ctx);
+    expect(result).toMatchObject({ accept: true, existingItem: { id: 'i8' } });
+  });
+
+  it('短键有歧义时不合并（青锋剑 vs 寒锋剑 都含「锋剑」）', () => {
+    const ctx = prepareItemContext({
+      chapterContent: '桌上摆着青锋剑和寒锋剑。',
+      existingItems: [
+        makeItem({ id: 'a', name: '青锋剑' }),
+        makeItem({ id: 'b', name: '寒锋剑' }),
+      ],
+    });
+    const result = validateItemCandidate({ name: '锋剑', context: '桌上摆着青锋剑和寒锋剑。' }, ctx);
+    // 歧义 → 不并到任何一把，按新物品处理（但「锋剑」过短会被拒绝）
+    expect(result.accept === false || !('existingItem' in result)).toBe(true);
+  });
+
+  it('同名物品精确命中仍然优先', () => {
+    const ctx = prepareItemContext({
+      chapterContent: '玄铁匣就在床下。',
+      existingItems: [makeItem({ id: 'box', name: '玄铁匣' })],
+    });
+    expect(
+      validateItemCandidate({ name: '玄铁匣', context: '玄铁匣就在床下。' }, ctx),
+    ).toMatchObject({ accept: true, existingItem: { id: 'box' } });
+  });
+});
+
 describe('validateItemCandidate', () => {
   const ctx = {
     chapterContent: '陈星拔出青锋剑，剑光如雪。沈知意站在藏经阁外。',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCharacterStore, useProjectStore } from '@novel-plugins/data-core/stores';
 import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
+import { SYSTEM_BIND_TAG, isSystemBound, systemNameOf } from './systemRecognition';
 import EntityForm from './EntityForm';
 import { Search, Plus, Users, AlertCircle, RefreshCw, Sparkles, User, List, Network } from 'lucide-react';
 import { nanoid } from 'nanoid';
@@ -120,13 +121,33 @@ function CharacterCard({
           background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%)',
           display: 'flex',
           alignItems: 'flex-start',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-start',
+          flexWrap: 'wrap',
           gap: 'var(--space-4)',
         }}
       >
+        {isSystemBound(character) && (
+          <span
+            style={{
+              fontSize: 9.5,
+              padding: 'var(--space-0) var(--space-2)',
+              borderRadius: 'var(--r-md)',
+              fontWeight: 600,
+              background: 'hsl(var(--mountain-cyan) / 0.85)',
+              color: 'hsl(var(--card))',
+              whiteSpace: 'nowrap',
+              maxWidth: 80,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={systemNameOf(character) ? `已绑定：${systemNameOf(character)}` : '已绑定系统'}
+          >
+            {isSystemBound(character) ? '系统' : ''}
+          </span>
+        )}
         {Array.isArray(character.tags) && character.tags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', maxWidth: '70%' }}>
-            {character.tags.slice(0, 2).map((tag) => (
+            {character.tags.filter((t) => t !== SYSTEM_BIND_TAG && !t.startsWith('系统:')).slice(0, 2).map((tag) => (
               <span
                 key={tag}
                 style={{
@@ -147,8 +168,8 @@ function CharacterCard({
                 {tag}
               </span>
             ))}
-            {character.tags.length > 2 && (
-              <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.8)' }}>+{character.tags.length - 2}</span>
+            {character.tags.filter((t) => t !== SYSTEM_BIND_TAG && !t.startsWith('系统:')).length > 2 && (
+              <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.8)' }}>+{character.tags.filter((t) => t !== SYSTEM_BIND_TAG && !t.startsWith('系统:')).length - 2}</span>
             )}
           </div>
         )}

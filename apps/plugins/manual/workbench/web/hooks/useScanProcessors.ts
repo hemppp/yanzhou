@@ -12,7 +12,7 @@ import {
   useTimelineStore,
 } from '@novel-plugins/data-core/stores';
 import type { CreditTransaction, Item, Location, TimelineEvent } from '@novel/shared';
-import { mergeSimilarCharacters, updateItemHoldersForMerge } from '../knowledge/characterMerge';
+import { mergeSimilarCharacters, remapLocationRelations, updateItemHoldersForMerge } from '../knowledge/characterMerge';
 import { computeCreditItemAcquisition } from '../knowledge/creditItemSync';
 import {
   normalizeItemType,
@@ -25,6 +25,8 @@ import {
   prepareLocationContext,
   type PreparedLocationContext,
 } from '../knowledge/locationRecognition';
+import { isItemAutoDetectEnabled } from '../stores/entityDetectionPrefs';
+import { isSystemEntityName } from '../knowledge/systemRecognition';
 
 // 保留原来的导出路径（useAutoEntityDetection 从这里 import normalizeItemType）
 export { normalizeItemType };
@@ -232,33 +234,14 @@ export function processTimelineEventShared(
   };
   useTimelineStore.getState().addEvent(newTimelineEvent);
 
-  // 同事件中出现 ≥2 个已知角色 → 两两建立 mutual 关联关系
-  let newRelations = 0;
-  if (matchedIds.length >= 2) {
-    const addRelation = useCharacterStore.getState().addRelation;
-    for (let i = 0; i < matchedIds.length - 1; i++) {
-      for (let j = i + 1; j < matchedIds.length; j++) {
-        const aId = matchedIds[i]!;
-        const bId = matchedIds[j]!;
-        if (aId === bId) continue;
+  // ★ 2026-11 关系识别改造：不再由「同一事件里出现」推断关系。
+  //   一处群戏里五个人同场，旧逻辑会给两两连上十条「关联」，把真实关系
+  //   （师徒/父子/仇人）淹没在噪声里，图上每个主角都成了中心枢纽。
+  //   关系改由扫描的 relation 断言行提供，经 knowledge/relationRecognition
+  //   做类型归一 / 实体解析 / 证据接地后落库（见 relationApply）。
+  //   事件里的 characterIds 仍然保留 —— 那是「谁在场」，不是「谁和谁什么关系」。
 
-        const aChar = useCharacterStore.getState().characters.find(c => c.id === aId);
-        const aHas = (aChar?.relations ?? []).some(r => r.targetId === bId && r.type === '关联');
-        if (!aHas) {
-          addRelation(aId, { targetId: bId, type: '关联', direction: 'mutual', chapter: chapterOrder });
-          newRelations++;
-        }
-        const bChar = useCharacterStore.getState().characters.find(c => c.id === bId);
-        const bHas = (bChar?.relations ?? []).some(r => r.targetId === aId && r.type === '关联');
-        if (!bHas) {
-          addRelation(bId, { targetId: aId, type: '关联', direction: 'mutual', chapter: chapterOrder });
-          newRelations++;
-        }
-      }
-    }
-  }
-
-  return { added: true, relations: newRelations };
+  return { added: true, relations: 0 };
 }
 
 /**
@@ -297,23 +280,6 @@ export function processCreditTransactionShared(
   const amount = credit.action === 'gift' ? 0 : credit.amount;
   if (credit.action !== 'gift' && amount <= 0) return { added: false, itemLinked: false };
 
-  // 3. 持久化去重：同角色/章节/类型/金额/事由视为同一笔（重复扫描不会重复入账）
-  const existing = useCreditStore
-    .getState()
-    .creditTransactions.filter(
-      (t) => t.projectId === projectId && t.characterId === characterId && t.chapter === chapterOrder,
-    );
-  const duplicate = existing.some(
-    (t) =>
-      t.type === credit.action &&
-      (t.amount ?? 0) === amount &&
-      normalizeText(t.reason ?? '') === normalizeText(credit.reason ?? ''),
-  );
-  if (duplicate) {
-    console.debug('[ScanProcessor] 跳过重复积分流水:', credit.reason ?? credit.action);
-    return { added: false, itemLinked: false };
-  }
-
   // 4. 关联物品（不在此处新建物品；实体行会先输出并由 onEntity 建好）
   const projectItems = useItemStore.getState().items.filter((i) => i.projectId === projectId);
   const item = credit.itemName
@@ -324,6 +290,37 @@ export function processCreditTransactionShared(
           )
         : undefined))
     : undefined;
+
+  // 3. 持久化去重：同角色/章节/类型/金额/关联物品视为同一笔。
+  //
+  //   ★ 不再比对 reason 文本。实测重复扫描同一章时，模型会把
+  //   「首次绑定系统，初始积分」改写成「首次绑定系统获初始积分」——
+  //   按文本相等去重就漏判，账本里同一笔出现两次（实测 ch1 出现 gain 100 两条）。
+  //   关联物品参与比对：同一章里两件**不同物品**的赠予必须各记一条；
+  //   没有关联物品时只按 类型+金额 判重。
+  const itemKeyOfTx = (relatedItemId?: string): string => {
+    if (!relatedItemId) return '';
+    const name = projectItems.find((i) => i.id === relatedItemId)?.name ?? '';
+    return normalizeText(name);
+  };
+  // ★ 只认「解析到的物品」：itemName 指向库里不存在的物品（如技能名「基础剑法」）时
+  //   没有 id 可比，退回按 类型+金额 判重 —— 否则同一笔 spend 会被记两次。
+  const creditItemKey = item ? normalizeText(item.name) : '';
+  const existing = useCreditStore
+    .getState()
+    .creditTransactions.filter(
+      (t) => t.projectId === projectId && t.characterId === characterId && t.chapter === chapterOrder,
+    );
+  const duplicate = existing.some(
+    (t) =>
+      t.type === credit.action &&
+      (t.amount ?? 0) === amount &&
+      itemKeyOfTx(t.relatedItemId) === creditItemKey,
+  );
+  if (duplicate) {
+    console.debug('[ScanProcessor] 跳过重复积分流水:', credit.reason ?? credit.action);
+    return { added: false, itemLinked: false };
+  }
 
   const now = Date.now();
   const tx: CreditTransaction = {
@@ -361,28 +358,42 @@ export function handleItemTransferShared(
   transfer: StreamItemTransfer,
   chapterOrder: number,
   controller: AbortController,
+  projectId?: string,
 ): number {
   if (controller.signal.aborted) return 0;
   const itemState = useItemStore.getState();
   const charState = useCharacterStore.getState();
 
-  // 按名称查找物品（支持部分匹配）
-  const item = itemState.items.find(i => 
-    i.name === transfer.itemName || 
-    i.name.includes(transfer.itemName) || 
+  const inProject = <T extends { projectId: string }>(list: T[]): T[] =>
+    projectId ? list.filter((x) => x.projectId === projectId) : list;
+
+  // 按名称查找物品（支持部分匹配）；只在本项目范围内找，避免串书
+  const item = inProject(itemState.items).find(i =>
+    i.name === transfer.itemName ||
+    i.name.includes(transfer.itemName) ||
     transfer.itemName.includes(i.name)
   );
   if (!item) return 0;
 
+  // ★ 系统不是角色：fromCharacter/toCharacter 写成「系统/系统空间」时，
+  //   不能拿去找人，否则整条流转静默丢失。
+  const fromIsSystem = isSystemEntityName(transfer.fromCharacter);
+  const toIsSystem = isSystemEntityName(transfer.toCharacter);
+
   // 构建 名字→ID 映射（含别名）
-  const charNameToId = buildCharNameToIdMap(charState.characters);
+  const characters = inProject(charState.characters);
+  const charNameToId = buildCharNameToIdMap(characters);
 
-  // 查找角色的辅助函数
-  const findCharId = (name: string): string | null => 
-    findCharIdByName(name, charNameToId, charState.characters);
+  const findCharId = (name: string): string | null =>
+    findCharIdByName(name, charNameToId, characters);
 
-  const fromId = transfer.fromCharacter ? findCharId(transfer.fromCharacter) : null;
-  const toId = transfer.toCharacter ? findCharId(transfer.toCharacter) : null;
+  const fromId = !fromIsSystem && transfer.fromCharacter ? findCharId(transfer.fromCharacter) : null;
+  const toId = !toIsSystem && transfer.toCharacter ? findCharId(transfer.toCharacter) : null;
+
+  // 系统发放给角色：等价于该角色 gained（来源不是人，不写 lost）
+  const systemIssued = fromIsSystem && !!toId;
+  // 角色把物品交还/存进系统：等价于该角色 lost
+  const intoSystem = toIsSystem && !!fromId;
 
   // 检查本章是否已经记录过相同流转（去重）
   const existingInChapter = item.holders.some(
@@ -403,11 +414,12 @@ export function handleItemTransferShared(
       currentHoldersSet.add(toId);
       currentChanged = true;
     }
-  } else if (transfer.action === 'gained' && toId) {
-    newHolders.push({ characterId: toId, chapter: chapterOrder, action: 'gained' });
-    currentHoldersSet.add(toId);
+  } else if (systemIssued || (transfer.action === 'gained' && toId)) {
+    // 系统发放，或普通获得：都记目标角色 gained
+    newHolders.push({ characterId: toId!, chapter: chapterOrder, action: 'gained' });
+    currentHoldersSet.add(toId!);
     transferCount++;
-  } else if (transfer.action === 'lost' && (fromId || toId)) {
+  } else if (intoSystem || (transfer.action === 'lost' && (fromId || toId))) {
     const loserId = fromId || toId!;
     newHolders.push({ characterId: loserId, chapter: chapterOrder, action: 'lost' });
     currentHoldersSet.delete(loserId);
@@ -426,6 +438,28 @@ export function handleItemTransferShared(
       currentHolders: Array.from(currentHoldersSet),
       updatedAt: Date.now(),
     });
+  }
+
+  // ★ 系统发放的物品要在账本里留一笔 gift（模型偶尔只给流转行，不给流水）。
+  //   这里补记；若模型已经输出过同一条，credits 的去重会拦住。
+  if (systemIssued && toId) {
+    const receiver = characters.find((c) => c.id === toId);
+    if (receiver) {
+      processCreditTransactionShared(
+        {
+          creditType: 'credit_transaction',
+          action: 'gift',
+          characterName: receiver.name,
+          amount: 0,
+          reason: `系统发放：${item.name}`,
+          itemName: item.name,
+          chapterOrder,
+        },
+        projectId ?? receiver.projectId,
+        chapterOrder,
+        new Set(),
+      );
+    }
   }
 
   return transferCount;
@@ -756,6 +790,11 @@ export function processEntityShared(
       console.debug(`[ScanProcessor] 跳过疑似非物品 "${entity.name}": ${validation.reason}`);
       return { chars: 0, items: 0, locs: 0, aliases: 0 };
     }
+    // ★ 物品自动识别关闭：只给已有物品补类型，不再新建
+    if (!isItemAutoDetectEnabled() && !validation.existingItem) {
+      console.debug(`[ScanProcessor] 物品自动识别已关闭，跳过新建 "${validation.name}"`);
+      return { chars: 0, items: 0, locs: 0, aliases: 0 };
+    }
     if (validation.existingItem) {
       // 已存在的物品：类型还是未分类（other）时用 AI/后缀推断补上
       const existing = validation.existingItem;
@@ -823,6 +862,7 @@ export function processEntityShared(
       name: result.name,
       description: result.description,
       states: [],
+      relations: [],
       chapters: [chapterOrder],
       tags: [],
       createdAt: now,
@@ -845,12 +885,22 @@ export function mergeSimilarCharactersAfterScan(projectId: string): number {
   const itemState = useItemStore.getState();
   const projectChars = charState.characters.filter(c => c.projectId === projectId);
   const projectItems = itemState.items.filter(i => i.projectId === projectId);
-  const { mergedCharacters, mergedItems, mergeCount } = mergeSimilarCharacters(projectChars, projectItems);
+  const { mergedCharacters, mergedItems, mergeCount, idRemap } = mergeSimilarCharacters(projectChars, projectItems);
   if (mergeCount > 0) {
     const otherChars = charState.characters.filter(c => c.projectId !== projectId);
     const otherItems = itemState.items.filter(i => i.projectId !== projectId);
     charState.setCharacters([...otherChars, ...mergedCharacters]);
     itemState.setItems([...otherItems, ...mergedItems]);
+    // 地点关系里的角色引用同步改写（否则留下指向已删角色的悬空边）
+    if (idRemap.size > 0) {
+      const locState = useLocationStore.getState();
+      const remapped = remapLocationRelations(
+        locState.locations.filter(l => l.projectId === projectId),
+        idRemap,
+      );
+      const otherLocs = locState.locations.filter(l => l.projectId !== projectId);
+      locState.setLocations([...otherLocs, ...remapped]);
+    }
     console.debug(`[ScanProcessor] 自动合并了 ${mergeCount} 对相似角色`);
   }
   return mergeCount;

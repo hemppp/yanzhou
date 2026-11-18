@@ -1,4 +1,4 @@
-import type { Character, Item, ItemHolder } from '@novel/shared';
+import type { Character, Item, ItemHolder, Location, LocationRelation } from '@novel/shared';
 import type { CharacterRelation, EntityState } from '@novel/shared';
 
 function levenshteinDistance(a: string, b: string): number {
@@ -261,9 +261,15 @@ export function updateItemHoldersForMerge(
 export function mergeSimilarCharacters(
   characters: Character[],
   items: Item[],
-): { mergedCharacters: Character[]; mergedItems: Item[]; mergeCount: number } {
+): {
+  mergedCharacters: Character[];
+  mergedItems: Item[];
+  mergeCount: number;
+  /** 被合并掉的角色 id → 主角色 id（调用方用它修正地点/其它实体里指向旧 id 的引用） */
+  idRemap: Map<string, string>;
+} {
   if (characters.length < 2) {
-    return { mergedCharacters: characters, mergedItems: items, mergeCount: 0 };
+    return { mergedCharacters: characters, mergedItems: items, mergeCount: 0, idRemap: new Map() };
   }
 
   // ★ 使用并查集优化：先一次性计算所有合并对，再统一合并
@@ -313,6 +319,10 @@ export function mergeSimilarCharacters(
   let its = [...items];
   let mergeCount = 0;
   const merged: Character[] = [];
+  // 被合并掉的角色 id → 主角色 id。合并完要回头修正**其他角色**指向它们的
+  // 关系 —— mergeTwoCharacters 只处理主角色自己的 relations，否则别处的
+  // 「师徒→已删除角色」会一直挂着一个不存在的 targetId。
+  const idRemap = new Map<string, string>();
 
   for (const group of groups.values()) {
     if (group.length === 1) {
@@ -335,10 +345,75 @@ export function mergeSimilarCharacters(
       const secondary = c;
       result = mergeTwoCharacters(result, secondary);
       its = updateItemHoldersForMerge(its, secondary.id, primary.id);
+      idRemap.set(secondary.id, primary.id);
       mergeCount++;
     }
     merged.push(result);
   }
 
-  return { mergedCharacters: merged, mergedItems: its, mergeCount };
+  if (idRemap.size > 0) {
+    const remapped = merged.map((character) => {
+      const relations = character.relations ?? [];
+      if (relations.length === 0) return character;
+      const seen = new Set<string>();
+      let changed = false;
+      const next: CharacterRelation[] = [];
+      for (const rel of relations) {
+        const targetId = idRemap.get(rel.targetId) ?? rel.targetId;
+        if (targetId === character.id) {
+          changed = true;
+          continue; // 指向自己（合并后同一人）的关系无意义
+        }
+        if (targetId !== rel.targetId) changed = true;
+        const key = `${targetId}|${rel.type}`;
+        if (seen.has(key)) {
+          changed = true;
+          continue;
+        }
+        seen.add(key);
+        next.push(targetId === rel.targetId ? rel : { ...rel, targetId });
+      }
+      return changed ? { ...character, relations: next, updatedAt: Date.now() } : character;
+    });
+    return { mergedCharacters: remapped, mergedItems: its, mergeCount, idRemap };
+  }
+
+  return { mergedCharacters: merged, mergedItems: its, mergeCount, idRemap };
+}
+
+/**
+ * 角色合并后修正地点关系里的角色引用。
+ *
+ * 地点关系（location.relations）指向角色 id，角色被合并删掉后那些关系就指向
+ * 一个不存在的 id —— 图上看不见，但数据里留着一堆悬空边，去重索引也会失效。
+ * 这里按 idRemap 改写 targetId，并把改完造成的重复关系（同一地点 + 同一主角色
+ * + 同一类型）合并成一条。
+ */
+export function remapLocationRelations(
+  locations: Location[],
+  idRemap: Map<string, string>,
+): Location[] {
+  if (idRemap.size === 0) return locations;
+  return locations.map((location) => {
+    const relations = location.relations ?? [];
+    if (relations.length === 0) return location;
+
+    const seen = new Set<string>();
+    let changed = false;
+    const next: LocationRelation[] = [];
+    for (const relation of relations) {
+      const targetId = relation.targetKind === 'character'
+        ? (idRemap.get(relation.targetId) ?? relation.targetId)
+        : relation.targetId;
+      if (targetId !== relation.targetId) changed = true;
+      const key = `${relation.targetKind}|${targetId}|${relation.type}`;
+      if (seen.has(key)) {
+        changed = true;
+        continue;
+      }
+      seen.add(key);
+      next.push(targetId === relation.targetId ? relation : { ...relation, targetId });
+    }
+    return changed ? { ...location, relations: next, updatedAt: Date.now() } : location;
+  });
 }

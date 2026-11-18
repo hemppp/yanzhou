@@ -445,6 +445,8 @@ aiRouter.post('/scan-timeline-stream', requireAuth, ensureConfigMiddleware, aiRa
             onEntity: (entity) => send(entity),
             onItemTransfer: (transfer) => send(transfer),
             onAliasMatch: (aliasMatch) => send(aliasMatch),
+            onRelation: (assertion) => send(assertion),
+            onSystemBind: (bind) => send(bind),
             onCreditTransaction: (credit) => send(credit),
           });
           console.log(`[scan-timeline-stream] AI 扫描成功完成`);

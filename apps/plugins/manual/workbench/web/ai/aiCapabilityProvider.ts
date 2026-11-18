@@ -48,6 +48,8 @@ import {
   type StreamCreditTransaction,
   type StreamEntity,
   type StreamItemTransfer,
+  type StreamRelationAssertion,
+  type StreamSystemBind,
   type StreamTimelineEvent,
 } from '../hooks/aiScanCapability';
 
@@ -136,6 +138,8 @@ async function scanTimelineStream(
   signal?: AbortSignal,
   projectId?: string,
   onCreditTransaction?: (credit: StreamCreditTransaction) => void,
+  onRelation?: (assertion: StreamRelationAssertion) => void,
+  onSystemBind?: (bind: StreamSystemBind) => void,
 ): Promise<StreamTimelineEvent[]> {
   const pid = projectId ?? getCurrentProjectId() ?? null;
   // 签名只给 content/order；chapterTitle/projectName 由服务端 schema 必填，
@@ -176,6 +180,14 @@ async function scanTimelineStream(
     }
     if (data.aliasType === 'alias_match') {
       onAliasMatch?.(data as unknown as StreamAliasMatch);
+      continue;
+    }
+    if (data.bindType === 'system_bind') {
+      onSystemBind?.(data as unknown as StreamSystemBind);
+      continue;
+    }
+    if (typeof data.assertionType === 'string') {
+      onRelation?.(data as unknown as StreamRelationAssertion);
       continue;
     }
     if (data.creditType === 'credit_transaction') {

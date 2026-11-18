@@ -4,12 +4,13 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from 'react';
-import { useItemStore, useCharacterStore } from '@novel-plugins/data-core/stores';
+import { useItemStore, useCharacterStore, useLocationStore } from '@novel-plugins/data-core/stores';
 import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
 import { Search, Package, AlertCircle, User, PackageOpen, ArrowRight, Clock, Gift, ArrowLeftRight, Coins } from 'lucide-react';
 import { deriveCurrentHolders, type ItemHolder } from '@novel/shared';
-import { mergeSimilarCharacters } from './characterMerge';
+import { mergeSimilarCharacters, remapLocationRelations } from './characterMerge';
 import { CreditLedger } from './CreditLedger';
+import { useEntityDetectionPrefs } from '../stores/entityDetectionPrefs';
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
   weapon: '武器',
@@ -67,6 +68,8 @@ export function ItemManager() {
   const characters = useCharacterStore((s) => s.characters);
   const getCharacterById = useCharacterStore((s) => s.getCharacterById);
   const projectId = useCurrentProjectId();
+  const itemAutoDetect = useEntityDetectionPrefs((s) => s.itemAutoDetect);
+  const toggleItemAutoDetect = useEntityDetectionPrefs((s) => s.toggleItemAutoDetect);
   const [mode, setMode] = useState<'items' | 'credits'>('items');
   const [charSearch, setCharSearch] = useState('');
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export function ItemManager() {
     const projectChars = charState.characters.filter(c => c.projectId === projectId);
     const projectItems = itemState.items.filter(i => i.projectId === projectId);
 
-    const { mergedCharacters, mergedItems, mergeCount } = mergeSimilarCharacters(projectChars, projectItems);
+    const { mergedCharacters, mergedItems, mergeCount, idRemap } = mergeSimilarCharacters(projectChars, projectItems);
 
     if (mergeCount > 0) {
       // 更新全局 store
@@ -87,6 +90,16 @@ export function ItemManager() {
       const otherItems = itemState.items.filter(i => i.projectId !== projectId);
       charState.setCharacters([...otherChars, ...mergedCharacters]);
       itemState.setItems([...otherItems, ...mergedItems]);
+      // 地点关系里的角色引用同步改写（否则留下指向已删角色的悬空边）
+      if (idRemap.size > 0) {
+        const locState = useLocationStore.getState();
+        const remapped = remapLocationRelations(
+          locState.locations.filter(l => l.projectId === projectId),
+          idRemap,
+        );
+        const otherLocs = locState.locations.filter(l => l.projectId !== projectId);
+        locState.setLocations([...otherLocs, ...remapped]);
+      }
       console.debug(`[ItemManager] 自动合并了 ${mergeCount} 对相似角色`);
     }
   }, [projectId]);
@@ -169,25 +182,53 @@ export function ItemManager() {
             </>
           )}
         </h2>
-        <div className="flex bg-foreground/10 rounded-[14px] p-0.5">
+        <div className="flex items-center gap-3">
+          {/* 物品自动识别开关：关了之后扫描只给已有物品补类型，不再新建 */}
           <button
-            onClick={() => setMode('items')}
-            className={`px-2.5 py-1 text-xs rounded-xl transition-colors flex items-center gap-1 ${
-              mode === 'items' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            type="button"
+            onClick={toggleItemAutoDetect}
+            role="switch"
+            aria-checked={itemAutoDetect}
+            title={
+              itemAutoDetect
+                ? '自动识别已开启：扫描会新建物品'
+                : '自动识别已关闭：扫描只补全已有物品的类型，不再新建'
+            }
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Package size={11} />
-            物品
+            <span
+              className={`relative inline-block h-4 w-7 rounded-full transition-colors ${
+                itemAutoDetect ? 'bg-foreground/70' : 'bg-foreground/15'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-3 w-3 rounded-full bg-background transition-all ${
+                  itemAutoDetect ? 'left-3.5' : 'left-0.5'
+                }`}
+              />
+            </span>
+            自动识别
           </button>
-          <button
-            onClick={() => setMode('credits')}
-            className={`px-2.5 py-1 text-xs rounded-xl transition-colors flex items-center gap-1 ${
-              mode === 'credits' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Coins size={11} />
-            系统账本
-          </button>
+          <div className="flex bg-foreground/10 rounded-[14px] p-0.5">
+            <button
+              onClick={() => setMode('items')}
+              className={`px-2.5 py-1 text-xs rounded-xl transition-colors flex items-center gap-1 ${
+                mode === 'items' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Package size={11} />
+              物品
+            </button>
+            <button
+              onClick={() => setMode('credits')}
+              className={`px-2.5 py-1 text-xs rounded-xl transition-colors flex items-center gap-1 ${
+                mode === 'credits' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Coins size={11} />
+              系统账本
+            </button>
+          </div>
         </div>
       </div>
 

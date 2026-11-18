@@ -484,8 +484,45 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
     throw lastError || new AIProviderError('AI 请求失败');
   }
 
-  /** 发送流式请求（不重试 — 一旦已 yield 内容，重试会导致重复输出） */
+  /**
+   * 发送流式请求。
+   *
+   * ★ 重试策略：**只在「什么都没 yield 出去」时重试**。
+   *   已经向调用方 yield 过内容再重试，会让前端看到重复输出 —— 那是旧实现
+   *   不重试的理由。但「一个 chunk 都没给就返回」是上游的空流（实测推理模型
+   *   偶尔整章只返回 keepalive、正文 0 字），此时重试完全安全，而且能救回
+   *   整章识别结果（否则这一章什么都识别不到，用户完全无从判断）。
+   */
   async function* chatStream(
+    messages: ChatMessage[],
+    options?: ChatOptions,
+    signal?: AbortSignal,
+  ): AsyncGenerator<StreamChunk> {
+    const MAX_EMPTY_RETRIES = 2;
+    let attempt = 0;
+    while (true) {
+      let yielded = false;
+      try {
+        for await (const chunk of chatStreamOnce(messages, options, signal)) {
+          yielded = true;
+          yield chunk;
+        }
+        return;
+      } catch (err) {
+        // 空流（未 yield 过任何 chunk）才值得重试；已产出内容的失败不重试
+        const retryable = !yielded && err instanceof AIProviderError && err.statusCode === 502;
+        if (!retryable || attempt >= MAX_EMPTY_RETRIES) throw err;
+        attempt++;
+        console.warn(
+          `[AI Provider Stream] 上游返回空流，重试第 ${attempt}/${MAX_EMPTY_RETRIES} 次：` +
+            `${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+  }
+
+  /** 单次流式请求（chatStream 的重试包装内的实际实现） */
+  async function* chatStreamOnce(
     messages: ChatMessage[],
     options?: ChatOptions,
     signal?: AbortSignal,
@@ -566,6 +603,14 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
       let totalBytes = 0;
       let yieldedCount = 0;
       let firstChunkLogged = false;
+      // ★ 空正文检测（推理模型预算饥饿）：
+      //   流式路径此前完全不看 finish_reason，模型把 max_tokens 全烧在
+      //   reasoning_content 上、正文一个字节都不吐时，这里只会「正常结束」，
+      //   上层拿到空串 → 解析出 0 条记录 → 报告「没识别到」，用户无从判断。
+      //   实测：10 章扫描里第 9/10 章 0 chunk / 总长度 0 / 耗时 147–181s，
+      //   其余章 13–40s，是完全确定性的预算饥饿。
+      let contentChars = 0;
+      let finishReason: string | null = null;
 
       // ★ 流内空闲超时：响应头回来后原 120s 定时器就被 clear 了，若上游
       //   「发了头再挂住」（不断开、也不再发数据），`reader.read()` 会永久
@@ -601,6 +646,13 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
           const data = trimmed.slice(6).trim();
           if (data === '[DONE]') {
             console.log(`[AI Provider Stream] 流结束, 总字节=${totalBytes}, yield次数=${yieldedCount}`);
+            if (contentChars === 0) {
+              throw new AIProviderError(
+                `AI 返回被截断：max_tokens=${options?.maxTokens ?? 8192} 不足以容纳思维链与正文` +
+                  `（finish_reason=${finishReason ?? '未给出'}，正文为空）。请提高 max_tokens。`,
+                502,
+              );
+            }
             return;
           }
 
@@ -617,8 +669,11 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
                     function?: { name?: string; arguments?: string };
                   }>;
                 };
+                finish_reason?: string | null;
               }[];
             };
+            const chunkFinish = parsed.choices?.[0]?.finish_reason;
+            if (chunkFinish) finishReason = chunkFinish;
             const delta = parsed.choices?.[0]?.delta;
             if (delta?.reasoning_content) {
               yieldedCount++;
@@ -626,6 +681,7 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
             }
             if (delta?.content) {
               yieldedCount++;
+              contentChars += delta.content.length;
               yield { content: delta.content };
             }
             // ★ 解析工具调用增量（流式分片，由上层累积组装）
@@ -649,7 +705,19 @@ function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
         }
       }
 
-      console.log(`[AI Provider Stream] 流正常结束(reader done), 总字节=${totalBytes}, yield次数=${yieldedCount}`);
+      console.log(
+        `[AI Provider Stream] 流正常结束(reader done), 总字节=${totalBytes}, yield次数=${yieldedCount}, ` +
+          `正文=${contentChars}字, finish=${finishReason ?? '未给出'}`,
+      );
+      // 有些中转站在预算耗尽时直接断开（不发 [DONE]、也不给 finish_reason）
+      if (contentChars === 0 && yieldedCount === 0) {
+        // 502 + 空流：外层会重试；仍失败时由上层显式报错，绝不静默当成「没识别到」
+        throw new AIProviderError(
+          `AI 没有返回任何内容（max_tokens=${options?.maxTokens ?? 8192}）。` +
+            `常见原因是模型把预算全部用于思考，请提高 max_tokens 或更换模型。`,
+          502,
+        );
+      }
     } catch (err: unknown) {
       // 4xx 错误直接抛出（如鉴权失败）
       if (err instanceof AIProviderError && err.statusCode !== undefined && err.statusCode < 500) {

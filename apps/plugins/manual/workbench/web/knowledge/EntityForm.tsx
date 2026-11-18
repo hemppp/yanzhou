@@ -1,6 +1,16 @@
-import { useState } from 'react';
-import type { Character, CharacterRelation, Item, ItemHolder, ItemRelation, ItemRelationType, Location } from '@novel/shared';
+import { useEffect, useState } from 'react';
+import type {
+  Character,
+  CharacterRelation,
+  Item,
+  ItemHolder,
+  ItemRelation,
+  ItemRelationType,
+  Location,
+} from '@novel/shared';
 import { useCharacterStore, useItemStore } from '@novel-plugins/data-core/stores';
+import { LocationRelationsEditor } from './LocationRelationsEditor';
+import { isSystemBound, systemNameOf, withSystemBinding } from './systemRecognition';
 import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
 import { safeConfirm } from '@novel-plugins/ui-kit/safeConfirm';
 import { Trash2, Tag, X, Check, UserPlus, UserMinus, ArrowRightLeft, Network, Plus, ArrowRight, ArrowLeft, ArrowLeftRight, Link2, Hand } from 'lucide-react';
@@ -58,6 +68,85 @@ const CHAR_ROLE_META: Record<CharRole, { label: string; activeCls: string }> = {
 };
 const CHAR_ROLES: CharRole[] = ['protagonist', 'femaleLead', 'supporting', 'minor'];
 
+/**
+ * 系统绑定编辑（系统文角色属性）。
+ *
+ * 为什么不复用标签输入框：绑不绑定系统是一个**是非项**，让用户手打「系统绑定」
+ * 这种标签既容易拼错，也没法表达系统名。这里给一个开关 + 一个可选名字输入：
+ *   · 点开关立即生效（不要求再点保存）；
+ *   · 名字在失焦/回车时才写库，避免每敲一个字都触发一次保存；
+ *   · 解绑时连系统名一起清掉，不留残标签。
+ */
+function SystemBindEditor({
+  character,
+  onSave,
+}: {
+  character: Character;
+  onSave: (updates: Partial<Character>) => void;
+}) {
+  const bound = isSystemBound(character);
+  const [name, setName] = useState(systemNameOf(character) ?? '');
+
+  // 切换到另一个角色时同步输入框（同一个角色内不覆盖用户正在输入的内容）
+  useEffect(() => {
+    setName(systemNameOf(character) ?? '');
+  }, [character.id]);
+
+  const commitName = () => {
+    if (!bound) return;
+    const next = withSystemBinding(character.tags ?? [], true, name);
+    if (next !== (character.tags ?? [])) onSave({ tags: next });
+  };
+
+  const toggle = () => {
+    const nextBound = !bound;
+    onSave({ tags: withSystemBinding(character.tags ?? [], nextBound, name) });
+    if (!nextBound) setName('');
+  };
+
+  return (
+    <FormField label="系统" hint="绑定后角色卡片会显示「系统」徽标；解绑会同时清除系统名">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={bound}
+          aria-label="绑定系统"
+          onClick={toggle}
+          className="flex items-center gap-2 text-xs text-foreground/85"
+        >
+          <span
+            className="relative inline-block h-4 w-7 rounded-full transition-colors"
+            style={{ background: bound ? 'hsl(var(--mountain-deep))' : 'hsl(var(--border))' }}
+          >
+            <span
+              className="absolute top-0.5 h-3 w-3 rounded-full bg-background transition-all"
+              style={{ left: bound ? 14 : 2 }}
+            />
+          </span>
+          {bound ? '已绑定系统' : '未绑定系统'}
+        </button>
+
+        {bound && (
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="flex-1 min-w-[180px] px-3 py-1.5 text-xs text-foreground bg-card border border-border rounded-[14px] focus:outline-none focus:border-ring placeholder:text-muted-foreground transition-colors"
+            placeholder="系统名（可选，如：人生模拟器）"
+            aria-label="系统名"
+          />
+        )}
+      </div>
+    </FormField>
+  );
+}
 export default function EntityForm<T extends Character | Item | Location>({ entity, onSave, onDelete }: EntityFormProps<T>) {
   const [name, setName] = useState(entity.name);
   const [description] = useState(
@@ -139,6 +228,10 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
               </div>
             </FormField>
 
+            <SystemBindEditor
+              character={entity as Character}
+              onSave={onSave as (u: Partial<Character>) => void}
+            />
             {/* 基本信息只读概览卡：展示从正文自动提取的简介 / 首次出场章 / 标签，
                 与下方编辑表单区分，一眼看到提取结果（不重复进入输入框） */}
             <div className="rounded-2xl border border-border bg-muted/60 p-4 space-y-3">
@@ -158,7 +251,7 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
               )}
               {(entity as Character).tags && (entity as Character).tags!.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {(entity as Character).tags!.map((t) => (
+                  {(entity as Character).tags!.filter((t) => t !== '系统绑定' && !t.startsWith('系统:')).map((t) => (
                     <span key={t} className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${getTagColor(t)}`}>{t}</span>
                   ))}
                 </div>
@@ -320,15 +413,23 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
 
         {/* Location 字段 */}
         {isLocation && (
-          <FormField label="描述">
-            <textarea
-              value={(entity as Location).description || ''}
-              onChange={(e) => saveAny({ description: e.target.value })}
-              className={textareaCls}
-              rows={4}
-              placeholder="描述这个地方..."
+          <>
+            <FormField label="描述">
+              <textarea
+                value={(entity as Location).description || ''}
+                onChange={(e) => saveAny({ description: e.target.value })}
+                className={textareaCls}
+                rows={4}
+                placeholder="描述这个地方..."
+              />
+            </FormField>
+
+            {/* 地点关系（位于/邻近/通往/关联 —— 地点之间或地点与角色） */}
+            <LocationRelationsEditor
+              location={entity as Location}
+              onSave={onSave as (u: Partial<Location>) => void}
             />
-          </FormField>
+          </>
         )}
 
         {/* Tags */}
@@ -338,7 +439,11 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
             标签
           </label>
           <div className="flex flex-wrap gap-1.5 mb-2">
-            {(entity.tags || []).map((tag) => (
+            {/* 系统类标签由上面的「系统」开关独占表达：这里不重复列出，
+                否则用户在这里删掉标签、开关却还是「已绑定」，两处状态会打架 */}
+            {(entity.tags || [])
+              .filter((tag) => tag !== '系统绑定' && !tag.startsWith('系统:'))
+              .map((tag) => (
               <span
                 key={tag}
                 className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${getTagColor(tag)}`}
@@ -351,7 +456,7 @@ export default function EntityForm<T extends Character | Item | Location>({ enti
                   <X size={10} />
                 </button>
               </span>
-            ))}
+              ))}
           </div>
           <input
             value={tagInput}

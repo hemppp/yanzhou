@@ -75,6 +75,7 @@ export function LocationManager() {
         name: '新地点',
         description: '',
         states: [],
+        relations: [],
         chapters: [],
         tags: [],
         createdAt: Date.now(),

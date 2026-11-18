@@ -151,6 +151,7 @@ CREATE TABLE `locations` (
 	`longitude` real,
 	`map_zoom` integer,
 	`states` text,
+	`relations` text,
 	`chapters` text,
 	`tags` text,
 	`created_at` integer NOT NULL,

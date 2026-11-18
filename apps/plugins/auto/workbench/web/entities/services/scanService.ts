@@ -50,6 +50,26 @@ export interface StreamAliasMatch {
   context: string;
 }
 
+/** 流式系统绑定（系统文） */
+export interface StreamSystemBind {
+  bindType: 'system_bind';
+  characterName: string;
+  systemName?: string;
+  action?: 'bind' | 'unbind';
+  context: string;
+}
+
+/** 流式关系断言（角色↔角色 / 物品↔物品 / 地点↔地点·角色，后端逐个推送） */
+export interface StreamRelationAssertion {
+  assertionType: 'character_relation' | 'item_relation' | 'location_relation';
+  subject: string;
+  object: string;
+  type: string;
+  direction?: 'mutual' | 'to' | 'from';
+  context: string;
+  description?: string;
+}
+
 /** /ai/scan 接口返回的原始数据结构（mapScannerResult 输入） */
 interface ScannerRawResponse {
   entities?: Array<{ type: string; name: string; description: string; mentioned: boolean; active: boolean }>;
@@ -159,6 +179,9 @@ export const scanService = {
     signal?: AbortSignal,
     /** 项目上下文（后端校验项目归属，必填） */
     projectId?: string,
+    /** 关系断言（角色↔角色 / 物品↔物品 / 地点↔地点·角色） */
+    onRelation?: (assertion: StreamRelationAssertion) => void,
+    onSystemBind?: (bind: StreamSystemBind) => void,
   ): Promise<StreamTimelineEvent[]> {
     console.debug('[scanService] scanTimelineStream 调用', { contentLen: chapterContent.length, chapterOrder, hasToken: !!getToken() });
     if (chapterContent.length < 20) return [];
@@ -257,6 +280,18 @@ export const scanService = {
           // 角色别名行
           if (parsed.aliasType === 'alias_match') {
             onAliasMatch?.(parsed as StreamAliasMatch);
+            return;
+          }
+
+          // 系统绑定行
+          if (parsed.bindType === 'system_bind') {
+            onSystemBind?.(parsed as StreamSystemBind);
+            return;
+          }
+
+          // 关系断言行
+          if (typeof parsed.assertionType === 'string') {
+            onRelation?.(parsed as StreamRelationAssertion);
             return;
           }
 

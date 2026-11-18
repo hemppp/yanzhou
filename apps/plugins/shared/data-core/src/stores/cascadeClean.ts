@@ -109,9 +109,16 @@ export function cascadeCleanChapterClient(chapterOrder: number): void {
   let locsUpdated = 0;
   let locsDeleted = 0;
   const survivedLocs: typeof locStore.locations = [];
+  // 被删掉的章节也是关系建立章节，相关关系要一起摘掉（否则图上留着第 N 章的边，
+  // 而 N 章已经不存在了）
   for (const l of locStore.locations) {
     const newChapters = (l.chapters || []).filter((ch) => ch !== chapterOrder);
-    if (newChapters.length === (l.chapters || []).length) {
+    const newRelations = (l.relations || []).filter(
+      (rel) => rel.chapter === undefined || rel.chapter === null || rel.chapter !== chapterOrder,
+    );
+    const chapterChanged = newChapters.length !== (l.chapters || []).length;
+    const relationChanged = newRelations.length !== (l.relations || []).length;
+    if (!chapterChanged && !relationChanged) {
       survivedLocs.push(l);
       continue;
     }
@@ -120,10 +127,44 @@ export function cascadeCleanChapterClient(chapterOrder: number): void {
       locsDeleted++;
       continue;
     }
-    survivedLocs.push({ ...l, chapters: newChapters, updatedAt: Date.now() });
+    survivedLocs.push({
+      ...l,
+      chapters: newChapters,
+      ...(relationChanged ? { relations: newRelations } : {}),
+      updatedAt: Date.now(),
+    });
     locsUpdated++;
   }
   if (locsUpdated > 0 || locsDeleted > 0) locStore.setLocations(survivedLocs);
+
+  // 5b) 角色/物品关系同理：关系挂了 chapter 的，按章节摘掉
+  //     （否则删了第 N 章，图上还留着「第 N 章建立」的师徒/配对边）
+  const charStoreForRel = useCharacterStore.getState();
+  let charRelsUpdated = 0;
+  for (const c of charStoreForRel.characters) {
+    const rels = c.relations || [];
+    if (rels.length === 0) continue;
+    const kept = rels.filter(
+      (rel) => rel.chapter === undefined || rel.chapter === null || rel.chapter !== chapterOrder,
+    );
+    if (kept.length !== rels.length) {
+      charStoreForRel.updateCharacter(c.id, { relations: kept, updatedAt: Date.now() });
+      charRelsUpdated++;
+    }
+  }
+  const itemStoreForRel = useItemStore.getState();
+  let itemRelsUpdated = 0;
+  for (const it of itemStoreForRel.items) {
+    const rels = it.relations || [];
+    if (rels.length === 0) continue;
+    const kept = rels.filter(
+      (rel) => rel.chapter === undefined || rel.chapter === null || rel.chapter !== chapterOrder,
+    );
+    if (kept.length !== rels.length) {
+      itemStoreForRel.updateItem(it.id, { relations: kept });
+      itemRelsUpdated++;
+    }
+  }
 
   // 6) 伏笔：seedChapter 命中则删除，payoffChapter 命中则置 null
   const fsStore = useForeshadowStore.getState();
@@ -143,7 +184,7 @@ export function cascadeCleanChapterClient(chapterOrder: number): void {
     `[cascadeCleanChapterClient] chapter=${chapterOrder} 完成: ` +
     `timeline删除=${tlDeleted} story删除=${evDeleted} ` +
     `items更新=${itemsUpdated} items孤儿删除=${itemsDeleted} ` +
-    `characters更新=${charsUpdated} characters孤儿删除=${charsDeleted} ` +
+    `characters更新=${charsUpdated} characters孤儿删除=${charsDeleted} 关系清理={角色:${charRelsUpdated},物品:${itemRelsUpdated}} ` +
     `locations更新=${locsUpdated} locations孤儿删除=${locsDeleted} ` +
     `foreshadows删除=${fsDeleted} foreshadows更新=${fsUpdated}`
   );

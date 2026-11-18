@@ -150,10 +150,39 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
         ch.id === id ? { ...ch, ...updates, updatedAt: Date.now() } : ch
       ),
     })),
-  deleteCharacter: (id) =>
+  // ★ 删角色时清掉别处指向它的关系，否则留下悬空 targetId：
+  //   图上看不见（按现存 id 过滤），但数据里一直挂着，去重索引也会失效。
+  deleteCharacter: (id) => {
     set((state) => ({
-      characters: state.characters.filter((ch) => ch.id !== id),
-    })),
+      characters: state.characters
+        .filter((ch) => ch.id !== id)
+        .map((ch) =>
+          (ch.relations ?? []).some((r) => r.targetId === id)
+            ? { ...ch, relations: (ch.relations ?? []).filter((r) => r.targetId !== id) }
+            : ch,
+        ),
+    }));
+    // 地点关系里也可能指向角色（targetKind='character'），一并清掉
+    const locState = useLocationStore.getState();
+    if (
+      locState.locations.some((l) =>
+        (l.relations ?? []).some((r) => r.targetKind === 'character' && r.targetId === id),
+      )
+    ) {
+      locState.setLocations(
+        locState.locations.map((l) =>
+          (l.relations ?? []).some((r) => r.targetKind === 'character' && r.targetId === id)
+            ? {
+                ...l,
+                relations: (l.relations ?? []).filter(
+                  (r) => !(r.targetKind === 'character' && r.targetId === id),
+                ),
+              }
+            : l,
+        ),
+      );
+    }
+  },
   getCharacterById: (id) => get().characters.find((ch) => ch.id === id),
   addRelation: (characterId, relation) =>
     set((state) => ({
@@ -208,8 +237,17 @@ export const useItemStore = create<ItemState>((set) => ({
         it.id === id ? { ...it, ...updates, updatedAt: Date.now() } : it
       ),
     })),
+  // ★ 删物品时清掉其他物品里指向它的关系（否则图上出现「断水刀 -配对- 未知物品」）
   deleteItem: (id) =>
-    set((state) => ({ items: state.items.filter((it) => it.id !== id) })),
+    set((state) => ({
+      items: state.items
+        .filter((it) => it.id !== id)
+        .map((it) =>
+          (it.relations ?? []).some((r) => r.targetItemId === id)
+            ? { ...it, relations: (it.relations ?? []).filter((r) => r.targetItemId !== id) }
+            : it,
+        ),
+    })),
   addItemRelation: (itemId, relation) =>
     set((state) => ({
       items: state.items.map((it) =>
@@ -282,9 +320,23 @@ export const useLocationStore = create<LocationState>((set) => ({
         loc.id === id ? { ...loc, ...updates } : loc
       ),
     })),
+  // ★ 删地点时清掉其他地点里指向它的关系
   deleteLocation: (id) =>
     set((state) => ({
-      locations: state.locations.filter((loc) => loc.id !== id),
+      locations: state.locations
+        .filter((loc) => loc.id !== id)
+        .map((loc) =>
+          (loc.relations ?? []).some(
+            (r) => r.targetKind === 'location' && r.targetId === id,
+          )
+            ? {
+                ...loc,
+                relations: (loc.relations ?? []).filter(
+                  (r) => !(r.targetKind === 'location' && r.targetId === id),
+                ),
+              }
+            : loc,
+        ),
     })),
 }));
 

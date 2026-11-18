@@ -723,6 +723,20 @@ async function applyCompatPatches(sqlite: any): Promise<void> {
     console.warn('[better-sqlite3] 检查 locations.world 失败:', e);
   }
 
+  // 7.5 locations.relations（地点间 / 地点-角色 的显式关系）
+  try {
+    if (hasTable('locations') && !hasColumn('locations', 'relations')) {
+      sqlite.exec('ALTER TABLE locations ADD COLUMN relations TEXT');
+      const rows = sqlite.prepare('SELECT id FROM locations').all() as Array<{ id: string }>;
+      for (const row of rows) {
+        sqlite.prepare('UPDATE locations SET relations = ? WHERE id = ?').run(JSON.stringify([]), row.id);
+      }
+      console.log('[better-sqlite3] locations.relations 列添加并初始化完成。');
+    }
+  } catch (e) {
+    console.warn('[better-sqlite3] 检查 locations.relations 失败:', e);
+  }
+
   // 8. writing_stats.created_at / updated_at
   try {
     if (hasTable('writing_stats')) {

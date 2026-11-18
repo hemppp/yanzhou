@@ -17,6 +17,7 @@ import type {
   ItemHolder,
   ItemRelation,
   Location,
+  LocationRelation,
   Foreshadow,
   ForeshadowHint,
   Earmark,
@@ -103,6 +104,7 @@ export interface 砚舟Package {
     name: string;
     description?: string;
     states: EntityState[];
+    relations?: LocationRelation[];
     chapters: number[];
     tags: string[];
   }>;
@@ -290,6 +292,7 @@ export function export砚舟Package(): 砚舟Package {
       name: loc.name,
       description: loc.description,
       states: loc.states,
+      relations: loc.relations ?? [],
       chapters: loc.chapters,
       tags: loc.tags,
     })),

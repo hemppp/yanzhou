@@ -9,6 +9,7 @@ import {
   MarkerType,
 } from '@xyflow/react';
 import { useCharacterStore, useItemStore } from '@novel-plugins/data-core/stores';
+import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
 import { safeConfirm } from '@novel-plugins/ui-kit/safeConfirm';
 import { ItemGraph } from './ItemGraph';
 import { LocationGraph } from './LocationGraph';
@@ -35,7 +36,9 @@ const relationColors: Record<string, string> = {
   ally: 'hsl(0 0% 42%)',
   rival: 'hsl(0 0% 18%)',
   mentor: 'hsl(0 0% 50%)',
+  subordinate: 'hsl(0 0% 44%)',
   mutual: 'hsl(0 0% 58%)',
+  other: 'hsl(0 0% 64%)',
 };
 
 const relationLabels: Record<string, string> = {
@@ -46,8 +49,13 @@ const relationLabels: Record<string, string> = {
   ally: '盟友',
   rival: '对手',
   mentor: '师徒',
+  subordinate: '上下级',
   mutual: '互通',
+  other: '其他',
 };
+
+/** 对称关系：不画箭头（其余类型都是有方向的） */
+const SYMMETRIC_RELATION_TYPES = new Set(['friend', 'family', 'ally', 'lover', 'enemy', 'rival', 'mutual']);
 
 // 角色分类颜色（用于节点填色）—— 水墨化：改用墨阶
 const roleColors: Record<string, string> = {
@@ -104,8 +112,22 @@ const itemColors: Record<string, string> = {
 const HOLD_EDGE_COLOR = 'hsl(0 0% 46%)';
 
 export function CharacterGraph() {
-  const characters = useCharacterStore((s) => s.characters);
-  const items = useItemStore((s) => s.items);
+  // ★ 必须按项目过滤：store 里同时存着其它书的角色，图上一画就是跨书污染
+  //   （实测《夜航》的关系图里混进了另一本书的「老周」）。
+  // ★ 过滤结果必须 useMemo：直接 .filter() 每次渲染都产生新数组，
+  //   而下游 graphData 的 useMemo 以它为依赖 → 反复重算 → setNodes → 再渲染，
+  //   实测会触发 "Maximum update depth exceeded"。
+  const projectId = useCurrentProjectId();
+  const allCharacters = useCharacterStore((s) => s.characters);
+  const allItems = useItemStore((s) => s.items);
+  const characters = useMemo(
+    () => allCharacters.filter((c) => !projectId || c.projectId === projectId),
+    [allCharacters, projectId],
+  );
+  const items = useMemo(
+    () => allItems.filter((i) => !projectId || i.projectId === projectId),
+    [allItems, projectId],
+  );
   const addRelation = useCharacterStore((s) => s.addRelation);
   const removeRelation = useCharacterStore((s) => s.removeRelation);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -159,7 +181,7 @@ export function CharacterGraph() {
         seenRel.add(key);
 
         const label = relationLabels[rel.type] || rel.type;
-        const isMutual = rel.type === 'friend' || rel.type === 'family' || rel.type === 'ally' || rel.type === 'mutual';
+        const isMutual = SYMMETRIC_RELATION_TYPES.has(rel.type);
         const directed = !isMutual;
         const lineColor = relationColors[rel.type] || 'hsl(var(--muted-foreground))';
 
@@ -214,7 +236,9 @@ export function CharacterGraph() {
         data: {
           label: item.name,
           color: nodeColor,
-          size: 22,
+          // ★ 22 太小：BubbleNode 只排得下 1 个字/行，「乌木刀鞘」会被截成「木」。
+          //   36 能排 4 个字一行，四字物品名可以完整显示。
+          size: 36,
           subtitle: itemLabels[item.type?.toLowerCase() || 'other'] || '物品',
           isSelected: false,
           isHovered: false,

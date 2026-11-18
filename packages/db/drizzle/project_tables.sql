@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS `locations` (
 	`map_zoom` integer,
 	`world` text,
 	`states` text,
+	`relations` text,
 	`chapters` text,
 	`tags` text,
 	`created_at` integer NOT NULL,

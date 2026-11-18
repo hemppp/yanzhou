@@ -1144,6 +1144,24 @@ async function _doInit(): Promise<DrizzleDb | null> {
     console.warn('[砚舟 DB] 检查 locations.world 列失败', locWorldErr);
   }
 
+  // 确保 locations 表有 relations 列（地点间 / 地点-角色 的显式关系）
+  // 历史数据：默认空数组（旧库靠「同章共现」推断，不回填）
+  try {
+    const locRelCols = _sqlite!.exec("PRAGMA table_info(locations)");
+    const hasLocRelations = locRelCols[0]?.values.some((row: unknown[]) => row[1] === 'relations');
+    if (!hasLocRelations) {
+      console.log('[砚舟 DB] locations 表缺少 relations 列，正在添加...');
+      _sqlite!.run('ALTER TABLE locations ADD COLUMN relations TEXT');
+      const rows = _sqlite!.exec("SELECT id FROM locations");
+      for (const row of rows[0]?.values ?? []) {
+        _sqlite!.run('UPDATE locations SET relations = ? WHERE id = ?', [JSON.stringify([]), row[0] as string]);
+      }
+      console.log('[砚舟 DB] locations.relations 列添加并初始化完成。');
+    }
+  } catch (locRelErr) {
+    console.warn('[砚舟 DB] 检查 locations.relations 列失败', locRelErr);
+  }
+
   // 确保 writing_stats 表有 created_at / updated_at 列
   // 历史数据：列缺失时 ALTER TABLE 添加，旧行回填为 0（service 层 toNumber 已兜底）
   try {

@@ -337,6 +337,47 @@ export interface StreamItemTransfer {
   context: string;
 }
 
+/**
+ * 流式扫描输出的关系断言（角色↔角色 / 物品↔物品 / 地点↔地点·角色）。
+ *
+ * 为什么现在要模型显式输出关系：此前角色关系由「同一事件里出现就两两连『关联』」
+ * 推断，地点关系由「角色与地点同章出现就连『位于』」推断 —— 一处群戏就连出完全
+ * 图、主角每章换地点就连出几十条边，真实关系（师徒/父子/仇人/藏经阁在青云山）
+ * 反而一条都读不出来。关系必须是原文里的断言，共识推断只能当噪声。
+ */
+export interface StreamRelationAssertion {
+  assertionType: 'character_relation' | 'item_relation' | 'location_relation';
+  /** 关系主体（原文中出现的称呼） */
+  subject: string;
+  /** 关系客体（原文中出现的称呼；location_relation 可为角色名） */
+  object: string;
+  /** 关系类型：中英文均可，客户端按词表归一 */
+  type: string;
+  /** 角色关系方向：mutual=双向（朋友/家人），to=A→B（师徒/上下级），from=B→A */
+  direction?: 'mutual' | 'to' | 'from';
+  /** 原文证据（逐字片段；客户端会校验必须真的出自本章） */
+  context: string;
+  /** 关系的简短说明（可选） */
+  description?: string;
+}
+
+/**
+ * 流式扫描输出的「系统绑定」记录（系统文）。
+ *
+ * 谁绑定了系统是角色的**属性**，不是一条事件：角色面板要能直接显示
+ * 「已绑定系统」，而不是让用户在时间线里翻。解绑同样要能识别。
+ */
+export interface StreamSystemBind {
+  bindType: 'system_bind';
+  /** 被绑定/解绑的角色名（原文称呼） */
+  characterName: string;
+  /** 系统名（原文写的，如「人生模拟器」），可空 */
+  systemName?: string;
+  /** bind=绑定/激活/宿主确认；unbind=解绑/剥离 */
+  action?: 'bind' | 'unbind';
+  context: string;
+}
+
 /** 流式扫描输出的角色别名关系 */
 export interface StreamAliasMatch {
   aliasType: 'alias_match';
@@ -359,6 +400,18 @@ export interface StreamCreditTransaction {
   chapterOrder: number;
 }
 
+/**
+ * 章节扫描的 maxTokens。
+ *
+ * 推理模型（reasoning）的思考 token 计入 maxTokens：8192 在信息密度高的章节
+ * 会被思考链整段吃光，正文为空且不报错 —— 表现为「这一章什么都没识别到」。
+ * 32768 对 65k+ 输出上限的模型安全，对上限更低的模型由 provider 侧显式报错。
+ */
+const SCAN_STREAM_MAX_TOKENS = 32768;
+
+/** 关键词提取的 maxTokens（同样要容纳思考链，但输出量小于整章扫描） */
+const KEYWORD_STREAM_MAX_TOKENS = 16384;
+
 const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手。你的任务是阅读章节内容，提取角色/物品/地点实体、物品装备流转、角色别名关系，以及关键时间线事件。
 
 【最高原则】必须严格从段落原文中识别名字，绝不能脑补、推测或"规范化"文中没有出现的名字。
@@ -380,9 +433,12 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
   "speechStyle":"说话风格(从原文对话提取，如'文绉绉'、'粗犷直接'、'喜欢用反问句')"
 - 物品流转行格式：{"transferType":"item_transfer","itemName":"物品名","fromCharacter":"来源角色名(无则空字符串)","toCharacter":"目标角色名(无则空字符串)","action":"gained|lost|transferred","context":"上下文片段"}
 - 角色别名行格式：{"aliasType":"alias_match","primaryName":"主名称","aliases":["别名1","别名2"],"context":"依据上下文"}
+- 关系行格式：{"assertionType":"character_relation|item_relation|location_relation","subject":"主体名","object":"客体名","type":"关系类型","direction":"mutual|to|from","context":"原文逐字片段","description":"一句话说明(可选)"}
 - 积分流水行格式：{"creditType":"credit_transaction","action":"gain|spend|gift","characterName":"角色名","amount":数字,"reason":"事由","itemName":"关联物品名(可选)"}
+- 系统绑定行格式：{"bindType":"system_bind","characterName":"角色名","systemName":"系统名(可选)","action":"bind|unbind","context":"原文片段"}
+- 物品流转里「系统」是来源/去向，而不是角色：{"transferType":"item_transfer","itemName":"回气丹","fromCharacter":"系统","toCharacter":"林晚","action":"gained","context":"系统发放回气丹"}
 - 事件行格式：{"title":"事件标题(8-15字)","description":"起因—经过—结果(30-80字)","type":"event|foreshadow|state_change","characterNames":["原文中出现过的称呼"],"timestamp":"故事内时间(如有)","quote":"原文逐字片段(10-40字)"}
-- 先输出所有实体行，再输出别名行，再输出物品流转行、积分流水行，最后输出事件行
+- 先输出所有实体行，再输出别名行、关系行，再输出物品流转行、积分流水行，最后输出事件行
 - 逐行输出，不要换行缩进，不要输出任何其他文字
 - 实体 entityType 含义：character=角色，item=物品，location=地点
 
@@ -461,6 +517,43 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
     - 角色名、地点名、组织/门派名、抽象概念
   - ★ 同一物品只输出一次；名称用原文中最完整的称呼，不要加书名号/引号
 
+【关系识别规则（极其重要：只输出原文明确写出的关系）】
+- ★ 关系必须是原文直接交代或直接体现的，不能因为「这两个人在同一段里出现」就输出关系。
+  人物 A 与 B 同处一室、同说一句话，不等于他们是朋友/敌人/师徒。
+- ★ 每一条关系都必须给出 context（逐字摘抄的原文片段），这就是这条关系的唯一依据；
+  摘不出来就不要输出这条关系。
+- 三类关系，用 assertionType 区分：
+  1) character_relation（角色↔角色）
+     - 只能输出原文有明确依据的关系：明说"XX 是 YY 的师父/父亲/未婚妻"、
+       明确的敌对/追杀/结盟/倾心，或被反复以固定称呼指代（"队长"之于部下）
+     - type 用这些词之一（中文即可）：师徒 / 家人 / 恋人 / 朋友 / 盟友 / 敌人 / 对手 / 上下级
+     - ★ 不要使用「认识」「相识」「见过」这类泛关系：它们没有信息量，客户端会直接丢弃
+     - direction：朋友、家人、恋人、敌人、对手 → mutual；师徒、上下级 → to（subject 是上位者/师父）
+     - ★ 严禁因为「同场出现」「同桌吃饭」「一起赶路」就输出关系；这类只说明同处一地
+     - ★ 同一对角色可以同时有多条关系：师父被徒弟背叛/攻击/囚禁时，既要输出「师徒」，
+       也要输出「敌人」（两者都是事实，缺一条就少一条关系）
+     - ★ 文中出现「师兄/师姐/师弟/师妹/同门/同窗」这类称呼时，说明他们是同门，
+       **必须**输出一条 character_relation（type=朋友）。这类关系极易被漏掉。
+  2) item_relation（物品↔物品）
+     - 原文能看出的物与物之间的绑定：剑与鞘、钥匙与锁、宝箱与其中之物、子母剑、
+       一套中的两件、相克的两件法宝、以及「某物的残片/部件」
+     - type 用这些词之一：配对 / 包含 / 属于 / 对立 / 变形 / 关联
+     - ★ 「关联」只在原文明确写了两者同源/配套/一体时使用，不要用它兜底
+     - ★ 只凭「同时被提到」不算关系，必须是原文写了它们的绑定/归属/相克
+  3) location_relation（地点↔地点 或 地点↔角色）
+     - subject 必须是地点；object 可以是地点（地点之间）或角色（角色在某地）
+     - 地点之间：包含/位于（小的在大的里面）、邻近、通往、关联
+     - 地点与角色：明确写了角色在某地（"陈星走进藏经阁""众人被困在青云山"）
+     - type 用这些词之一：位于 / 邻近 / 通往 / 关联
+     - ★ 一端是角色、一端是地点时，方向固定为「地点 → 角色」，类型固定用「位于」
+       （例：{"assertionType":"location_relation","subject":"藏经阁","object":"陈星","type":"位于"}）
+     - ★ 只有角色「在场且被明确写出在该地」才输出；顺带提到地名、回忆里的地名不要输出
+     - ★ 逐地检查：本章每出现一个地点，只要原文明确写了某个具名角色在该地
+       （进了/来到/站在/等在/困在/葬在…），就必须输出一条 location_relation
+       （subject=地点，object=角色，type=位于）。漏掉这些是本任务最常见的召回缺口。
+     - ★ 泛指地貌不是地点：主峰 / 山崖 / 松林 / 长街 / 山门 / 空地 这类泛称不要作为 location 实体
+- ★ 同一对对象 + 同一类型只输出一次；关系类型不确定时宁可不输出（不要用"关联"凑数）
+
 【角色别名识别规则（极其重要，优先级最高，精度优先）】
 - 只有非常确定是同一个人的不同称呼才合并为别名关系，宁可不合并也不能误合并
 - 【绝对不能合并的情况】（违反任何一条都不能输出别名行）：
@@ -507,11 +600,29 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
   - 只有当角色与物品的持有关系发生明确变化时才输出 gained/lost/transferred；无变化但有持有/使用行为 → held
   - held 行在重复扫描时会去重，不会产生重复关系
 - 事件 type 含义：event=普通剧情事件，foreshadow=伏笔铺垫，state_change=状态变化
+- ★ 系统绑定识别规则（系统文；绑定是角色属性，不是普通事件）：
+  - 原文明确写了「角色与系统建立/解除关系」时，输出一行 bindType=system_bind
+  - 触发表述：绑定系统 / 系统绑定成功 / 宿主：X / 系统已激活 / 契约成立 / 解除绑定 / 系统剥离
+  - characterName 必须是原文里的**人名**，绝不能写「系统」「宿主」「宿主本人」这类泛称
+  - systemName 只在原文写出系统名字时填（如「人生模拟器」「诸天商城」）；原文只叫「系统」就省略
+  - 只有真正建立/解除关系才输出；角色使用系统功能（兑换、看面板、领任务）不算绑定
+  - 解绑（解绑/剥离/系统脱离）用 action=unbind
+
 - ★ 积分流水识别规则（只在原文明确写出时输出，绝不猜测数字）：
   - "消耗/花费/扣除/扣掉 X 积分" → action=spend, amount=X, reason 概括用途（如"兑换基础剑法"）
   - "获得/奖励/到账/增加 X 积分" → action=gain, amount=X, reason 概括来源（如"完成新手任务"）
+  - 系统初始化/绑定/开局时明确写出的初始积分（"初始积分 100""绑定成功，积分 100"）→ action=gain, amount=该数字
   - "系统赠送/奖励了某物"但没有积分数字 → action=gift, amount=0, itemName=赠予的物品名
   - 普通物品获得、没有积分数字的消耗，不要当作积分流水
+  - ★ 同一段里**积分和物品是两件事**：既要输出积分流水，也要为赠予的物品单独输出一条
+    gift（itemName=该物品）。实测「初始积分 100，赠送新手礼包内含青锋剑」只输出了积分、
+    漏掉了物品赠予 —— 那件物品就永远进不了角色持有。
+  - ★ 系统**发放/奖励物品**时（"奖励回气丹一瓶""额外赠送玄铁护腕一副""奖励妖狼牙三枚"），
+    除了 item_transfer 行，**必须再输出一条 gift 流水**（amount=0，itemName=该物品）。
+    账户流水是「系统给了什么」的唯一凭据，缺了它账本就少一笔。
+  - ★ 只认**积分**。现实货币/普通交易（"卖了三百块钱""38 一斤""捐了一千万"）不是积分流水
+  - ★ 商城**标价**不是消费："玄铁护腕标价 800 积分"只说明价格，除非原文写了买下，
+    否则不要输出 spend
   - 同一笔流水只输出一次
 
 【时间线事件识别规则（精度优先，必须严格执行）】
@@ -537,6 +648,8 @@ const TIMELINE_STREAM_SYSTEM_PROMPT = `你是一个专业的小说分析助手�
 - ★ 是否有"动词+名词"或"介词+名词"组合被误识别为人名（如"按警员"）？若有，必须删除
 - ★ 角色名是否超过6个字？若是，极可能是句子片段误识别，必须检查并删除
 - ★ 每个 item 的 name 是否是具体物件，而不是货币/数值/界面/技能/地点/角色？
+- ★ 每条关系行的 context 是否是从原文【逐字复制】的？若只是「两人同场」而没有原文依据，删除该关系行
+- ★ 是否有因为「同场出现/一起行动」而编出来的 character_relation？有则全部删除
 - primaryName 是否是文中真实出现的称呼？若否，必须改用文中称呼`;
 
 function buildTimelineStreamUserPrompt(input: ScannerInput): string {
@@ -741,6 +854,8 @@ export async function streamTimelineEvents(
     onEntity?: (entity: StreamEntity) => void;
     onItemTransfer?: (transfer: StreamItemTransfer) => void;
     onAliasMatch?: (aliasMatch: StreamAliasMatch) => void;
+    onRelation?: (assertion: StreamRelationAssertion) => void;
+    onSystemBind?: (bind: StreamSystemBind) => void;
     onCreditTransaction?: (credit: StreamCreditTransaction) => void;
   } = {},
 ): Promise<StreamTimelineEvent[]> {
@@ -757,10 +872,13 @@ export async function streamTimelineEvents(
   let entityCount = 0;
   let transferCount = 0;
   let aliasCount = 0;
+  let relationCount = 0;
+  let bindCount = 0;
   let creditCount = 0;
   let failedRecords = 0;
   const entityLog: string[] = []; // ★ 记录 AI 实际输出的实体名，便于诊断"AI 是否识别对了"
   const aliasLog: string[] = [];  // ★ 记录 AI 输出的别名关系
+  const relationLog: string[] = []; // ★ 记录 AI 输出的关系断言
   console.log('[streamTimelineEvents] 开始流式扫描，章节内容长度=', input.chapterContent.length);
 
   /** 按判别字段分发一条已解析的 JSON 对象 */
@@ -789,6 +907,17 @@ export async function streamTimelineEvents(
         );
         options.onAliasMatch?.(record.aliasMatch);
         break;
+      case 'system_bind':
+        bindCount++;
+        options.onSystemBind?.(record.systemBind);
+        break;
+      case 'relation':
+        relationCount++;
+        relationLog.push(
+          `${record.assertion.assertionType}:${record.assertion.subject}→${record.assertion.object}(${record.assertion.type})`,
+        );
+        options.onRelation?.(record.assertion);
+        break;
       case 'transfer':
         transferCount++;
         options.onItemTransfer?.(record.transfer);
@@ -804,7 +933,11 @@ export async function streamTimelineEvents(
     }
   };
 
-  for await (const chunk of chatStream(messages, { temperature: 0.3, maxTokens: 8192 }, options.signal)) {
+  // ★ 章节扫描的 token 预算：推理模型把思考链也算在 maxTokens 里。
+  //   实测 8192 时，信息密度高的章节（决战/收束）会被思考链整段吃光，
+  //   正文一个字节都不吐（表现为「0 chunk / 总长度 0」，还得等 150s+）。
+  //   这里给足预算；模型自身上限更低时由 provider 侧报错，不再静默空输出。
+  for await (const chunk of chatStream(messages, { temperature: 0.3, maxTokens: SCAN_STREAM_MAX_TOKENS }, options.signal)) {
     const text = chunk.content || '';
     totalChunkLen += text.length;
     chunkCount++;
@@ -824,6 +957,7 @@ export async function streamTimelineEvents(
     `[streamTimelineEvents] 流式扫描完成: ${chunkCount} 个chunk, 总长度=${totalChunkLen}, ` +
     `实体=${entityCount} [${entityLog.join(' | ')}], ` +
     `别名=${aliasCount} [${aliasLog.join(' | ')}], ` +
+    `关系=${relationCount} [${relationLog.join(' | ')}], 系统绑定=${bindCount}, ` +
     `流转=${transferCount}, 积分流水=${creditCount}, ` +
     `事件=${events.length}, 解析失败对象=${failedRecords}`,
   );
@@ -835,6 +969,8 @@ export async function streamTimelineEvents(
 export type StreamRecord =
   | { kind: 'entity'; entity: StreamEntity }
   | { kind: 'alias'; aliasMatch: StreamAliasMatch }
+  | { kind: 'relation'; assertion: StreamRelationAssertion }
+  | { kind: 'system_bind'; systemBind: StreamSystemBind }
   | { kind: 'transfer'; transfer: StreamItemTransfer }
   | { kind: 'credit'; credit: StreamCreditTransaction }
   | { kind: 'event'; event: StreamTimelineEvent };
@@ -885,6 +1021,79 @@ function toStreamItemTransfer(parsed: Record<string, unknown>): StreamItemTransf
     toCharacter: typeof parsed.toCharacter === 'string' ? parsed.toCharacter.trim() : '',
     action,
     context: typeof parsed.context === 'string' ? parsed.context : '',
+  };
+}
+
+/** 关系断言的三类类型码 */
+const RELATION_ASSERTION_TYPES = new Set([
+  'character_relation',
+  'item_relation',
+  'location_relation',
+]);
+
+/** 对象 → 系统绑定记录，判别字段不是 system_bind 时返回 null */
+function toStreamSystemBind(parsed: Record<string, unknown>): StreamSystemBind | null {
+  if (parsed.bindType !== 'system_bind') return null;
+
+  const characterName = typeof parsed.characterName === 'string' ? parsed.characterName.trim() : '';
+  if (!characterName) return null;
+  // 「系统」自己不是角色：模型偶尔把宿主写成系统
+  if (/^系统/.test(characterName)) return null;
+
+  const rawSystemName = typeof parsed.systemName === 'string' ? parsed.systemName.trim() : '';
+  const systemName = rawSystemName.replace(/^[「『“"']+|[」』”"']+$/g, '').trim();
+
+  const action = parsed.action === 'unbind' ? 'unbind' : 'bind';
+
+  return {
+    bindType: 'system_bind',
+    characterName,
+    ...(systemName ? { systemName } : {}),
+    action,
+    context: typeof parsed.context === 'string' ? parsed.context : '',
+  };
+}
+
+/**
+ * 对象 → 关系断言，判别字段不是 assertionType 时返回 null。
+ *
+ * 服务端先做两道与事件 quote 同口径的确定性校验（客户端还会再校验一次）：
+ *   ① 主体/客体必须逐字出现在本章原文里（模型常把全名/改写过）
+ *   ② 给了 context 就必须能在原文里连续命中 —— 对不上即视为编造，整条丢弃
+ */
+function toStreamRelationAssertion(
+  parsed: Record<string, unknown>,
+  chapterContent?: string,
+): StreamRelationAssertion | null {
+  const assertionType = parsed.assertionType;
+  if (typeof assertionType !== 'string' || !RELATION_ASSERTION_TYPES.has(assertionType)) return null;
+
+  const subject = typeof parsed.subject === 'string' ? parsed.subject.trim() : '';
+  const object = typeof parsed.object === 'string' ? parsed.object.trim() : '';
+  const type = typeof parsed.type === 'string' ? parsed.type.trim() : '';
+  if (!subject || !object || !type) return null;
+  // 自指在客户端也会拦，这里提前丢掉，省一次跨端传输
+  if (subject === object) return null;
+
+  const direction = parsed.direction;
+  const description = typeof parsed.description === 'string' ? parsed.description.trim() : '';
+  const context = typeof parsed.context === 'string' ? parsed.context : '';
+
+  if (chapterContent) {
+    const present = filterNamesPresentInText([subject, object], chapterContent);
+    if (present.length < 2) return null;
+    // 证据对不上原文 ⇒ 这条关系没有依据
+    if (context.trim() && !sanitizeKeywordQuote(context, chapterContent)) return null;
+  }
+
+  return {
+    assertionType: assertionType as StreamRelationAssertion['assertionType'],
+    subject,
+    object,
+    type,
+    ...(direction === 'mutual' || direction === 'to' || direction === 'from' ? { direction } : {}),
+    context,
+    ...(description ? { description } : {}),
   };
 }
 
@@ -988,7 +1197,7 @@ function toTimelineEvent(
 
 /**
  * 按判别字段把一条 JSON 对象转换为扫描记录。
- * 顺序与旧实现保持一致：实体 → 别名 → 流转 → 积分流水 → 事件。
+ * 顺序与旧实现保持一致：实体 → 别名 → 关系 → 流转 → 积分流水 → 事件。
  */
 export function parseStreamRecord(
   value: unknown,
@@ -1003,6 +1212,12 @@ export function parseStreamRecord(
 
   const aliasMatch = toStreamAliasMatch(parsed);
   if (aliasMatch) return { kind: 'alias', aliasMatch };
+
+  const systemBind = toStreamSystemBind(parsed);
+  if (systemBind) return { kind: 'system_bind', systemBind };
+
+  const assertion = toStreamRelationAssertion(parsed, chapterContent);
+  if (assertion) return { kind: 'relation', assertion };
 
   const transfer = toStreamItemTransfer(parsed);
   if (transfer) return { kind: 'transfer', transfer };
@@ -1277,7 +1492,7 @@ ${input.chapterContent}` },
   const events: (StreamTimelineEvent & { quote?: string })[] = [];
   const state = createKeywordEventParseState();
 
-  for await (const chunk of chatStream(messages, { temperature: 0.3, maxTokens: 8192 }, options.signal)) {
+  for await (const chunk of chatStream(messages, { temperature: 0.3, maxTokens: KEYWORD_STREAM_MAX_TOKENS }, options.signal)) {
     const emitted = drainKeywordEventChunk(
       state,
       chunk.content || '',

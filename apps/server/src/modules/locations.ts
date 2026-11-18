@@ -35,6 +35,13 @@ const createLocationSchema = z.object({
     newValue: z.string(),
     description: z.string().optional(),
   })).optional(),
+  relations: z.array(z.object({
+    targetId: z.string().min(1),
+    targetKind: z.enum(['location', 'character']),
+    type: z.enum(['located_in', 'nearby', 'routes_to', 'related_to']),
+    description: z.string().optional(),
+    chapter: z.number().nullable().optional(),
+  })).optional(),
   chapters: z.array(z.number()).optional(),
   tags: z.array(z.string()).optional(),
 });
