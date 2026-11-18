@@ -27,6 +27,12 @@ import {
 } from '../knowledge/locationRecognition';
 import { isItemAutoDetectEnabled } from '../stores/entityDetectionPrefs';
 import { isSystemEntityName } from '../knowledge/systemRecognition';
+import {
+  creditDedupeKey,
+  existingCreditDedupeKey,
+  normalizeCreditAmount,
+  resolveCreditItem,
+} from '../knowledge/creditRecognition';
 
 // 保留原来的导出路径（useAutoEntityDetection 从这里 import normalizeItemType）
 export { normalizeItemType };
@@ -277,45 +283,23 @@ export function processCreditTransactionShared(
     return { added: false, itemLinked: false };
   }
 
-  const amount = credit.action === 'gift' ? 0 : credit.amount;
-  if (credit.action !== 'gift' && amount <= 0) return { added: false, itemLinked: false };
+  // ★ 金额归一与去重键统一走 creditRecognition（面板手动记账用同一套规则）
+  const amount = normalizeCreditAmount(credit.action, credit.amount);
+  if (amount === null) return { added: false, itemLinked: false };
 
   // 4. 关联物品（不在此处新建物品；实体行会先输出并由 onEntity 建好）
   const projectItems = useItemStore.getState().items.filter((i) => i.projectId === projectId);
-  const item = credit.itemName
-    ? (projectItems.find((i) => i.name === credit.itemName) ??
-      (credit.itemName.length >= 2
-        ? projectItems.find(
-            (i) => i.name.includes(credit.itemName!) || credit.itemName!.includes(i.name),
-          )
-        : undefined))
-    : undefined;
+  const item = resolveCreditItem(credit.itemName, projectItems);
 
-  // 3. 持久化去重：同角色/章节/类型/金额/关联物品视为同一笔。
-  //
-  //   ★ 不再比对 reason 文本。实测重复扫描同一章时，模型会把
-  //   「首次绑定系统，初始积分」改写成「首次绑定系统获初始积分」——
-  //   按文本相等去重就漏判，账本里同一笔出现两次（实测 ch1 出现 gain 100 两条）。
-  //   关联物品参与比对：同一章里两件**不同物品**的赠予必须各记一条；
-  //   没有关联物品时只按 类型+金额 判重。
-  const itemKeyOfTx = (relatedItemId?: string): string => {
-    if (!relatedItemId) return '';
-    const name = projectItems.find((i) => i.id === relatedItemId)?.name ?? '';
-    return normalizeText(name);
-  };
-  // ★ 只认「解析到的物品」：itemName 指向库里不存在的物品（如技能名「基础剑法」）时
-  //   没有 id 可比，退回按 类型+金额 判重 —— 否则同一笔 spend 会被记两次。
-  const creditItemKey = item ? normalizeText(item.name) : '';
+  // 3. 持久化去重：同角色/章节/类型/金额/关联物品视为同一笔（不比对 reason 文本）
   const existing = useCreditStore
     .getState()
     .creditTransactions.filter(
       (t) => t.projectId === projectId && t.characterId === characterId && t.chapter === chapterOrder,
     );
+  const dedupeKey = creditDedupeKey(credit.action, amount, item?.name);
   const duplicate = existing.some(
-    (t) =>
-      t.type === credit.action &&
-      (t.amount ?? 0) === amount &&
-      itemKeyOfTx(t.relatedItemId) === creditItemKey,
+    (t) => existingCreditDedupeKey(t, projectItems) === dedupeKey,
   );
   if (duplicate) {
     console.debug('[ScanProcessor] 跳过重复积分流水:', credit.reason ?? credit.action);

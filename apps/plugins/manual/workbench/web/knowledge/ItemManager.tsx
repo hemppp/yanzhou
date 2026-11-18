@@ -6,10 +6,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useItemStore, useCharacterStore, useLocationStore } from '@novel-plugins/data-core/stores';
 import { useCurrentProjectId } from '@novel-plugins/data-core/hooks/useCurrentProjectId';
-import { Search, Package, AlertCircle, User, PackageOpen, ArrowRight, Clock, Gift, ArrowLeftRight, Coins } from 'lucide-react';
+import { Search, Package, AlertCircle, User, PackageOpen, ArrowRight, Clock, Gift, ArrowLeftRight } from 'lucide-react';
 import { deriveCurrentHolders, type ItemHolder } from '@novel/shared';
 import { mergeSimilarCharacters, remapLocationRelations } from './characterMerge';
-import { CreditLedger } from './CreditLedger';
 import { useEntityDetectionPrefs } from '../stores/entityDetectionPrefs';
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
@@ -70,7 +69,6 @@ export function ItemManager() {
   const projectId = useCurrentProjectId();
   const itemAutoDetect = useEntityDetectionPrefs((s) => s.itemAutoDetect);
   const toggleItemAutoDetect = useEntityDetectionPrefs((s) => s.toggleItemAutoDetect);
-  const [mode, setMode] = useState<'items' | 'credits'>('items');
   const [charSearch, setCharSearch] = useState('');
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -166,21 +164,11 @@ export function ItemManager() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* 顶部标题 + 模式切换（物品 / 积分账本） */}
+      {/* 顶部标题（系统账本已拆为独立面板） */}
       <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground tracking-tight flex items-center gap-2">
-          {mode === 'items' ? (
-            <>
-              <Package size={14} className="text-muted-foreground" />
-              物品管理
-            </>
-          ) : (
-            <>
-              <Coins size={14} style={{ color: 'hsl(var(--ochre))' }} />
-              系统账本
-              <span className="text-[10px] font-normal text-muted-foreground">积分 / 赠予</span>
-            </>
-          )}
+          <Package size={14} className="text-muted-foreground" />
+          物品管理
         </h2>
         <div className="flex items-center gap-3">
           {/* 物品自动识别开关：关了之后扫描只给已有物品补类型，不再新建 */}
@@ -209,32 +197,9 @@ export function ItemManager() {
             </span>
             自动识别
           </button>
-          <div className="flex bg-foreground/10 rounded-[14px] p-0.5">
-            <button
-              onClick={() => setMode('items')}
-              className={`px-2.5 py-1 text-xs rounded-xl transition-colors flex items-center gap-1 ${
-                mode === 'items' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Package size={11} />
-              物品
-            </button>
-            <button
-              onClick={() => setMode('credits')}
-              className={`px-2.5 py-1 text-xs rounded-xl transition-colors flex items-center gap-1 ${
-                mode === 'credits' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Coins size={11} />
-              系统账本
-            </button>
-          </div>
         </div>
       </div>
 
-      {mode === 'credits' ? (
-        <CreditLedger />
-      ) : (
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧：人物搜索 + 列表 */}
         <div className="w-64 border-r border-border/50 flex flex-col">
@@ -500,7 +465,6 @@ export function ItemManager() {
           )}
         </div>
       </div>
-      )}
     </div>
   );
 }

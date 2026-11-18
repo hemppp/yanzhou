@@ -10,7 +10,7 @@
 import React from 'react';
 import {
   BookText, StickyNote, BarChart3, AlignLeft, Clock, Users, MapPin, Lightbulb, Database,
-  Network, Map, Download,
+  Network, Map, Download, Coins,
 } from 'lucide-react';
 import type { FloatingPanelDef } from '@/plugin/types';
 
@@ -55,6 +55,7 @@ const NoteManager = lazyPanel(() => import('./notes/NoteManager').then((m) => ({
 const WritingDashboard = lazyPanel(() => import('./stats/WritingDashboard').then((m) => ({ default: m.WritingDashboard })));
 const RelationGraph = lazyPanel(() => import('./knowledge/RelationGraph').then((m) => ({ default: m.RelationGraph })));
 const ExportDialog = lazyPanel(() => import('./export/ExportDialog').then((m) => ({ default: m.ExportDialog })));
+const CreditLedgerPanel = lazyPanel(() => import('./knowledge/CreditLedgerPanel').then((m) => ({ default: m.CreditLedgerPanel })));
 
 /**
  * 面板级预取：把 12 个面板的 chunk 一次性发出去（由模块入口的 `preload()` 调用）。
@@ -89,6 +90,7 @@ export const BUILTIN_PANELS: FloatingPanelDef[] = [
   { icon: MapPin, label: '地点', key: 'locations', section: '资料', Component: LocationManager.Component, preload: LocationManager.preload, width: 900, height: 800, modes: ['manual'] },
   { icon: Lightbulb, label: '伏笔', key: 'foreshadows', section: '资料', Component: ForeshadowManager.Component, preload: ForeshadowManager.preload, width: 900, height: 800, modes: ['manual'] },
   { icon: Database, label: '物品', key: 'items', section: '资料', Component: ItemManager.Component, preload: ItemManager.preload, width: 900, height: 800, modes: ['manual'] },
+  { icon: Coins, label: '系统积分', key: 'credits', section: '资料', Component: CreditLedgerPanel.Component, preload: CreditLedgerPanel.preload, width: 900, height: 800, modes: ['manual'] },
   // ★ 关系图是「重画布」面板：打开时**抢占中心编辑区**（ADR §1.6）——
   //   声明 `dock:{ center: true, slot: 'center' }` ⇒ DockShell 把它渲染到中心替换槽，
   //   而不是挤进右侧辅助侧栏（900×800 的图谱在侧栏里没法用）。

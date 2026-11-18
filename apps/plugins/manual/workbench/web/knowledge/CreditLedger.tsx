@@ -19,6 +19,7 @@ import {
   type CreditTransactionType,
 } from '@novel/shared';
 import { computeCreditItemAcquisition } from './creditItemSync';
+import type { Character } from '@novel/shared';
 
 interface FormState {
   /** gain=获得积分 / spend=消耗积分 / gift=系统赠予（零积分） */
@@ -31,7 +32,14 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { type: 'gain', chapter: '1', amount: '', reason: '', relatedItemId: '' };
 
-export function CreditLedger() {
+export interface CreditLedgerProps {
+  /** 角色是否已绑定系统（由面板注入，便于按绑定状态排序/标记） */
+  isSystemBound?: (c: Pick<Character, 'tags'>) => boolean;
+  /** 取角色绑定的系统名 */
+  systemNameOf?: (c: Pick<Character, 'tags'>) => string | undefined;
+}
+
+export function CreditLedger({ isSystemBound, systemNameOf }: CreditLedgerProps = {}) {
   const transactions = useCreditStore((s) => s.creditTransactions);
   const addCreditTransaction = useCreditStore((s) => s.addCreditTransaction);
   const deleteCreditTransaction = useCreditStore((s) => s.deleteCreditTransaction);
@@ -86,11 +94,19 @@ export function CreditLedger() {
   const filteredChars = useMemo(() => {
     if (!charSearch.trim()) return projectChars;
     const s = charSearch.toLowerCase();
-    return projectChars.filter((c) =>
+    const matched = projectChars.filter((c) =>
       c.name.toLowerCase().includes(s) ||
       c.aliases?.some((a) => a.toLowerCase().includes(s))
     );
-  }, [projectChars, charSearch]);
+    // ★ 绑定系统的角色排前面：系统文里通常只有主角绑定，
+    //   其余角色不该和主角占同样的视觉权重（没有注入判断时保持原顺序）。
+    if (!isSystemBound) return matched;
+    return [...matched].sort((a, b) => {
+      const ba = isSystemBound(a) ? 0 : 1;
+      const bb = isSystemBound(b) ? 0 : 1;
+      return ba - bb;
+    });
+  }, [projectChars, charSearch, isSystemBound]);
 
   // 选中人物的逐笔结余流水（chapter 升序）
   const ledger = useMemo(
@@ -226,7 +242,9 @@ export function CreditLedger() {
             </div>
           </div>
           <div className="px-3 pt-2 pb-1">
-            <p className="text-[10px] text-muted-foreground">绑定系统的人物</p>
+            <p className="text-[10px] text-muted-foreground">
+              {isSystemBound ? '绑定系统的角色优先' : '人物'}
+            </p>
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {filteredChars.length === 0 ? (
@@ -258,7 +276,15 @@ export function CreditLedger() {
                       >
                         {c.name[0]}
                       </div>
-                      <span className="text-sm text-foreground truncate">{c.name}</span>
+                      <div className="min-w-0">
+                        <span className="text-sm text-foreground truncate block">{c.name}</span>
+                        {/* 绑定系统的角色在名字下显示系统名 —— 系统文里这是角色最重要的属性 */}
+                        {isSystemBound?.(c) && (
+                          <span className="text-[9.5px] text-muted-foreground truncate block">
+                            {systemNameOf?.(c) ?? '已绑定系统'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {hasLedger && (
                       <span
