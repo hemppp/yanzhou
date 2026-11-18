@@ -2,7 +2,7 @@
   "id": "novel.autowrite",
   "name": "自动写作引擎",
   "description": "写作技能框架：承载全部聊天技能（自核心剥离）+ AI 自动写作多代理流转（规划→写作→校对→润色→交付）与治理（自治/审查/台账）",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "modes": ["auto"],
   "permissions": ["routes", "db:global", "db:project", "ai:tools", "ai:skills", "ai:agents"],
   "server": {

@@ -2,7 +2,7 @@
   "id": "novel.bookscan",
   "name": "扫榜拆书",
   "description": "抓取公共书榜（晋江文学城排行榜：VIP强推榜/总分榜/编辑推荐榜），一键把书加入参考书（含文案），并可就地 AI 拆书",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "modes": ["manual"],
   "permissions": [
     "routes",

@@ -2,7 +2,7 @@
   "id": "novel.typography",
   "name": "字体排版",
   "description": "调整编辑器中文字的显示粗细与颜色（实时预览，项目无关的用户级设置）",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "modes": ["shared"],
   "permissions": [
     "routes",

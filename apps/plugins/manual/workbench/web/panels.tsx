@@ -1,5 +1,5 @@
 // ============================================================
-// 手写台内置面板定义（12 个浮窗面板）
+// 手写台内置面板定义（13 个浮窗面板）
 //
 // 原 kernel `apps/web/src/plugin/builtin.ts`（t4 迁入模块，D1/D35）：
 //   · 面板定义改由 manual 模块自持，kernel 不再静态 import 手写台内部实现
@@ -58,7 +58,7 @@ const ExportDialog = lazyPanel(() => import('./export/ExportDialog').then((m) =>
 const CreditLedgerPanel = lazyPanel(() => import('./knowledge/CreditLedgerPanel').then((m) => ({ default: m.CreditLedgerPanel })));
 
 /**
- * 面板级预取：把 12 个面板的 chunk 一次性发出去（由模块入口的 `preload()` 调用）。
+ * 面板级预取：把 13 个面板的 chunk 一次性发出去（由模块入口的 `preload()` 调用）。
  *
  * 与 React.lazy 共用同一个 import() 说明符 ⇒ 浏览器/打包器命中同一份模块表缓存，
  * 预取过再打开面板即为**同步命中**，不再走 Suspense fallback。
@@ -70,7 +70,7 @@ export function preloadPanels(): void {
 
 /**
  * 内置面板定义（与原 kernel builtin.ts 完全一致）。
- * 12 个工作台面板均属**手写台**（modes: ['manual']）。
+ * 13 个工作台面板均属**手写台**（modes: ['manual']）。
  *
  * ★ 2026-10-29 新增 `section`（活动栏分区标题）：手写台在这里**声明**
  *   自己每个面板属于哪一组（写作 / 资料 / 工具），宿主只按字段分组渲染。
