@@ -18,6 +18,16 @@ export const MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024; // 512 MB
 export const DOWNLOAD_TIMEOUT_MS = 120_000; // 120 s
 export const MAX_REDIRECTS = 5;
 
+/**
+ * HTTP User-Agent。
+ *
+ * ★ 必须是**纯 ASCII**：Node 的 http.request 会校验 header 值，
+ *   含中文（如「砚舟-Updater/1.0」）会直接抛
+ *   `Invalid character in header content ["user-agent"]` —— 请求根本发不出去，
+ *   表现为「检查更新」永远失败。产品名放注释里，协议值只留 ASCII。
+ */
+export const USER_AGENT = 'Yanzhou-Updater/1.0';
+
 /** 下载过程中任何可预期的失败都抛这个类型（调用方转成 `{ ok:false, error }`）。 */
 export class UpdaterHttpError extends Error {
   readonly kind: 'protocol' | 'network' | 'timeout' | 'too-large' | 'status' | 'hash';
@@ -77,7 +87,7 @@ export function fetchToBuffer(
     const transport = parsed.protocol === 'https:' ? https : http;
     const req = transport.request(
       parsed,
-      { method: 'GET', headers: { 'user-agent': '砚舟-Updater/1.0', accept: '*/*' } },
+      { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' } },
       (res) => {
         const status = res.statusCode ?? 0;
         if (status >= 300 && status < 400 && res.headers.location) {
@@ -167,7 +177,7 @@ export async function downloadToFile(
       const transport = parsed.protocol === 'https:' ? https : http;
       const req = transport.request(
         parsed,
-        { method: 'GET', headers: { 'user-agent': '砚舟-Updater/1.0', accept: '*/*' } },
+        { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' } },
         (res) => {
           const status = res.statusCode ?? 0;
           if (status >= 300 && status < 400 && res.headers.location) {

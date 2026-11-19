@@ -5,27 +5,42 @@
 // 契约来源：ADR D14.1 ——
 //   持久化位置：`<userData>/updates/config.json`，`{ "baseUrl": "…" }`。
 //   **不是** localStorage（主进程需要在渲染进程未起时也能读）。
-//   baseUrl 为空字符串 ⇒ 更新功能关闭；首启默认 `''`。
+//   配置为空 ⇒ 使用内置更新源（DEFAULT_UPDATE_BASE_URL）；显式填非法值才会被拒绝。
 // ============================================================
 
 import { promises as fsp } from 'node:fs';
 import * as path from 'node:path';
 
+/**
+ * 内置更新源。
+ *
+ * 更新器此前**没有默认值**：首次启动 baseUrl 是空串，「检查更新」按钮直接禁用，
+ * 用户不知道该填什么地址 —— 等于应用内更新从未可用。
+ *
+ * 指向 GitHub Release 的 latest/download 别名：它永远解析到最新正式版，
+ * 无需随版本改地址；清单与产物都在同一个 release 里，相对 url 天然成立。
+ */
+export const DEFAULT_UPDATE_BASE_URL =
+  'https://github.com/hemppp/yanzhou/releases/latest/download';
+
 export interface UpdaterConfig {
   baseUrl: string;
 }
 
-/** 读取配置；文件缺失 / 损坏 / 非法一律回落到 `{ baseUrl: '' }`（不抛）。 */
+/** 读取配置；文件缺失 / 损坏 / 非法一律回落到内置更新源（不抛）。 */
 export async function readConfig(configPath: string): Promise<UpdaterConfig> {
   try {
     const raw = await fsp.readFile(configPath, 'utf8');
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === 'object' && typeof (parsed as { baseUrl?: unknown }).baseUrl === 'string') {
-      return { baseUrl: (parsed as { baseUrl: string }).baseUrl };
+      const configured = (parsed as { baseUrl: string }).baseUrl;
+      // ★ 空串沿用内置源：配置为空意味着「用户没改过」，不是「关掉更新」。
+      //   此前空串直接导致「检查更新」按钮禁用，应用内更新形同不存在。
+      return { baseUrl: configured.trim() === '' ? DEFAULT_UPDATE_BASE_URL : configured };
     }
-    return { baseUrl: '' };
+    return { baseUrl: DEFAULT_UPDATE_BASE_URL };
   } catch {
-    return { baseUrl: '' };
+    return { baseUrl: DEFAULT_UPDATE_BASE_URL };
   }
 }
 

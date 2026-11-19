@@ -133,7 +133,7 @@ export function UpdateSection() {
           <input
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://example.com/novelmuse-updates"
+            placeholder="留空即使用内置更新源（GitHub Release）"
             className="nm-input-sm flex-1 px-3 py-1.5 text-sm font-mono"
           />
           <button onClick={() => void saveBaseUrl()} className="nm-btn-mist-primary px-3 py-1.5 text-sm rounded-md">
