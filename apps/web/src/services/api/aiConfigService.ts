@@ -23,8 +23,8 @@ import { apiClient, ApiError } from '@/services/api/apiClient';
 
 export type AIProvider = 'openai' | 'ollama' | 'custom';
 
-/** 配置来源：user_db=用户已保存 · server_env=服务端环境变量兜底 · builtin_relay=内置公益线路 */
-export type AIConfigSource = 'user_db' | 'server_env' | 'builtin_relay';
+/** 配置来源：user_db=用户已保存 · server_env=服务端环境变量兜底 */
+export type AIConfigSource = 'user_db' | 'server_env';
 
 /** 四个可调生成参数（与后端 providerConfigSchema 同名同序） */
 export type SamplingKey = 'temperature' | 'topP' | 'frequencyPenalty' | 'presencePenalty';
@@ -231,10 +231,6 @@ export function describeConfigSource(cfg: Pick<AIConfigDTO, '_source' | 'label'>
   switch (cfg._source) {
     case 'user_db':
       return null;
-    case 'builtin_relay':
-      return cfg.label
-        ? `当前使用内置公益线路「${cfg.label}」—— 保存下面的配置即可改用你自己的服务商`
-        : '当前使用内置公益线路 —— 保存下面的配置即可改用你自己的服务商';
     case 'server_env':
       return '当前使用服务端环境变量里的默认配置（本机尚未保存过自己的配置）';
     default:

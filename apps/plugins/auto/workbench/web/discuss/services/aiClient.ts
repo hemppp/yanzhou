@@ -19,7 +19,7 @@ export interface AIConfig {
   provider: AIProvider;
   apiKeyConfigured?: boolean;
   apiKeyHint?: string;
-  /** 服务商标签（如「公益中转站（内置）」）；仅展示用，Key 不回传 */
+  /** 服务商标签；仅展示用，Key 不回传 */
   label?: string;
   /**
    * 生成参数（可选）。未设 = 不干预，由服务商默认值决定。

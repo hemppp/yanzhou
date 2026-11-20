@@ -8,7 +8,7 @@
 //
 // 为什么必须真机跑（单测证明不了的部分）：
 //   · 用户级配置 loader 是**惰性注册**的：库里配了模型但 loader 没注册时，链路会**静默**
-//     回退到环境变量 / 内置中转站（见 apps/server/src/ai/user-config-loader.ts 文件头踩坑记录）。
+//     回退到服务端环境变量配置（见 apps/server/src/ai/user-config-loader.ts 文件头踩坑记录）。
 //     单测钉的是「注册表按 userId 过滤」这种纯函数，钉不住「这次请求到底用了哪套配置」。
 //   · 降级行为（无可用 key 时是 5xx 白屏崩溃，还是结构化错误 + 进程存活）只有真打模型才看得见。
 //
@@ -355,7 +355,7 @@ const cfgRes = await req('/api/ai/config', { timeoutMs: 30_000 });
 check('GET /api/ai/config 返回 200 且 success=true', cfgRes.status === 200 && cfgRes.json?.success === true, `HTTP ${cfgRes.status}`);
 const cfgData = cfgRes.json?.data ?? {};
 check('apiKeyConfigured=true（用户级 key 已配置）', cfgData.apiKeyConfigured === true, `apiKeyConfigured=${cfgData.apiKeyConfigured} · apiKeyHint=${cfgData.apiKeyHint || '(空)'}`);
-check('_source=user_db（走用户库配置，而非 env/内置中转站回落）', cfgData._source === 'user_db', `_source=${cfgData._source}${cfgData.label ? ` · label=${cfgData.label}` : ''}`);
+check('_source=user_db（走用户库配置，而非 env 回落）', cfgData._source === 'user_db', `_source=${cfgData._source}${cfgData.label ? ` · label=${cfgData.label}` : ''}`);
 check('baseUrl / model / provider 与期望一致', cfgData.baseUrl === CFG.aiBaseUrl && cfgData.model === CFG.aiModel && cfgData.provider === CFG.aiProvider, `baseUrl=${cfgData.baseUrl} · model=${cfgData.model} · provider=${cfgData.provider}`);
 
 // 记录原始配置，供 finally 还原与回读比对

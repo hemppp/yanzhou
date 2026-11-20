@@ -198,10 +198,6 @@ describe('describeConfigSource —— 非 user_db 来源必须给提示', () => 
     expect(describeConfigSource({ _source: 'user_db' })).toBeNull();
   });
 
-  it('builtin_relay 带上线路名', () => {
-    expect(describeConfigSource({ _source: 'builtin_relay', label: '公益站 A' })).toContain('公益站 A');
-  });
-
   it('server_env 说明是环境变量兜底', () => {
     expect(describeConfigSource({ _source: 'server_env' })).toContain('环境变量');
   });

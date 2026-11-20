@@ -15,8 +15,7 @@
 import { Hono, type Context, type Next } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { getProvider, type AIConfig, configLoaders, applyBuiltinRelayFallback } from '../ai/providers/provider-factory.js';
-import { isBuiltinRelayKey, BUILTIN_RELAY_LABEL } from '../lib/builtin-relay.js';
+import { getProvider, type AIConfig, configLoaders } from '../ai/providers/provider-factory.js';
 import { ensureConfigMiddleware } from '../ai/user-config-loader.js';
 import { listMarket } from '../services/skill-catalog.js';
 import { getDb, schema, eq, saveToDisk, initProjectDb } from '@novel/db';
@@ -1471,7 +1470,7 @@ function samplingOf(cfg: {
   };
 }
 
-/** 对外配置 DTO：完整 API Key 永不离开服务端。label 仅用于前端展示（如内置公益站）。 */
+/** 对外配置 DTO：完整 API Key 永不离开服务端。label 仅用于前端展示。 */
 function publicAIConfig(
   config: Pick<AIConfig, 'baseUrl' | 'model' | 'provider' | 'apiKey'> & {
     temperature?: number; topP?: number; frequencyPenalty?: number; presencePenalty?: number;
@@ -1523,10 +1522,9 @@ aiRouter.get('/config', requireAuth, ensureConfigMiddleware, async (c) => {
       if (!db) {
         // 数据库不可用，返回服务端默认配置
         const defaultConfig = await getAIConfig(user.id);
-        const builtinActive = isBuiltinRelayKey(defaultConfig.apiKey);
         return c.json({
           success: true,
-          data: publicAIConfig(defaultConfig, builtinActive ? 'builtin_relay' : 'server_env', builtinActive ? BUILTIN_RELAY_LABEL : undefined),
+          data: publicAIConfig(defaultConfig, 'server_env'),
         });
       }
 
@@ -1551,10 +1549,9 @@ aiRouter.get('/config', requireAuth, ensureConfigMiddleware, async (c) => {
 
     // 无用户配置，返回服务端默认配置
     const defaultConfig = await getAIConfig(user.id);
-    const builtinActive = isBuiltinRelayKey(defaultConfig.apiKey);
     return c.json({
       success: true,
-      data: publicAIConfig(defaultConfig, builtinActive ? 'builtin_relay' : 'server_env', builtinActive ? BUILTIN_RELAY_LABEL : undefined),
+      data: publicAIConfig(defaultConfig, 'server_env'),
     });
   } catch (error) {
     console.error('[AI Config] 获取配置失败:', error);
@@ -1678,7 +1675,7 @@ aiRouter.post('/config', requireAuth, ensureConfigMiddleware, zValidator('json',
           baseUrl?: string; apiKey?: string; model?: string; provider?: string;
           temperature?: number; topP?: number; frequencyPenalty?: number; presencePenalty?: number;
         };
-        return applyBuiltinRelayFallback({
+        return {
           baseUrl: cfg.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
           apiKey: cfg.apiKey || process.env.OPENAI_API_KEY || '',
           model: cfg.model || process.env.OPENAI_MODEL || 'gpt-4-turbo',
@@ -1687,7 +1684,7 @@ aiRouter.post('/config', requireAuth, ensureConfigMiddleware, zValidator('json',
           ...(typeof cfg.topP === 'number' ? { topP: cfg.topP } : {}),
           ...(typeof cfg.frequencyPenalty === 'number' ? { frequencyPenalty: cfg.frequencyPenalty } : {}),
           ...(typeof cfg.presencePenalty === 'number' ? { presencePenalty: cfg.presencePenalty } : {}),
-        });
+        };
       }
       // 回退到环境变量
       const provider = (process.env.AI_PROVIDER || 'openai') as 'openai' | 'ollama' | 'custom';
@@ -1711,7 +1708,7 @@ aiRouter.post('/config', requireAuth, ensureConfigMiddleware, zValidator('json',
           model = process.env.OPENAI_MODEL || 'gpt-4-turbo';
           break;
       }
-      return applyBuiltinRelayFallback({ baseUrl, apiKey, model, provider });
+      return { baseUrl, apiKey, model, provider };
     });
 
     // 刷新该用户的缓存
