@@ -568,7 +568,7 @@ stderr 行正则：  ^\[Server\] Cordis 基座已就绪 → http://localhost:(\d
 `{"success":false,"data":{"connected":false,"error":"AI API 错误 403"}}` —— 请求**已穿过代理抵达上游**（403 = 无有效密钥），而不再是此前的网络层失败。
 同一场景 `curl --proxy http://127.0.0.1:7897 https://api.openai.com/v1/models` 同样返回 403（代理本身可用）。
 
-**如实记录的残留（非本 ADR 缺陷）**：内置公益线路 `https://new-api.dadfafwada.dpdns.org/v1` 在本机**不可达**，与代理无关 —— 直连 `curl` 报 `Could not resolve host`，经 Clash 报 `schannel: failed to receive handshake`。面板错误文案已相应区分「已走代理」与「未配置代理」两种情况。
+**如实记录的残留（非本 ADR 缺陷）**：内置公益线路 `https://new-api.dadfafwada.dpdns.org/v1` 在本机**不可达**，与代理无关 —— 直连 `curl` 报 `Could not resolve host`，经 Clash 报 `schannel: failed to receive handshake`。面板错误文案已相应区分「已走代理」与「未配置代理」两种情况。**2026-11-20 补：内置线路及其密钥材料已整体移除，仓库与安装包不再包含该端点与 Key。**
 
 ---
 

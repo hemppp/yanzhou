@@ -314,8 +314,8 @@ export function createServerPluginHost(options: ServerPluginHostOptions = {}): S
           // ★ 插件路由也必须先注册用户的 AI 配置 loader（2026-09-17 加）。
           //   插件里大量路由会调 AI（如 autowrite 的讨论 / 连写），而
           //   `ensureConfigMiddleware` 原先只挂在 /api/ai/* 上 —— 用户不进设置页时
-          //   loader 就没注册，`getAIConfig(userId)` 静默回退到内置公益中转站。
-          //   表现：讨论照跑、但模型被悄悄换掉（思维链因此永远是空的）。
+          //   loader 就没注册，`getAIConfig(userId)` 静默回退到服务端环境变量配置。
+          //   表现：讨论照跑、但模型被悄悄换掉（思维链因此可能为空）。
           guarded.use('*', ensureConfigMiddleware as never);
           guarded.use('*', async (c, next) => {
             const projectId = c.req.header('X-Project-Id');

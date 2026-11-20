@@ -3,12 +3,12 @@
 //
 // 背景：POST /api/ai/config 设置的 loader **只存在内存里**。server 重启后，
 // 或者用户压根没进过 AI 设置页时，`configLoaders.get(userId)` 是 undefined，
-// `getAIConfig(userId)` 就会静默回退到 `loadConfigFromEnv()`（环境变量 + 内置公益中转站）。
+// `getAIConfig(userId)` 就会静默回退到 `loadConfigFromEnv()`（服务端环境变量）。
 //
 // ★ 这个回退是**静默**的，所以踩坑时毫无提示。2026-09-17 实际踩到：
 //   「AI 智能体讨论不显示思维链」——根因就是讨论走的是插件路由
 //   `/api/plugins/autowrite/session`，而 ensureConfigMiddleware 只挂在 `/api/ai/*` 上；
-//   用户不进设置页 → loader 没注册 → 讨论静默改用内置站模型 deepseek-v4-flash，
+//   用户不进设置页 → loader 没注册 → 讨论静默改用环境变量里的默认模型，
 //   该模型**不吐 reasoning_content** → 思维链永远是空的（且不报任何错）。
 //
 // 所以：**任何会调 AI 的路由（含插件路由）都必须先过这里**。
@@ -20,14 +20,13 @@ import { getDb, schema, eq } from '@novel/db';
 import {
   configLoaders,
   setConfigLoader,
-  applyBuiltinRelayFallback,
 } from './providers/provider-factory.js';
 
 /**
  * 确保指定用户的 AI 配置 loader 已注册（幂等：已注册直接返回）。
  *
  * loader 不存在时从 `user_settings.ai_provider_config` 读取并注册；
- * 用户没配过则 cfg 为空，由 `applyBuiltinRelayFallback` 兜到内置公益中转站。
+ * 用户没配过则 cfg 为空，回退到服务端环境变量配置。
  */
 export async function ensureUserConfigLoader(userId: string): Promise<void> {
   if (!userId) return;
@@ -45,8 +44,8 @@ export async function ensureUserConfigLoader(userId: string): Promise<void> {
           temperature?: number; topP?: number; frequencyPenalty?: number; presencePenalty?: number;
         }
       : {};
-    // 注册 loader（即使 cfg 为空，loader 也会回退到环境变量 / 内置中转站）
-    setConfigLoader(userId, async () => applyBuiltinRelayFallback({
+    // 注册 loader（即使 cfg 为空，loader 也会回退到服务端环境变量）
+    setConfigLoader(userId, async () => ({
       baseUrl: cfg.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
       apiKey: cfg.apiKey || process.env.OPENAI_API_KEY || '',
       model: cfg.model || process.env.OPENAI_MODEL || 'gpt-4-turbo',

@@ -4,7 +4,6 @@
 
 import { CircuitBreaker } from '../../lib/circuit-breaker.js';
 import { assertSafeOutboundUrl } from '../../lib/ssrf-guard.js';
-import { getBuiltinRelay } from '../../lib/builtin-relay.js';
 
 // ---- 类型定义 ----
 
@@ -147,7 +146,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** 从环境变量加载配置；无可用 Key 时整体回退到内置公益中转站 */
+/** 从环境变量加载配置；未配置 Key 时保持空 Key，由调用方给出「请先配置服务商」的提示 */
 function loadConfigFromEnv(): AIConfig {
   const provider = (process.env.AI_PROVIDER || 'openai') as AIProviderType;
 
@@ -174,19 +173,7 @@ function loadConfigFromEnv(): AIConfig {
       break;
   }
 
-  return applyBuiltinRelayFallback({ baseUrl, apiKey, model, provider });
-}
-
-/**
- * 内置公益中转站原子回退：配置无 apiKey 时整体换用内置站
- * （baseUrl/apiKey/model 三者必须同源，避免跨源错配导致鉴权失败）。
- * 有 Key 的配置（用户自配 / 环境变量 / Ollama）原样返回。
- */
-export function applyBuiltinRelayFallback(config: AIConfig): AIConfig {
-  if (config.apiKey) return config;
-  const relay = getBuiltinRelay();
-  if (!relay) return config;
-  return { ...config, baseUrl: relay.baseUrl, apiKey: relay.apiKey, model: relay.model };
+  return { baseUrl, apiKey, model, provider };
 }
 
 /**
