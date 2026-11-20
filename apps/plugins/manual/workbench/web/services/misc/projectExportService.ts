@@ -11,45 +11,17 @@ import {
   useNoteStore,
 } from '@novel-plugins/data-core/stores';
 import type {
-  Character,
   CharacterRelation,
-  Item,
   ItemHolder,
   ItemRelation,
-  Location,
   LocationRelation,
-  Foreshadow,
   ForeshadowHint,
-  Earmark,
-  OutlineNode,
-  TimelineEvent,
-  Note,
   EntityState,
 } from '@novel/shared';
-import DOMPurify from 'dompurify';
 
 // ============================================================
 // 砚舟 项目打包格式
 // ============================================================
-
-/** 最大文件大小: 50MB */
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
-
-/** 导入包必须包含的顶层字段 */
-const REQUIRED_FIELDS = [
-  'projects',
-  'chapters',
-  'characters',
-  'items',
-  'locations',
-  'storyEvents',
-  'foreshadows',
-  'earmarks',
-  'annotations',
-  'outlineNodes',
-  'timelineEvents',
-  'notes',
-] as const;
 
 export interface 砚舟Package {
   version: '1.0';
@@ -164,62 +136,6 @@ export interface 砚舟Package {
     pinned: boolean;
     linkedChapterId?: string;
   }>;
-}
-
-/**
- * 净化字符串内容，防止 XSS
- */
-function sanitizeString(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  return DOMPurify.sanitize(value, { ALLOWED_TAGS: [] });
-}
-
-/**
- * 递归净化对象中的字符串字段
- */
-function sanitizeStringsDeep<T>(obj: T): T {
-  if (typeof obj === 'string') {
-    return sanitizeString(obj) as unknown as T;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeStringsDeep(item)) as unknown as T;
-  }
-  if (obj !== null && typeof obj === 'object') {
-    const sanitized: Record<string, unknown> = {};
-    for (const key of Object.keys(obj as Record<string, unknown>)) {
-      sanitized[key] = sanitizeStringsDeep((obj as Record<string, unknown>)[key]);
-    }
-    return sanitized as unknown as T;
-  }
-  return obj;
-}
-
-/**
- * 验证导入包的基本结构
- */
-function validatePackageStructure(pkg: unknown): pkg is 砚舟Package {
-  if (!pkg || typeof pkg !== 'object') return false;
-
-  const obj = pkg as Record<string, unknown>;
-
-  // 检查版本
-  if (obj.version !== '1.0') return false;
-
-  // 检查必需字段
-  for (const field of REQUIRED_FIELDS) {
-    if (!(field in obj)) return false;
-  }
-
-  // 检查是否是数组类型
-  const arrayFields = ['chapters', 'characters', 'items', 'locations', 'foreshadows', 'earmarks', 'outlineNodes', 'timelineEvents', 'notes'];
-  for (const field of arrayFields) {
-    if (!Array.isArray(obj[field])) return false;
-  }
-
-  // 检查 project 字段
-  if (!obj.project || typeof obj.project !== 'object') return false;
-
-  return true;
 }
 
 /**
@@ -389,40 +305,3 @@ export function download砚舟Package(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-
-/**
- * 从文件读取并解析 .novelmuse 项目包
- */
-export function import砚舟Package(file: File): Promise<砚舟Package> {
-  return new Promise((resolve, reject) => {
-    // 文件大小限制检查
-    if (file.size > MAX_FILE_SIZE) {
-      reject(new Error(`文件过大，最大允许 ${MAX_FILE_SIZE / 1024 / 1024}MB`));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const raw = JSON.parse(reader.result as string);
-
-        // 结构验证
-        if (!validatePackageStructure(raw)) {
-          throw new Error('项目文件格式不兼容或结构已损坏');
-        }
-
-        // 净化字符串内容，防止 XSS
-        const pkg = sanitizeStringsDeep(raw) as 砚舟Package;
-
-        resolve(pkg);
-      } catch (e) {
-        reject(e instanceof Error ? e : new Error('文件解析失败'));
-      }
-    };
-    reader.onerror = () => reject(new Error('文件读取失败'));
-    reader.readAsText(file);
-  });
-}
-
-// 重新导出租用的类型以便 ImportDialog 使用
-export type { Character, CharacterRelation, Item, ItemHolder, Location, Foreshadow, ForeshadowHint, Earmark, OutlineNode, TimelineEvent, Note, EntityState };
