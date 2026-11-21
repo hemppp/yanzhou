@@ -581,6 +581,8 @@ async function main(): Promise<void> {
       // ensureLayout 在 logger 构造前调用，先缓冲到 console；构造后由 logger 接管。
       earlyLog(level, message);
     },
+    // 打包态：插件根跟随安装位置（<安装目录>/plugins）。
+    isPackaged ? path.dirname(process.execPath) : null,
   );
   layout = layoutResult.layout;
 

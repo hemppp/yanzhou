@@ -201,7 +201,7 @@ export interface BuildServerEnvOptions {
  *   NODE_ENV='production'、PORT='0'、HOST='127.0.0.1'、
  *   WEB_DIST_PATH=<userData>/app-runtime/web-dist、
  *   DB_PATH=<userData>/data/novelmuse.db、
- *   PLUGINS_ROOT=<userData>/plugins、ALLOW_REGISTRATION='true'、
+ *   PLUGINS_ROOT=<安装目录>/plugins（不可写时回退 <userData>/plugins）、ALLOW_REGISTRATION='true'、
  *   JWT_SECRET=<持久化密钥>、DISABLE_PROXY_DETECT='1'、
  *   HOST_MODE='all'、ELECTRON_RUN_AS_NODE='1'
  *

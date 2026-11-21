@@ -7,6 +7,8 @@
 //   D7.2  首次启动播种（version.json 不存在，或安装包比运行时更新，或载荷指纹变化时）
 //   D7.3  <userData>/app-runtime/app-server/data → <userData>/data   ★关键
 //   D7.4  <userData>/plugins/node_modules → app-runtime/app-server/node_modules
+//         ★ 2026-11-21：打包态插件根改为 **<安装目录>/plugins**（跟随安装位置）；
+//           安装目录不可写时回退 <userData>/plugins。开发态仍用 <userData>/plugins。
 //   D7.5  重新播种（版本/指纹变更）：只对**链接**摘链接、绝不跟随 ⇒ 数据安全
 //   D8.2  app-server/node_modules/better-sqlite3 → asar.unpacked 副本
 //   F20   junction 的 lstat().isDirectory() === false ⇒ 存在性判断必须用
@@ -53,9 +55,9 @@ const ABI_BACKUP_SUFFIX = '.node-abi-bak';
  * 纯计算，**不触碰磁盘** —— 播种与建目录由 `ensureLayout()` 负责。
  * 字段名与 `updater/types.ts:22-45` 的 `UpdaterLayout` 前 11 项逐字一致。
  */
-export function resolveLayout(userData: string): UserDataLayout {
+export function resolveLayout(userData: string, pluginsRootOverride?: string): UserDataLayout {
   const dataDir = path.join(userData, 'data');
-  const pluginsRoot = path.join(userData, 'plugins');
+  const pluginsRoot = pluginsRootOverride ?? path.join(userData, 'plugins');
   const appRuntimeDir = path.join(userData, 'app-runtime');
   const appServerDir = path.join(appRuntimeDir, RES_APP_SERVER);
   const logsDir = path.join(userData, 'logs');
@@ -248,6 +250,57 @@ export function ensureDirectoryJunction(
 // ------------------------------------------------------------
 
 /** 创建 D7.1 布局里的全部**普通目录**（不含 junction）。 */
+/**
+ * 打包态插件根：**<安装目录>/plugins**（与安装位置同生共死，便携语义）。
+ * 安装目录不可写时回退到 <userData>/plugins，并明确告警（不静默降级）。
+ */
+function resolvePluginsRoot(
+  userDataPath: string,
+  isPackaged: boolean,
+  installDir: string | null,
+  log: Logger,
+): string {
+  const fallback = path.join(userDataPath, 'plugins');
+  if (!isPackaged || installDir === null) return fallback;
+  const preferred = path.join(installDir, 'plugins');
+  try {
+    fs.mkdirSync(preferred, { recursive: true });
+    const probe = path.join(preferred, '.write-probe');
+    fs.writeFileSync(probe, '');
+    fs.rmSync(probe, { force: true });
+    return preferred;
+  } catch (error) {
+    log(
+      'warn',
+      `安装目录不可写（${preferred}）：${error instanceof Error ? error.message : String(error)}` +
+        ` ⇒ 插件目录回退到 ${fallback}`,
+    );
+    return fallback;
+  }
+}
+
+/**
+ * 一次性迁移旧版 `<userData>/plugins/local` 到新的插件根。
+ * 只迁 `local`（auto/manual/shared 由播种重新复制），且目标为空时才执行。
+ */
+function migrateLegacyLocalPlugins(layout: UserDataLayout, legacyRoot: string, log: Logger): void {
+  if (samePath(layout.pluginsRoot, legacyRoot)) return;
+  const legacyLocal = path.join(legacyRoot, 'local');
+  if (!pathExists(legacyLocal)) return;
+  try {
+    if (fs.readdirSync(layout.localPluginsDir).length > 0) return;
+    if (fs.readdirSync(legacyLocal).length === 0) return;
+  } catch {
+    return;
+  }
+  const stats = copyDirNoClobber(legacyLocal, layout.localPluginsDir);
+  log(
+    'info',
+    `插件目录迁移：${legacyLocal} → ${layout.localPluginsDir}` +
+      `（复制 ${stats.copied} 个文件，跳过 ${stats.skipped}）`,
+  );
+}
+
 function ensureBaseDirs(layout: UserDataLayout): void {
   const dirs = [
     layout.userData,
@@ -755,6 +808,7 @@ export interface EnsureLayoutResult {
  * @param isPackaged `app.isPackaged`
  * @param resourcesRoot 打包态 `process.resourcesPath`；开发态传 null
  * @param appVersion `app.getVersion()`（写 version.json 用）
+ * @param installDir 打包态安装目录（`path.dirname(process.execPath)`）；插件根跟随它
  */
 export function ensureLayout(
   userDataPath: string,
@@ -762,10 +816,16 @@ export function ensureLayout(
   resourcesRoot: string | null,
   appVersion: string,
   log: Logger,
+  installDir: string | null = null,
 ): EnsureLayoutResult {
-  const layout = resolveLayout(userDataPath);
+  const pluginsRoot = resolvePluginsRoot(userDataPath, isPackaged, installDir, log);
+  const layout = resolveLayout(userDataPath, pluginsRoot);
   ensureBaseDirs(layout);
   log('info', `userData 布局已就绪：${layout.userData}`);
+  log('info', `插件目录：${layout.pluginsRoot}`);
+  if (isPackaged) {
+    migrateLegacyLocalPlugins(layout, path.join(userDataPath, 'plugins'), log);
+  }
 
   let seeded = false;
   let reseeded = false;
