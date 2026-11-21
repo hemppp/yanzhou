@@ -6,7 +6,7 @@
 // ============================================================
 import type { WebPluginContext } from '@novel/core/web';
 
-/** 与 apps/web/src/components/editor/BookAnalysis.tsx 中的监听一致 */
+/** 与手写台参考书面板（manual/workbench/web/editor/ReferenceReader.tsx）中的监听一致 */
 const SCAN_IMPORT_OPEN_EVENT = 'nm:bookscan:open';
 
 export const name = 'novel.bookscan';

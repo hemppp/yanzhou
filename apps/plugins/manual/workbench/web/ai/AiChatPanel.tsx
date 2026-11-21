@@ -27,11 +27,11 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RotateCcw, Sparkles, Trash2, Wrench } from 'lucide-react';
+import { BookMarked, RotateCcw, Sparkles, Trash2, Wrench } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { PromptBar, StreamingText, dispatchToastEvent } from '@novel-plugins/ui-kit';
 import { ToolChip } from '@novel-plugins/ui-kit/primitives';
-import { useChapterStore, useProjectStore } from '@novel-plugins/data-core/stores';
+import { useChapterStore, useProjectStore, useReferenceStore } from '@novel-plugins/data-core/stores';
 import { loadChatHistory, saveChatHistory } from '@novel-plugins/data-core';
 import {
   getCurrentProjectId,
@@ -203,6 +203,18 @@ export function AiChatPanel() {
   const [enableTools, setEnableTools] = useState(true);
   /** 待确认的正文修改提案（非 null 时弹确认框） */
   const [proposal, setProposal] = useState<ChapterProposal | null>(null);
+  /**
+   * 扫榜拆书：列出扫榜收藏的参考书，选中后以该书文案发起一次拆书，
+   * 流完成后把报告回存到同一本参考书（书架内可查看）。
+   * 数据源与收藏入口都在「参考书 → 书源」，这里只负责发起与回存。
+   */
+  const [scanPickerOpen, setScanPickerOpen] = useState(false);
+  const refBooks = useReferenceStore((s) => s.books);
+  const loadRefBooks = useReferenceStore((s) => s.loadBooks);
+  const scanBooks = useMemo(
+    () => refBooks.filter((b) => b.source?.startsWith('扫榜')),
+    [refBooks],
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -224,6 +236,13 @@ export function AiChatPanel() {
 
   // 工具开关同步进 ref：`sendText` 的 deps 里不放它，避免每次切换都重建回调
   useEffect(() => { enableToolsRef.current = enableTools; }, [enableTools]);
+
+  // 打开拆书选择器时确保参考书已加载（参考书面板没打开过时 store 可能是空的）
+  useEffect(() => {
+    if (!scanPickerOpen) return;
+    const pid = project?.id;
+    if (pid && useReferenceStore.getState().books.length === 0) void loadRefBooks(pid);
+  }, [scanPickerOpen, project?.id, loadRefBooks]);
 
   // 换章 / 换项目 → 载入该会话自己的历史（每个章节一份对话，互不串台）
   useEffect(() => {
@@ -315,8 +334,27 @@ export function AiChatPanel() {
     [patchLast],
   );
 
+  /** 拆书流完成后把报告写回参考书的「拆书报告」章节 */
+  const saveBreakdownReport = useCallback(async (bookId: string, report: string) => {
+    const ok = await useReferenceStore.getState().appendReportChapter(bookId, report);
+    if (!ok) {
+      dispatchToastEvent({ type: 'error', message: '拆书完成，但报告回存参考书失败' });
+      return;
+    }
+    setMessages((prev) => [...prev, {
+      id: nanoid(),
+      role: 'assistant',
+      content: '📎 拆书完成：报告已存入参考书。打开「参考书 → 书架」点击「查看拆书报告」即可阅读。',
+      thinking: '',
+      tools: [],
+      agent: DEFAULT_AGENT,
+      status: 'done',
+    }]);
+    dispatchToastEvent({ type: 'success', message: '拆书报告已回存参考书' });
+  }, []);
+
   const sendText = useCallback(
-    async (raw: string) => {
+    async (raw: string, opts?: { freshContext?: boolean; reportToBookId?: string }) => {
       const text = raw.trim();
       if (!text) return; // ★ 空输入不发送
       if (streaming) return; // 在途时 PromptBar 已禁用，这里再兜一道
@@ -339,10 +377,14 @@ export function AiChatPanel() {
         agent: DEFAULT_AGENT,
         status: 'streaming',
       };
-      const history = messages
-        .filter((m) => m.status !== 'error' && m.content.trim().length > 0)
-        .slice(-20)
-        .map((m) => ({ role: m.role, content: m.content }));
+      // ★ 拆书用 freshContext：不带历史对话 —— 旧对话里的闲聊/失败消息会把
+      //   模型带偏（此前实测会把「拆书报告」写成模型的元回复）。
+      const history = opts?.freshContext
+        ? []
+        : messages
+          .filter((m) => m.status !== 'error' && m.content.trim().length > 0)
+          .slice(-20)
+          .map((m) => ({ role: m.role, content: m.content }));
 
       setMessages((prev) => [...prev, userMsg, placeholder]);
       setInput('');
@@ -405,14 +447,21 @@ export function AiChatPanel() {
 
         let sawDone = false;
         let sawError = false;
+        let assistantText = '';
         for await (const frame of readSseStream(res.body)) {
           if (frame.data.done === true) sawDone = true;
           if (frame.data.error === true || typeof frame.data.error === 'string') sawError = true;
+          if (typeof frame.data.chunk === 'string') assistantText += frame.data.chunk;
           applyEvent(frame.data);
         }
         // 流干净结束但没收到 done:true（代理截断）时也要收敛状态，
         // 否则输入框会一直停在「停止」态、用户再也发不出消息
         if (!sawDone && !sawError) patchLast((m) => ({ ...m, status: 'done' }));
+        // ★ 拆书报告回存：只在这条流正常结束时写，失败/中止都不写。
+        //   80 字下限防止把模型的一句道歉/元回复当成报告存进书架。
+        if (!sawError && opts?.reportToBookId && assistantText.trim().length > 80) {
+          void saveBreakdownReport(opts.reportToBookId, assistantText);
+        }
       } catch (err) {
         const aborted = err instanceof DOMException && err.name === 'AbortError';
         if (aborted) {
@@ -427,8 +476,24 @@ export function AiChatPanel() {
         setStreaming(false);
       }
     },
-    [applyEvent, currentChapter, messages, patchLast, project, streaming],
+    [applyEvent, currentChapter, messages, patchLast, project, saveBreakdownReport, streaming],
   );
+
+  /** 扫榜拆书：选中一本收藏的书 → 以官方文案发起拆书 → 报告回存该书 */
+  const handleScanBreakdown = useCallback((bookId: string) => {
+    if (streaming) return;
+    const book = useReferenceStore.getState().books.find((b) => b.id === bookId);
+    if (!book) return;
+    const intro = book.chapters[0]?.content || '';
+    setScanPickerOpen(false);
+    void sendText([
+      `请对《${book.title}》（作者：${book.author || '未知'}）进行拆书分析。以下是该书的官方文案：`,
+      '',
+      intro,
+      '',
+      '请分节输出：1) 题材定位与核心卖点；2) 核心冲突与钩子设计；3) 从文案推断的人物配置；4) 开篇策略；5) 可借鉴的写作手法。',
+    ].join('\n'), { freshContext: true, reportToBookId: book.id });
+  }, [sendText, streaming]);
 
   /**
    * ★ 顶栏「重写」→ 本面板：**真正发出一次请求**（不只是回填输入框）。
@@ -600,6 +665,52 @@ export function AiChatPanel() {
           streaming={streaming}
           onStop={handleStop}
           disabled={false}
+          toolbar={
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setScanPickerOpen((open) => !open)}
+                disabled={!project || streaming}
+                aria-pressed={scanPickerOpen}
+                aria-label={scanPickerOpen ? '关闭扫榜拆书' : '扫榜拆书：选择收藏的书'}
+                title="扫榜拆书：从扫榜收藏的书里选一本，AI 就地拆书，报告自动存入参考书"
+                className="flex items-center gap-1 rounded-chip px-1 py-0.5 text-[10px] transition-colors disabled:pointer-events-none disabled:opacity-40"
+                style={{
+                  color: scanPickerOpen ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                  background: scanPickerOpen ? 'hsl(var(--primary) / 0.1)' : 'transparent',
+                }}
+              >
+                <BookMarked size={11} aria-hidden="true" />
+                拆书
+              </button>
+              {scanPickerOpen && (
+                <div className="absolute bottom-full left-0 z-20 mb-1.5 max-h-60 w-64 overflow-y-auto rounded-window border border-paper-line bg-paper p-1.5 shadow-card">
+                  <div className="px-2 py-1 text-[10px] text-tone-3">
+                    扫榜收藏的书（在「参考书 → 书源」中收藏）
+                  </div>
+                  {scanBooks.length === 0 ? (
+                    <div className="px-2 py-3 text-[10.5px] text-tone-3">
+                      还没有收藏的书，去「参考书 → 书源」收藏一本
+                    </div>
+                  ) : (
+                    scanBooks.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => handleScanBreakdown(b.id)}
+                        disabled={streaming}
+                        title={b.source ?? undefined}
+                        className="flex w-full items-center gap-2 rounded-chip px-2 py-1.5 text-left text-[10.5px] text-tone transition-colors hover:bg-paper-hover-2 disabled:opacity-50"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{b.title}</span>
+                        <span className="shrink-0 text-[10px] text-tone-3">{b.author}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          }
           hint={
             <span className="flex items-center justify-between">
               <span>Enter 发送 · Shift+Enter 换行</span>
