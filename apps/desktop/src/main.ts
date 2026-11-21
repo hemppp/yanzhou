@@ -329,6 +329,32 @@ async function resolveHostProxy(): Promise<string | null> {
   }
 }
 
+/**
+ * 更新器用的代理解析：与 `resolveHostProxy` 不同，这里要的是**代理 URL 本身**。
+ *
+ * 更新器在宿主主进程里用 node:https 直连，不读系统代理；双击启动的安装版进程
+ * 也没有 HTTPS_PROXY。没有代理时，GitHub 在部分网络下会一直无响应到 120s 超时。
+ */
+async function resolveUpdaterProxy(): Promise<string | null> {
+  const fromEnv =
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy;
+  if (fromEnv) {
+    if (/^socks/i.test(fromEnv)) return null; // 更新器只支持 HTTP(S) CONNECT 隧道
+    return /^https?:\/\//i.test(fromEnv) ? fromEnv : `http://${fromEnv}`;
+  }
+  try {
+    // 用更新器实际访问的域名解析，避免 PAC 按目标分流时拿到不适用结果。
+    const raw = await session.defaultSession.resolveProxy('https://github.com/');
+    return parseChromiumProxy(raw);
+  } catch (error) {
+    logger?.warn(`更新器解析系统代理失败：${String(error)} ⇒ 直连。`);
+    return null;
+  }
+}
+
 /** 步骤 ⑥：spawn + 握手 + 就绪探针；首选失败时回退 tsx cli（D4.2 备选）。 */
 async function startServer(
   isPackaged: boolean,
@@ -439,6 +465,7 @@ async function startServer(
     appVersion: app.getVersion(),
     pluginsDir: layoutValue.pluginsRoot,
     relaunch: () => shutdownAndRelaunch('updater:relaunch'),
+    getProxyUrl: resolveUpdaterProxy,
     log: (level, message) => {
       // UpdaterLog 只允许 info/warn/error；ShellLogger 的 log 还接受 debug。
       const sink = logger!;

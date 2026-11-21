@@ -58,6 +58,11 @@ export interface UpdaterContext {
   /** 由 shell-eng 提供：先优雅关停 server 子进程（D13.4）再 app.relaunch() + app.exit(0)。 */
   relaunch: () => Promise<void>;
   log: UpdaterLog;
+  /**
+   * 由 shell 注入：解析宿主系统代理（Chromium `session.resolveProxy`）。
+   * 返回 `http(s)://host:port`；无代理返回 null。更新器自身不 import electron。
+   */
+  getProxyUrl?: () => Promise<string | null>;
 }
 
 /** `updaterGetState()` 的返回（逐字对齐 desktop-api.d.ts:14-19）。 */

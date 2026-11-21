@@ -35,7 +35,7 @@ import {
   validateBaseUrl,
   writeConfig,
 } from './config.js';
-import { downloadToFile, fetchToBuffer } from './http.js';
+import { downloadToFile, fetchToBuffer, UpdaterHttpError } from './http.js';
 import { findInstalledPluginDir, locatePluginRoot, scanInstalledPlugins } from './plugins.js';
 import { compareVersions } from './semver.js';
 import {
@@ -433,6 +433,62 @@ export function createUpdater(ctx: UpdaterContext): Updater {
     }
   };
 
+  /** 传输层是否值得重试（超时 / 网络断开 / 5xx）。 */
+  function isTransient(err: unknown): boolean {
+    if (err instanceof UpdaterHttpError) {
+      if (err.kind === 'network' || err.kind === 'timeout') return true;
+      return err.kind === 'status' && /HTTP 5\d\d/.test(err.message);
+    }
+    return true;
+  }
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /** 解析宿主系统代理（仅当 shell 注入了解析器）。 */
+  async function proxyUrl(): Promise<string | undefined> {
+    if (!ctx.getProxyUrl) return undefined;
+    try {
+      const url = await ctx.getProxyUrl();
+      if (url) log('info', `更新器使用系统代理：${url}`);
+      return url ?? undefined;
+    } catch (err) {
+      log('warn', `解析系统代理失败：${errText(err)}`);
+      return undefined;
+    }
+  }
+
+  /** manifest 体积小：单次 30s × 3 次，避免一次网络抖动就让整轮检查失败。 */
+  async function fetchManifest(url: string, proxy: string | undefined): Promise<Buffer> {
+    const attempts = 3;
+    for (let i = 1; ; i += 1) {
+      try {
+        return await fetchToBuffer(url, { timeoutMs: 30_000, proxyUrl: proxy });
+      } catch (err) {
+        if (i >= attempts || !isTransient(err)) throw err;
+        const delay = 800 * i;
+        log('warn', `获取 manifest 第 ${i} 次失败（${errText(err)}），${delay} ms 后重试`);
+        await sleep(delay);
+      }
+    }
+  }
+
+  /** 下载重试：downloadToFile 失败时会删除半截文件，重试是安全的。 */
+  async function downloadWithRetry(url: string, dest: string, expectedSha256: string, proxy: string | undefined) {
+    const attempts = 2;
+    for (let i = 1; ; i += 1) {
+      try {
+        return await downloadToFile(url, dest, { expectedSha256, proxyUrl: proxy });
+      } catch (err) {
+        if (i >= attempts || !isTransient(err)) throw err;
+        const delay = 1500 * i;
+        log('warn', `下载第 ${i} 次失败（${errText(err)}），${delay} ms 后重试`);
+        await sleep(delay);
+      }
+    }
+  }
+
   const pluginsDir = ((): string => {
     try {
       return typeof ctx.pluginsDir === 'string' && ctx.pluginsDir.length > 0
@@ -465,9 +521,10 @@ export function createUpdater(ctx: UpdaterContext): Updater {
 
     log('info', `检查更新：${manifestUrlOf(baseUrl)}`);
 
+    const proxy = await proxyUrl();
     let raw: Buffer;
     try {
-      raw = await fetchToBuffer(manifestUrlOf(baseUrl));
+      raw = await fetchManifest(manifestUrlOf(baseUrl), proxy);
     } catch (err) {
       return { ok: false, error: `获取 manifest.json 失败：${errText(err)}` };
     }
@@ -597,9 +654,10 @@ export function createUpdater(ctx: UpdaterContext): Updater {
         return { ok: false, error: `manifest.app.url 非法：${errText(err)}` };
       }
 
+      const proxy = await proxyUrl();
       log('info', `开始下载应用更新包：${artifactUrl} → ${downloadPath}`);
       try {
-        const result = await downloadToFile(artifactUrl, downloadPath, { expectedSha256: sha256 });
+        const result = await downloadWithRetry(artifactUrl, downloadPath, sha256, proxy);
         log('info', `下载完成：${result.bytes} 字节，sha256=${result.sha256}`);
       } catch (err) {
         // D14.3-1：**校验失败绝不进入解压**。
@@ -855,9 +913,10 @@ export function createUpdater(ctx: UpdaterContext): Updater {
       } catch (err) {
         return { ok: false, error: `插件 url 非法：${errText(err)}` };
       }
+      const proxy = await proxyUrl();
       log('info', `下载插件 ${id}：${artifactUrl}`);
       try {
-        await downloadToFile(artifactUrl, downloadPath, { expectedSha256: entry.sha256 });
+        await downloadWithRetry(artifactUrl, downloadPath, entry.sha256, proxy);
       } catch (err) {
         return { ok: false, error: `下载失败或 SHA-256 校验未通过：${errText(err)}` };
       }

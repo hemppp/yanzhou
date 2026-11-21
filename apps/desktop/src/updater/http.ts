@@ -11,6 +11,7 @@ import { createWriteStream, promises as fsp } from 'node:fs';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import * as https from 'node:https';
+import * as tls from 'node:tls';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 
@@ -51,6 +52,87 @@ function assertHttpProtocol(url: string): URL {
   return parsed;
 }
 
+interface ProxyConfig {
+  host: string;
+  port: number;
+  auth?: string;
+  secure: boolean;
+}
+
+/** 解析 `http(s)://[user:pass@]host:port` 形式的代理地址；不支持协议时返回 null。 */
+function parseProxyUrl(proxyUrl: string): ProxyConfig | null {
+  try {
+    const u = new URL(proxyUrl);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    const secure = u.protocol === 'https:';
+    const port = Number(u.port || (secure ? 443 : 80));
+    if (u.hostname === '' || !Number.isFinite(port)) return null;
+    const auth = u.username
+      ? `${decodeURIComponent(u.username)}:${decodeURIComponent(u.password)}`
+      : undefined;
+    return { host: u.hostname, port, auth, secure };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 为 https 目标构建「经 HTTP(S) 代理 CONNECT 隧道」的 Agent。
+ *
+ * 为什么需要：宿主壳不读系统代理，而双击启动的安装版进程里通常也没有
+ * HTTPS_PROXY —— 直连 GitHub 在部分网络下会一直无响应，直到 120s 超时。
+ * 代理由 main.ts 通过 `session.resolveProxy()` 解析后经 UpdaterContext 注入，
+ * 本模块保持零 electron 依赖。
+ *
+ * 仅处理 https 目标（更新源与 release 资产均为 https）。代理不可用/协议不支持
+ * 时返回 null，调用方退回直连。
+ */
+function createProxyAgent(proxyUrl: string | undefined): https.Agent | null {
+  if (!proxyUrl) return null;
+  const proxy = parseProxyUrl(proxyUrl);
+  if (proxy === null) return null;
+
+  const agent = new https.Agent({ keepAlive: false });
+  // Node 的 Agent 在建立连接时调用实例上的 createConnection；覆盖它即可接管建连。
+  (agent as unknown as {
+    createConnection: (
+      options: { host?: string; port?: number | string; servername?: string },
+      callback: (err: Error | null, socket?: tls.TLSSocket) => void,
+    ) => void;
+  }).createConnection = (options, callback) => {
+    const targetHost = options.host || 'localhost';
+    const targetPort = Number(options.port || 443);
+    const proxyTransport = proxy.secure ? https : http;
+    const headers: Record<string, string> = { host: `${targetHost}:${targetPort}` };
+    if (proxy.auth) {
+      headers['proxy-authorization'] = `Basic ${Buffer.from(proxy.auth).toString('base64')}`;
+    }
+    const req = proxyTransport.request({
+      host: proxy.host,
+      port: proxy.port,
+      method: 'CONNECT',
+      path: `${targetHost}:${targetPort}`,
+      headers,
+      agent: false,
+    });
+    req.setTimeout(15_000, () => {
+      req.destroy(new UpdaterHttpError('timeout', `代理连接超时（15000 ms）: ${proxy.host}:${proxy.port}`));
+    });
+    req.once('connect', (res, socket) => {
+      if (res.statusCode !== 200) {
+        socket.destroy();
+        callback(new UpdaterHttpError('network', `代理 CONNECT 失败：HTTP ${res.statusCode}`));
+        return;
+      }
+      const tlsSocket = tls.connect({ socket, servername: options.servername || targetHost });
+      callback(null, tlsSocket);
+    });
+    req.once('error', (err) => callback(err));
+    req.end();
+  };
+  return agent;
+}
+
 /** 计算一段内存数据的 sha256（小写十六进制）。 */
 export function sha256HexOfBuffer(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
@@ -70,7 +152,7 @@ export async function sha256HexOfFile(filePath: string): Promise<string> {
  */
 export function fetchToBuffer(
   url: string,
-  opts: { maxBytes?: number; timeoutMs?: number; redirectsLeft?: number } = {},
+  opts: { maxBytes?: number; timeoutMs?: number; redirectsLeft?: number; proxyUrl?: string } = {},
 ): Promise<Buffer> {
   const maxBytes = opts.maxBytes ?? 8 * 1024 * 1024;
   const timeoutMs = opts.timeoutMs ?? DOWNLOAD_TIMEOUT_MS;
@@ -85,9 +167,10 @@ export function fetchToBuffer(
       return;
     }
     const transport = parsed.protocol === 'https:' ? https : http;
+    const agent = parsed.protocol === 'https:' ? createProxyAgent(opts.proxyUrl) : null;
     const req = transport.request(
       parsed,
-      { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' } },
+      { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' }, ...(agent ? { agent } : {}) },
       (res) => {
         const status = res.statusCode ?? 0;
         if (status >= 300 && status < 400 && res.headers.location) {
@@ -97,7 +180,7 @@ export function fetchToBuffer(
             return;
           }
           const next = new URL(res.headers.location, parsed).toString();
-          fetchToBuffer(next, { maxBytes, timeoutMs, redirectsLeft: redirectsLeft - 1 }).then(resolve, reject);
+          fetchToBuffer(next, { maxBytes, timeoutMs, redirectsLeft: redirectsLeft - 1, proxyUrl: opts.proxyUrl }).then(resolve, reject);
           return;
         }
         if (status < 200 || status >= 300) {
@@ -149,7 +232,13 @@ export interface DownloadResult {
 export async function downloadToFile(
   url: string,
   destPath: string,
-  opts: { expectedSha256?: string; maxBytes?: number; timeoutMs?: number; redirectsLeft?: number } = {},
+  opts: {
+    expectedSha256?: string;
+    maxBytes?: number;
+    timeoutMs?: number;
+    redirectsLeft?: number;
+    proxyUrl?: string;
+  } = {},
 ): Promise<DownloadResult> {
   const maxBytes = opts.maxBytes ?? MAX_DOWNLOAD_BYTES;
   const timeoutMs = opts.timeoutMs ?? DOWNLOAD_TIMEOUT_MS;
@@ -175,9 +264,10 @@ export async function downloadToFile(
   try {
     await new Promise<void>((resolve, reject) => {
       const transport = parsed.protocol === 'https:' ? https : http;
+      const agent = parsed.protocol === 'https:' ? createProxyAgent(opts.proxyUrl) : null;
       const req = transport.request(
         parsed,
-        { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' } },
+        { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' }, ...(agent ? { agent } : {}) },
         (res) => {
           const status = res.statusCode ?? 0;
           if (status >= 300 && status < 400 && res.headers.location) {
