@@ -103,6 +103,15 @@ function stripTags(s: string): string {
   return decodeEntities(s.replace(/<[^>]*>/g, '')).trim();
 }
 
+/**
+ * 番茄排行榜的防爬字体把部分常用字映射到 Unicode 私用区（U+E000–U+F8FF），
+ * 纯文本抓下来是 `惹枝` 这类缺字。详情页没有这层混淆，见 enrichFanqieItems。
+ */
+const PUA_RE = /[\uE000-\uF8FF]/;
+function stripPua(s: string): string {
+  return s.replace(/[\uE000-\uF8FF]/g, '').trim();
+}
+
 /** 解码 Nuxt __NUXT__ 载荷里的字符串（\uXXXX / \n / \" 等 JSON 转义） */
 function decodeNuxtString(s: string): string {
   try {
@@ -198,6 +207,76 @@ export function parseFanqie(html: string): ScanItem[] {
     if (items.length >= MAX_ITEMS) break;
   }
   return items;
+}
+
+/**
+ * 番茄详情页（/page/{id}）：h1 是书名，页面状态里的 abstract 是官方文案。
+ * 详情页没有榜单页那层防爬字体，抓下来是正常汉字（2026-11-21 实测 PUA=0）。
+ */
+export function parseFanqieDetail(html: string): { title: string; author: string; intro: string } | null {
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  const title = stripPua(h1 ? stripTags(h1[1]) : '');
+  const raw = html.match(/"abstract":"((?:[^"\\]|\\.)*)"/)?.[1] ?? '';
+  const authorRaw = html.match(/"author":"((?:[^"\\]|\\.)*)"/)?.[1] ?? '';
+  let intro = '';
+  if (raw) {
+    try {
+      intro = JSON.parse('"' + raw + '"') as string;
+    } catch {
+      intro = raw;
+    }
+  }
+  intro = stripPua(intro);
+  const author = stripPua(authorRaw ? decodeNuxtString(authorRaw) : '');
+  if (!title && !intro) return null;
+  return { title, author, intro };
+}
+
+const DETAIL_FETCH_TIMEOUT_MS = 12_000;
+/** 详情页回填的并发上限：单榜最多 10 本，4 并发约 1–2 秒 */
+const DETAIL_CONCURRENCY = 4;
+
+/**
+ * 番茄榜单标题/文案被防爬字体混淆时，逐本抓详情页换回干净文本。
+ * 单本失败不拖垮整榜：回落为「去掉私用区字符」的榜单原文。
+ * 榜单结果本身有 30 分钟 KV 缓存，回填只在缓存失效/强制刷新时发生。
+ */
+export async function enrichFanqieItems(items: ScanItem[]): Promise<ScanItem[]> {
+  const targets = items.filter(
+    (item) => PUA_RE.test(item.title) || PUA_RE.test(item.author) || PUA_RE.test(item.intro),
+  );
+  if (targets.length === 0) return items;
+
+  const details = new Map<string, { title: string; author: string; intro: string }>();
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (cursor < targets.length) {
+      const item = targets[cursor++]!;
+      try {
+        const res = await fetch(item.url, {
+          headers: { 'User-Agent': UA, 'Accept-Language': 'zh-CN,zh;q=0.9' },
+          signal: AbortSignal.timeout(DETAIL_FETCH_TIMEOUT_MS),
+        });
+        if (!res.ok) continue;
+        const html = new TextDecoder('utf-8').decode(Buffer.from(await res.arrayBuffer()));
+        const parsed = parseFanqieDetail(html);
+        if (parsed) details.set(item.novelId, parsed);
+      } catch {
+        // 单本失败忽略，下面统一回落
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(DETAIL_CONCURRENCY, targets.length) }, worker));
+
+  return items.map((item) => {
+    const detail = details.get(item.novelId);
+    return {
+      ...item,
+      title: detail?.title || stripPua(item.title),
+      author: detail?.author || stripPua(item.author),
+      intro: detail?.intro || stripPua(item.intro),
+    };
+  });
 }
 
 /** 七猫 /paihang 页面：Nuxt SSR 载荷 listData（book_id/title/author/分类/字数/简介）。
@@ -348,7 +427,10 @@ export function apply(ctx: ServerPluginContext): void {
 
     try {
       const html = await fetchBoardHtml(source, board);
-      const items = source.parse(html);
+      // 番茄榜单页有防爬字体混淆：逐本回填详情页的干净书名与文案
+      const items = source.id === 'fanqie'
+        ? await enrichFanqieItems(source.parse(html))
+        : source.parse(html);
       if (items.length === 0) throw new Error('榜单解析结果为空（页面结构可能已变化）');
       const entry: CacheEntry = { fetchedAt: Date.now(), items };
       await ctx.db.kv.set('novel.bookscan', cacheKey, entry);
