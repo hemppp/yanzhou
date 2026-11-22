@@ -105,7 +105,9 @@ export function TimelineFlowChart({ selectedChapter = 'all' }: TimelineFlowChart
     if (target) {
       // ★ 2026-10-26：跳章必须走 openChapterInEditor —— 时间线面板本身也占着中心区，
       //   只 setCurrentChapter 的话用户看不到编辑器（表现为"点了没反应"）。
-      openChapterInEditor(target.id);
+      // resetScroll=false：紧接着的 triggerJumpHighlight 会滚到事件片段，
+      // 先复位到章首只会多一次闪跳。
+      openChapterInEditor(target.id, { resetScroll: false });
       triggerJumpHighlight(anchor);
     } else {
       triggerJumpHighlight(anchor);

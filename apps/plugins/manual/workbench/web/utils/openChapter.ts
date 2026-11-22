@@ -21,9 +21,31 @@
 import { useChapterStore } from '@novel-plugins/data-core/stores';
 import { focusDocBase, usePanelOpenStore } from '@/stores/panelOpenStore';
 
-/** 打开（切到）某一章，并保证中心区显示的是章节正文编辑器。 */
-export function openChapterInEditor(chapterId: string): void {
+/**
+ * 章节打开信号：即使目标章与当前章相同，也通知编辑器把视口复位到章首。
+ * detail: { chapterId, resetScroll }
+ */
+export const CHAPTER_OPEN_EVENT = 'nm:chapter-open';
+
+export interface ChapterOpenDetail {
+  chapterId: string;
+  /** false = 调用方自己会定位（如时间线跳转），不要先复位到章首 */
+  resetScroll: boolean;
+}
+
+/**
+ * 打开（切到）某一章，并保证中心区显示的是章节正文编辑器。
+ *
+ * @param opts.resetScroll 默认 true：把正文视口复位到章首。
+ *   时间线跳转传 false —— 它随后会滚动到事件片段，先复位会造成一次多余的闪跳。
+ */
+export function openChapterInEditor(
+  chapterId: string,
+  opts?: { resetScroll?: boolean },
+): void {
   useChapterStore.getState().setCurrentChapter(chapterId);
   usePanelOpenStore.getState().openBase();
   focusDocBase();
+  const detail: ChapterOpenDetail = { chapterId, resetScroll: opts?.resetScroll !== false };
+  window.dispatchEvent(new CustomEvent<ChapterOpenDetail>(CHAPTER_OPEN_EVENT, { detail }));
 }

@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useChapterStore } from '@novel-plugins/data-core/stores';
 import { registerPanelViewBase, usePanelOpenStore } from '@/stores/panelOpenStore';
-import { openChapterInEditor } from '../openChapter';
+import { CHAPTER_OPEN_EVENT, openChapterInEditor, type ChapterOpenDetail } from '../openChapter';
 
 beforeEach(() => {
   useChapterStore.setState({ currentChapterId: null } as never);
@@ -43,5 +43,30 @@ describe('openChapterInEditor', () => {
     expect(() => openChapterInEditor('chapter-c')).not.toThrow();
     expect(useChapterStore.getState().currentChapterId).toBe('chapter-c');
     expect(usePanelOpenStore.getState().baseOpen).toBe(true);
+  });
+
+  it('发出章首复位信号（默认 resetScroll=true）', () => {
+    const handler = vi.fn();
+    window.addEventListener(CHAPTER_OPEN_EVENT, handler);
+    try {
+      openChapterInEditor('chapter-d');
+      expect(handler).toHaveBeenCalledTimes(1);
+      const detail = (handler.mock.calls[0]![0] as CustomEvent<ChapterOpenDetail>).detail;
+      expect(detail).toEqual({ chapterId: 'chapter-d', resetScroll: true });
+    } finally {
+      window.removeEventListener(CHAPTER_OPEN_EVENT, handler);
+    }
+  });
+
+  it('时间线跳转可要求不复位（resetScroll=false）', () => {
+    const handler = vi.fn();
+    window.addEventListener(CHAPTER_OPEN_EVENT, handler);
+    try {
+      openChapterInEditor('chapter-e', { resetScroll: false });
+      const detail = (handler.mock.calls[0]![0] as CustomEvent<ChapterOpenDetail>).detail;
+      expect(detail).toEqual({ chapterId: 'chapter-e', resetScroll: false });
+    } finally {
+      window.removeEventListener(CHAPTER_OPEN_EVENT, handler);
+    }
   });
 });

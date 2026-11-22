@@ -1,11 +1,16 @@
 import { EditorContent } from '@tiptap/react';
 import { useChapterStore, useProjectStore, useCharacterStore } from '@novel-plugins/data-core/stores';
 import { useChapterJumpStore } from '../stores/chapterJumpStore';
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
 import { gsap, useGSAP } from '@novel-plugins/ui-kit/gsap';
 import { pickFallbackChapterId } from '../utils/chapter';
+import {
+  CHAPTER_OPEN_EVENT,
+  openChapterInEditor,
+  type ChapterOpenDetail,
+} from '../utils/openChapter';
 import { SelectionMenu } from './SelectionMenu';
 import { ForeshadowWarning } from '../foreshadow/ForeshadowWarning';
 import { StyleAdvisor } from './panels/StyleAdvisor';
@@ -311,6 +316,30 @@ export function EditorPage() {
     );
   }, [currentChapterId]);
 
+  // ★ 切章后把正文视口复位到新章开头。
+  //   页面视图的页与页是**横向**排的：内容换掉后宿主的 scrollLeft 仍停在上一章的页码上，
+  //   用户点章节看到的是新章中间或空白（表现为"点了没跳转、原地打开"）。
+  //   用 'instant'：页面视图宿主带 smooth 滚动，'auto' 会跟随 CSS 播一段动画。
+  useLayoutEffect(() => {
+    const host = scrollHostRef.current;
+    if (!host) return;
+    host.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+  }, [currentChapterId]);
+
+  // 同一章再次被点名打开时 currentChapterId 不变，上面的 effect 不会重跑；
+  // openChapterInEditor 统一发信号，这里补一次复位（时间线跳转传 resetScroll=false）。
+  useEffect(() => {
+    const onChapterOpen = (event: Event) => {
+      const detail = (event as CustomEvent<ChapterOpenDetail>).detail;
+      if (detail && detail.resetScroll === false) return;
+      const host = scrollHostRef.current;
+      if (!host) return;
+      host.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+    };
+    window.addEventListener(CHAPTER_OPEN_EVENT, onChapterOpen);
+    return () => window.removeEventListener(CHAPTER_OPEN_EVENT, onChapterOpen);
+  }, []);
+
   // 时间线跳转：在正文里定位事件对应的「内容片段」并高亮
   // jumpSignal 从 0 起步，只有真正的跳转才触发（避免挂载时误触）。
   // 定位/切句/打分逻辑见 ./jumpHighlight.ts —— 事件标题与描述是 AI 概括、
@@ -401,7 +430,9 @@ export function EditorPage() {
         const mark = editorAreaRef.current?.querySelector<HTMLElement>(
           '[data-nm-jump-highlight]',
         );
-        mark?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        // inline: 'center' 让页面视图（页与页横向排）也把目标页带到视口中央；
+        // 连续视图下横向没有可滚空间，此参数无副作用。
+        mark?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'center' });
       });
 
       // 5s 后撤掉高亮；插件 state 的旧值会随文档编辑自动 mapping，期间不干扰输入
@@ -595,7 +626,7 @@ export function EditorPage() {
                 <span>新建章节</span>
               </button>
               <button
-                onClick={() => useChapterStore.getState().setCurrentChapter(recentChapterId)}
+                onClick={() => { if (recentChapterId) openChapterInEditor(recentChapterId); }}
                 disabled={!recentChapterId}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-[12px] font-medium rounded-xl nm-btn-mist-primary transition-all duration-200 disabled:opacity-40"
               >
