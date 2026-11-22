@@ -242,8 +242,7 @@ export async function downloadToFile(
 ): Promise<DownloadResult> {
   const maxBytes = opts.maxBytes ?? MAX_DOWNLOAD_BYTES;
   const timeoutMs = opts.timeoutMs ?? DOWNLOAD_TIMEOUT_MS;
-  const redirectsLeft = opts.redirectsLeft ?? MAX_REDIRECTS;
-  const parsed = assertHttpProtocol(url);
+  let redirectsLeft = opts.redirectsLeft ?? MAX_REDIRECTS;
 
   await fsp.mkdir((await import('node:path')).dirname(destPath), { recursive: true });
 
@@ -262,44 +261,56 @@ export async function downloadToFile(
   });
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      const transport = parsed.protocol === 'https:' ? https : http;
-      const agent = parsed.protocol === 'https:' ? createProxyAgent(opts.proxyUrl) : null;
-      const req = transport.request(
-        parsed,
-        { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' }, ...(agent ? { agent } : {}) },
-        (res) => {
-          const status = res.statusCode ?? 0;
-          if (status >= 300 && status < 400 && res.headers.location) {
-            res.resume();
-            if (redirectsLeft <= 0) {
-              reject(new UpdaterHttpError('network', `重定向次数超过 ${MAX_REDIRECTS} 次: ${url}`));
+    // ★ 重定向必须在**同一次调用里**循环跟随，不能递归调用自身后由外层继续算哈希：
+    //   GitHub 的 release 资产永远是 302 → release-assets.githubusercontent.com。
+    //   旧实现把最终文件交给递归调用写，外层自己的 hash 一个字节都没收到，
+    //   于是校验时拿「空文件的 e3b0c442…」去比期望值 ⇒ 每次应用内更新都报
+    //   「SHA-256 校验失败」，下载本身其实是成功的（2026-11-21/22 两次实测）。
+    let currentUrl = url;
+    for (;;) {
+      const parsed = assertHttpProtocol(currentUrl);
+      let redirectTo: string | null = null;
+
+      await new Promise<void>((resolve, reject) => {
+        const transport = parsed.protocol === 'https:' ? https : http;
+        const agent = parsed.protocol === 'https:' ? createProxyAgent(opts.proxyUrl) : null;
+        const req = transport.request(
+          parsed,
+          { method: 'GET', headers: { 'user-agent': USER_AGENT, accept: '*/*' }, ...(agent ? { agent } : {}) },
+          (res) => {
+            const status = res.statusCode ?? 0;
+            if (status >= 300 && status < 400 && res.headers.location) {
+              res.resume();
+              if (redirectsLeft <= 0) {
+                reject(new UpdaterHttpError('network', `重定向次数超过 ${MAX_REDIRECTS} 次: ${currentUrl}`));
+                return;
+              }
+              redirectTo = new URL(res.headers.location, parsed).toString();
+              resolve();
               return;
             }
-            const next = new URL(res.headers.location, parsed).toString();
-            downloadToFile(next, destPath, { ...opts, redirectsLeft: redirectsLeft - 1 }).then(
-              () => resolve(),
-              reject,
-            );
-            return;
-          }
-          if (status < 200 || status >= 300) {
-            res.resume();
-            reject(new UpdaterHttpError('status', `HTTP ${status} ${res.statusMessage ?? ''} — ${url}`.trim()));
-            return;
-          }
-          pipeline(res, counter, createWriteStream(destPath)).then(() => resolve(), reject);
-        },
-      );
-      req.setTimeout(timeoutMs, () => {
-        req.destroy(new UpdaterHttpError('timeout', `下载超时（${timeoutMs} ms）: ${url}`));
+            if (status < 200 || status >= 300) {
+              res.resume();
+              reject(new UpdaterHttpError('status', `HTTP ${status} ${res.statusMessage ?? ''} — ${currentUrl}`.trim()));
+              return;
+            }
+            pipeline(res, counter, createWriteStream(destPath)).then(() => resolve(), reject);
+          },
+        );
+        req.setTimeout(timeoutMs, () => {
+          req.destroy(new UpdaterHttpError('timeout', `下载超时（${timeoutMs} ms）: ${currentUrl}`));
+        });
+        req.on('error', (err) => {
+          if (err instanceof UpdaterHttpError) reject(err);
+          else reject(new UpdaterHttpError('network', `请求失败: ${err.message}`));
+        });
+        req.end();
       });
-      req.on('error', (err) => {
-        if (err instanceof UpdaterHttpError) reject(err);
-        else reject(new UpdaterHttpError('network', `请求失败: ${err.message}`));
-      });
-      req.end();
-    });
+
+      if (redirectTo === null) break;
+      redirectsLeft -= 1;
+      currentUrl = redirectTo;
+    }
   } catch (err) {
     await fsp.rm(destPath, { force: true }).catch(() => {});
     throw err;
