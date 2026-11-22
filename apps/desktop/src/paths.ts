@@ -37,10 +37,22 @@ const RES_SEED_PLUGINS = 'seed-plugins';
 const BUILD_STAMP_NAME = 'build-stamp.json';
 
 /** D7.5：重新播种时判定「载荷已变」的原因标签（用于日志）。 */
-type ReseedReason = 'missing' | 'shell-newer' | 'payload-changed';
+type ReseedReason = 'missing' | 'shell-newer' | 'payload-changed' | 'payload-incomplete';
 
 /** D7.2 步骤 3：播种的三个插件模式目录（`local` 单独创建，不播种）。 */
 const SEEDED_PLUGIN_MODES = ['auto', 'manual', 'shared'] as const;
+
+/**
+ * 运行时载荷完整性哨兵（2026-11-22 实测事故：app-runtime 里的
+ * `node_modules` 丢失后，version.json/build 指纹仍然匹配 ⇒ 播种被跳过，
+ * server 子进程 `--import tsx` 直接 ERR_MODULE_NOT_FOUND，应用起不来）。
+ * 这些文件都由安装包投递、用户不会改，缺任何一个都说明运行时副本不完整。
+ */
+const RUNTIME_SENTINELS = [
+  'node_modules/tsx/package.json', // Mode B 的 TS 加载器（D4.2）
+  'apps/server/src/index.ts',      // server 入口
+  'packages/db/package.json',      // workspace 包（迁移 SQL 在 db/drizzle）
+] as const;
 
 /** 真实目录被 junction 顶替前的备份后缀（仅用于 better-sqlite3，见 D8.2）。 */
 const ABI_BACKUP_SUFFIX = '.node-abi-bak';
@@ -661,6 +673,27 @@ function shouldReseed(
   return null;
 }
 
+/**
+ * 运行时副本里缺失的关键条目（空数组 = 完整）。
+ *
+ * 为什么要它：`shouldReseed` 只看 version.json 与安装包指纹。运行时副本被外部
+ * 清掉一部分（如 node_modules）后两者仍然相等，播种会被跳过，症状是 server
+ * 子进程找不到 tsx / 前端 404 —— 用户只能删 userData 才能恢复。
+ */
+function missingRuntimePayload(layout: UserDataLayout): string[] {
+  const missing: string[] = [];
+  for (const rel of RUNTIME_SENTINELS) {
+    if (!pathExists(path.join(layout.appServerDir, rel))) missing.push(`app-server/${rel}`);
+  }
+  if (!pathExists(path.join(layout.webDistDir, 'index.html'))) missing.push('web-dist/index.html');
+  // 插件根可能整根是新的（D7.4 起跟随安装目录）—— 一个模式目录都没有才算未播种；
+  // 只少某一个插件时不重播，避免把用户的插件改动冲掉。
+  if (SEEDED_PLUGIN_MODES.every((mode) => !pathExists(path.join(layout.pluginsRoot, mode)))) {
+    missing.push(`plugins/{${SEEDED_PLUGIN_MODES.join(',')}}`);
+  }
+  return missing;
+}
+
 // ------------------------------------------------------------
 // 运行期 junction（D7.3 / D7.4 / D8.2）
 // ------------------------------------------------------------
@@ -836,7 +869,16 @@ export function ensureLayout(
     // D7.2 / D7.5 触发条件：version.json 缺失、安装包版本更高、或同版本号载荷指纹变了。
     const existing = readVersionJson(layout);
     const stamp = readBuildStamp(resourcesRoot);
-    const reason = shouldReseed(existing, stamp, appVersion);
+    let reason = shouldReseed(existing, stamp, appVersion);
+    // 版本/指纹一致但运行时副本残缺（实测：node_modules 被清 ⇒ 找不到 tsx）
+    // ⇒ 必须重播，否则启动直接失败。
+    if (reason === null) {
+      const missing = missingRuntimePayload(layout);
+      if (missing.length > 0) {
+        log('warn', `运行时载荷不完整（缺少 ${missing.join('、')}）⇒ 强制重新播种`);
+        reason = 'payload-incomplete';
+      }
+    }
     if (reason !== null) {
       log(
         'info',
