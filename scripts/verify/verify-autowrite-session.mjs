@@ -3,7 +3,7 @@
 // 真机验证：AI 写作链路端到端（讨论 → 三道门 → 交付 → 实体沉淀）
 //
 // 为什么必须用脚本验：type-check 与单测**证明不了**这条链路能用 ——
-// 模型输出是链路的一部分。见 docs/handover/ai-writing-handover.md §3。
+// 模型输出也是链路的一部分。
 //
 // 前置条件：
 //   1. server 在跑，且**必须用 Node 24**（better-sqlite3 编译于 ABI 137）：

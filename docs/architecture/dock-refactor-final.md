@@ -460,7 +460,6 @@ ADR §6.5 的「可删」例外清单经逐条 grep 实测，**除两个本身�
 ## 8. 未做 / 明确不做
 
 - **不引入 C++ / Qt / CMake / QGraphicsView**（ADR D16）：画布类需求一律用既有的 `@xyflow/react` 承载。
-- **未删除 `docs/reports/**`**：历史评审报告一律留档。
 - **未修改** `apps/plugins/shared/ui-kit/**`、`apps/web/src/components/shell/**`、`apps/web/src/plugin/**`（分别为真源、内核、宿主范围，不属本任务 writeScope）。
 - **未执行任何 `git checkout` / `git restore` / `git stash` / `git clean`**：工作区含大量**未提交**的重构产物（`DockShell.tsx`、`PanelMenu.tsx`、`dock/`、`project-shell.css`、ADR 文档等），这些命令会**永久销毁**它们 —— 本重构早期正是这样丢失过 `ProjectLayout.tsx`。
 - **未把 `verify-theme-single-source.mjs` 注册进 `verify-all.mjs`**：后者是既有 5 步门禁，加步骤会改变其语义。
@@ -475,7 +474,6 @@ ADR §6.5 的「可删」例外清单经逐条 grep 实测，**除两个本身�
 | `docs/architecture/web-workbench-split.md` | 三层拆分契约（`nm:open-settings` 的正式记载见其 :896） |
 | `docs/architecture/plugin-architecture.md` | 插件体系与扩展点 |
 | `docs/design/design-system.md` | 设计体系（含「墨韵工艺层」小节） |
-| `docs/reports/web-split-runtime-verification.md` | 运行时验证报告（历史） |
 
 ---
 
@@ -544,6 +542,6 @@ ADR §6.5 的「可删」例外清单经逐条 grep 实测，**除两个本身�
 - **未重写本文档任何既有结论**（仅 §4 行号修正 + 本 §10 追加）。
 - **未改动任何业务代码**：`apps/plugins/shared/ui-kit/**`、`apps/web/src/components/shell/**`、`apps/web/src/plugin/**` 一字未动。
 - **未执行任何 `git checkout` / `git restore` / `git stash` / `git clean`**；未新建 commit。
-- **未删除任何文件**（含 `docs/reports/**` 历史报告）。
+- **未删除任何文件**（含 `docs/reports/**` 历史报告；该目录已于 2026-11-22 仓库清理时删除）。
 - `--ink*` 三个定义、`--cover-ink`、`.glass-ripple-ink` **均保持在场**，仅注释为水墨语义清理版本 —— 与 §6.1 / §6.3 裁定一致。
 - **未在 ADR 内加偏离标注**：ADR（`dock-protocol-adr.md`）属 **t2** 的 writeScope（F-4 / F-6），本轮为 t1，**未越界修改**。ADR §6.4 / §6.5 的失真标注待 t2 完成。

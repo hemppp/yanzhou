@@ -108,7 +108,7 @@
 - **模式**：`auto`（目录 `auto/` + `modes: ["auto"]`）—— 仅 AI 写作模式加载，其 `/api/plugins/autowrite/*` 路由在 manual 项目下返回 404 `PLUGIN_MODE_MISMATCH`
 - **权限**：`routes`、`db:global`、`db:project`、`ai:tools`、`ai:skills`、`ai:agents`
 - **server 注入**：`routes`、`db`、`ai`；**web 注入**：`projectPanels`、`skills`、`api`
-- **实际内容（两层链路，详见 `docs/handover/ai-writing-handover.md`）**：
+- **实际内容（两层链路）**：
 
 | 子模块 | 位置 | 内容 |
 |---|---|---|

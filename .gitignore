@@ -92,11 +92,7 @@ apps/web/.tmp-build/
 .tmp_*
 
 # 现场证据目录（.ps-smoke/ 与 .verify-scratch/）
-# 二者是 PowerShell 冒烟夹具与桌面端验证的现场产物、非源码，被以下报告作为证据路径引用：
-#   docs/reports/desktop-e2e-verification.md
-#   docs/reports/dock-refactor-closeout.md
-#   docs/reports/dock-refactor-verification.md
-# 因此忽略入库但保留磁盘实体 —— 删除会证伪已有报告里的证据引用，勿删。
+# 二者是 PowerShell 冒烟夹具与桌面端验证的现场产物、非源码，一律忽略入库。
 # 2026-10-04 补：此前未忽略，导致 git status 长期挂着两组无关噪声。
 .ps-smoke/
 .verify-scratch/
@@ -161,5 +157,3 @@ security_best_practices_report.md
 # 故禁止入库；文件**保留在磁盘上**（.gitignore 只影响索引，不等于删除）。
 apps/desktop/package-lock.json
 
-# UI 改造过程截图（仅本地参考，不入库）
-docs/reports/ui-refactor-preview/

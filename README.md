@@ -112,10 +112,8 @@ docs/             项目文档
 
 | 目录 | 内容 |
 |---|---|
-| [`docs/handover/`](docs/handover/) | **接手开发先读这里** —— AI 写作模块现状、未完成清单与已知陷阱 |
 | [`docs/architecture/`](docs/architecture/) | 插件架构、多智能体流水线、分层记忆、Skills 库 |
 | [`docs/design/`](docs/design/) | [设计系统](docs/design/design-system.md) · 墨韵工艺层 · 工作台设计 |
-| [`docs/reports/`](docs/reports/) | 验证报告与审计记录 |
 | [`docs/skills/`](docs/skills/) | 可复用的写作技能定义 |
 
 ---

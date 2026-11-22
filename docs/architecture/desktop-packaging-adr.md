@@ -47,7 +47,7 @@
 | F26 | electron-builder 驱动 rebuild 后 `.node` 1919488 B → **1921024 B**（ABI 137→149） | 探针实测 | 探针实跑 |
 | F27 | rebuild 会**就地改写项目 node_modules** ⇒ 之后需 `pnpm install` 恢复 Node ABI | 探针实测 | 探针实跑 |
 | F28 | pnpm × electron-builder 崩溃根因与修复 | `app-builder-lib/node_modules/@electron/get` 3.0.0 缺 `ElectronDownloadCacheMode`；加 `overrides: '@electron/get': ^3.1.0` 后 `--win dir --x64` exit=0 | 探针实跑 |
-| F29 | 现有跨平台洁净度判据原文 | `docs/reports/dock-refactor-verification.md:567-568` | 读取 |
+| F29 | 现有跨平台洁净度判据原文 | `docs/reports/dock-refactor-verification.md:567-568`（历史评审报告，已在 2026-11-22 仓库清理中删除；原文见本文 D18） | 读取 |
 | F30 | 仓库仅 2 个提交，桌面/重构产物全部未入库 | `git log --oneline --all` = `a0e1db0`、`c2583f8` | 实跑 |
 | F31 | `apps/desktop` **不存在** | `Test-Path apps\desktop` = False | 实跑 |
 | F32 | 前端构建产物为 root-absolute 引用 ⇒ 必须从源根 `/` 提供 | `apps/web/dist/index.html` 引用 `/assets/index-_34EEzhp.js`、`/favicon.svg`、`/fonts/PressStart2P-Regular.woff2` | 读取 |
@@ -1185,7 +1185,7 @@ release/updates/
 
 ## D18 · 跨平台洁净度判据的新边界 —— **已冻结**
 
-`docs/reports/dock-refactor-verification.md:567-568` 的既有判据原文：
+原 `docs/reports/dock-refactor-verification.md:567-568` 的判据原文（该历史报告已在 2026-11-22 仓库清理中删除，原文保留于此）：
 
 - L567：`| \`require(\` / \`process.\` / \`.node\` / \`electron\` / \`ipcRenderer\` / \`@electron\` / \`remote.\` | 同上 | **0** 处 ✅ |`（「同上」= `apps/web/src/components/shell/**`（含 `dock/**`））
 - L568：`| \`from 'electron'\` / \`ipcRenderer\` / \`require('electron')\` | 整个 \`apps/web/src\` | **0** 处 ✅ |`

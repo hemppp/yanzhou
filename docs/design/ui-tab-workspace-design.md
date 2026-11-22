@@ -436,9 +436,3 @@ apps/web/src/components/layout/workspaceDefs.ts        # 面板类型与尺寸�
 标签**拖动重排**（store 里 `moveTab` 已就绪，只差 UI 拖拽）、标签**固定区**（pinned 排最左）、
 **后台更新小点**（面板在后台有新内容时提示）、把插件的**资料面板**（角色/大纲/时间线…）也接进 AI 模式的
 活动栏 —— 现在 AI 模式只有 3 个看板（流水线 / 本章计划 / 实体与设定）。
-
-
-
-
-配套原型（可点的静态页）：`docs/mockups/tab-workspace-prototype.html`
-—— 打开即可试：点气泡开/切/收，切标签时右侧会实时显示「正文挂载次数 / 光标位置」，用来验证永不卸载。
