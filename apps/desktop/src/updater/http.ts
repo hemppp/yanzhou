@@ -238,6 +238,11 @@ export async function downloadToFile(
     timeoutMs?: number;
     redirectsLeft?: number;
     proxyUrl?: string;
+    /**
+     * 下载进度回调（已接收字节 / 总字节）。总字节取 `content-length`，
+     * 服务端未给时为 0（调用方按「不确定态」展示）。
+     */
+    onProgress?: (receivedBytes: number, totalBytes: number) => void;
   } = {},
 ): Promise<DownloadResult> {
   const maxBytes = opts.maxBytes ?? MAX_DOWNLOAD_BYTES;
@@ -248,6 +253,8 @@ export async function downloadToFile(
 
   const hash = createHash('sha256');
   let total = 0;
+  /** 最终响应的 `content-length`；0 = 服务端未给（分块传输）。 */
+  let totalBytes = 0;
   const counter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       total += chunk.length;
@@ -256,6 +263,7 @@ export async function downloadToFile(
         return;
       }
       hash.update(chunk);
+      opts.onProgress?.(total, totalBytes);
       cb(null, chunk);
     },
   });
@@ -294,6 +302,9 @@ export async function downloadToFile(
               reject(new UpdaterHttpError('status', `HTTP ${status} ${res.statusMessage ?? ''} — ${currentUrl}`.trim()));
               return;
             }
+            const len = Number(res.headers['content-length'] ?? 0);
+            totalBytes = Number.isFinite(len) && len > 0 ? len : 0;
+            opts.onProgress?.(0, totalBytes);
             pipeline(res, counter, createWriteStream(destPath)).then(() => resolve(), reject);
           },
         );

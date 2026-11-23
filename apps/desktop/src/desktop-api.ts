@@ -20,6 +20,15 @@
 
 import { IPC } from './ipc-channels.js';
 
+/** 更新进度快照（轮询 `updaterGetState` 获取；不新增 IPC 通道）。 */
+export interface UpdaterProgress {
+  phase: string;
+  receivedBytes: number;
+  totalBytes: number;
+  percent: number;
+  message: string;
+}
+
 /**
  * `updaterGetState()` 的返回。
  * 逐字对齐 `apps/web/src/types/desktop-api.d.ts:14-19`。
@@ -29,6 +38,7 @@ export interface UpdaterState {
   baseUrl: string;
   pluginsDir: string;
   plugins: Array<{ id: string; version: string | null; dir: string }>;
+  progress: UpdaterProgress;
 }
 
 /** `updaterSetBaseUrl()` 的返回。逐字对齐 `desktop-api.d.ts:20`。 */

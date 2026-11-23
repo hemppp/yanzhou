@@ -34,7 +34,13 @@ const REGISTERED_CHANNELS: ReadonlySet<string> = new Set<string>(
 
 /** 结构化克隆安全的空 `UpdaterState` 兜底（`updaterGetState` 失败时用，绝不 reject）。 */
 function emptyUpdaterState(): UpdaterState {
-  return { appVersion: '', baseUrl: '', pluginsDir: '', plugins: [] };
+  return {
+    appVersion: '',
+    baseUrl: '',
+    pluginsDir: '',
+    plugins: [],
+    progress: { phase: 'idle', receivedBytes: 0, totalBytes: 0, percent: 0, message: '' },
+  };
 }
 
 /**

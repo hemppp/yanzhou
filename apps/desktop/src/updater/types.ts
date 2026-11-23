@@ -65,12 +65,45 @@ export interface UpdaterContext {
   getProxyUrl?: () => Promise<string | null>;
 }
 
+/** 更新流程阶段（进度条文案/形态由此决定）。 */
+export type UpdaterPhase =
+  | 'idle'
+  | 'checking'
+  | 'downloading'
+  | 'verifying'
+  | 'backing-up'
+  | 'extracting'
+  | 'applying'
+  | 'done'
+  | 'error';
+
+/**
+ * 更新进度快照。
+ *
+ * 为什么放在 `updaterGetState()` 里而不是新开一条 IPC：D11.2 把 IPC 通道
+ * **冻结在恰好 9 条**，新增通道要回到 ADR 修订。`applyApp` 是长任务，
+ * 渲染进程在它 await 期间轮询 `updaterGetState`（同一事件循环里主进程
+ * 的异步下载不会阻塞处理）即可拿到这份快照。
+ */
+export interface UpdaterProgress {
+  phase: UpdaterPhase;
+  /** 已接收字节（仅 downloading 阶段有意义） */
+  receivedBytes: number;
+  /** content-length；0 = 服务端未给（不确定态） */
+  totalBytes: number;
+  /** 0–100；downloading 阶段按字节算，其余阶段为分步估值 */
+  percent: number;
+  /** 面向用户的一句话 */
+  message: string;
+}
+
 /** `updaterGetState()` 的返回（逐字对齐 desktop-api.d.ts:14-19）。 */
 export interface UpdaterStateResult {
   appVersion: string;
   baseUrl: string;
   pluginsDir: string;
   plugins: Array<{ id: string; version: string | null; dir: string }>;
+  progress: UpdaterProgress;
 }
 
 /** `updaterSetBaseUrl()` 的返回（逐字对齐 desktop-api.d.ts:20）。 */

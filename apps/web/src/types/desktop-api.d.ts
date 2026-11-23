@@ -16,6 +16,13 @@ declare global {
         baseUrl: string;
         pluginsDir: string;
         plugins: Array<{ id: string; version: string | null; dir: string }>;
+        progress: {
+          phase: string;
+          receivedBytes: number;
+          totalBytes: number;
+          percent: number;
+          message: string;
+        };
       }>;
       updaterSetBaseUrl: (baseUrl: string) => Promise<{ ok: boolean; baseUrl: string }>;
       updaterCheck: () => Promise<{

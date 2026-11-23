@@ -51,6 +51,7 @@ import {
   type UpdaterLayout,
   type UpdaterLogLevel,
   type UpdaterManifest,
+  type UpdaterProgress,
   type UpdaterRelaunchResult,
   type UpdaterSetBaseUrlResult,
   type UpdaterStateResult,
@@ -475,11 +476,17 @@ export function createUpdater(ctx: UpdaterContext): Updater {
   }
 
   /** 下载重试：downloadToFile 失败时会删除半截文件，重试是安全的。 */
-  async function downloadWithRetry(url: string, dest: string, expectedSha256: string, proxy: string | undefined) {
+  async function downloadWithRetry(
+    url: string,
+    dest: string,
+    expectedSha256: string,
+    proxy: string | undefined,
+    onProgress?: (receivedBytes: number, totalBytes: number) => void,
+  ) {
     const attempts = 2;
     for (let i = 1; ; i += 1) {
       try {
-        return await downloadToFile(url, dest, { expectedSha256, proxyUrl: proxy });
+        return await downloadToFile(url, dest, { expectedSha256, proxyUrl: proxy, onProgress });
       } catch (err) {
         if (i >= attempts || !isTransient(err)) throw err;
         const delay = 1500 * i;
@@ -507,6 +514,20 @@ export function createUpdater(ctx: UpdaterContext): Updater {
       return '';
     }
   })();
+
+  // ---- 更新进度 ----------------------------------------------------
+  // 不新开 IPC 通道（D11.2 冻结 9 条）：渲染进程在 applyApp 期间轮询
+  // updaterGetState，读这份快照画进度条。
+  let progress: UpdaterProgress = {
+    phase: 'idle',
+    receivedBytes: 0,
+    totalBytes: 0,
+    percent: 0,
+    message: '',
+  };
+  const setProgress = (patch: Partial<UpdaterProgress>): void => {
+    progress = { ...progress, ...patch };
+  };
 
   // ----------------------------------------------------------------
   // 内部：检查更新（check / applyApp / installPlugin 共用）
@@ -576,10 +597,11 @@ export function createUpdater(ctx: UpdaterContext): Updater {
         baseUrl: config.baseUrl,
         pluginsDir,
         plugins: plugins.map((p) => ({ id: p.id, version: p.version, dir: p.dir })),
+        progress: { ...progress },
       };
     } catch (err) {
       log('error', `读取更新器状态失败：${errText(err)}`);
-      return { appVersion: currentVersion, baseUrl: '', pluginsDir, plugins: [] };
+      return { appVersion: currentVersion, baseUrl: '', pluginsDir, plugins: [], progress: { ...progress } };
     }
   }
 
@@ -625,7 +647,24 @@ export function createUpdater(ctx: UpdaterContext): Updater {
   // ----------------------------------------------------------------
   // ④ applyApp —— D14.5 九步
   // ----------------------------------------------------------------
+  /** 对外入口：统一维护进度快照（成功 done / 失败 error）。 */
   async function applyApp(): Promise<UpdaterApplyAppResult> {
+    setProgress({ phase: 'checking', receivedBytes: 0, totalBytes: 0, percent: 2, message: '检查更新…' });
+    try {
+      const result = await applyAppInner();
+      if (result.ok) {
+        setProgress({ phase: 'done', percent: 100, message: '更新完成，正在重启…' });
+      } else {
+        setProgress({ phase: 'error', message: result.error ?? '更新失败' });
+      }
+      return result;
+    } catch (err) {
+      setProgress({ phase: 'error', message: `更新失败：${errText(err)}` });
+      throw err;
+    }
+  }
+
+  async function applyAppInner(): Promise<UpdaterApplyAppResult> {
     const appServerDir = appServerDirOf(layout);
     const appServerDataLink = appServerDataLinkOf(layout);
     const pluginsNodeModulesLink = pluginsNodeModulesLinkOf(layout);
@@ -656,9 +695,26 @@ export function createUpdater(ctx: UpdaterContext): Updater {
 
       const proxy = await proxyUrl();
       log('info', `开始下载应用更新包：${artifactUrl} → ${downloadPath}`);
+      setProgress({
+        phase: 'downloading',
+        receivedBytes: 0,
+        totalBytes: 0,
+        percent: 5,
+        message: '正在下载更新包…',
+      });
       try {
-        const result = await downloadWithRetry(artifactUrl, downloadPath, sha256, proxy);
+        const result = await downloadWithRetry(artifactUrl, downloadPath, sha256, proxy, (received, total) => {
+          setProgress({
+            phase: 'downloading',
+            receivedBytes: received,
+            totalBytes: total,
+            // 下载阶段映射到总进度 5%–70%，后面还有备份/解压/替换
+            percent: total > 0 ? Math.min(70, 5 + Math.round((received / total) * 65)) : 20,
+            message: total > 0 ? '正在下载更新包…' : '正在下载更新包（大小未知）…',
+          });
+        });
         log('info', `下载完成：${result.bytes} 字节，sha256=${result.sha256}`);
+        setProgress({ phase: 'verifying', percent: 72, message: '校验更新包…' });
       } catch (err) {
         // D14.3-1：**校验失败绝不进入解压**。
         log('error', `下载或 SHA-256 校验失败，已中止更新：${errText(err)}`);
@@ -666,6 +722,7 @@ export function createUpdater(ctx: UpdaterContext): Updater {
       }
 
       // ---- 步骤 3：旧版本备份（D14.3-3；备份失败 ⇒ 中止）----
+      setProgress({ phase: 'backing-up', percent: 76, message: '备份当前版本…' });
       log('info', `备份当前版本 v${currentVersion} → ${backupsForVersion}`);
       try {
         // ★ D7.3 红线：`app-server/data` 是 junction → <userData>/data，
@@ -685,6 +742,7 @@ export function createUpdater(ctx: UpdaterContext): Updater {
       }
 
       // ---- 步骤 4：安全解压（防路径穿越由 zip.ts 实现）----
+      setProgress({ phase: 'extracting', percent: 82, message: '解压更新包…' });
       const extractDir = path.join(layout.updatesDir, 'extract', sha256);
       extractDirToClean = extractDir;
       await removeTreeSafely(extractDir);
@@ -729,6 +787,7 @@ export function createUpdater(ctx: UpdaterContext): Updater {
       ensureJunction(pluginsNodeModulesLink, path.join(appServerDir, 'node_modules'));
 
       // ---- 步骤 5：只替换 APP_REPLACE_ENTRIES 四项 ----
+      setProgress({ phase: 'applying', percent: 90, message: '应用更新…' });
       const neverTouch = new Set<string>(APP_NEVER_TOUCH_ENTRIES);
       const replaced: string[] = [];
       const skipped: string[] = [];

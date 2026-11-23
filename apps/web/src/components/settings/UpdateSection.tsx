@@ -8,11 +8,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, RefreshCw, Plug, MonitorUp, Globe, ExternalLink } from 'lucide-react';
 
+interface UpdaterProgress {
+  phase: string;
+  receivedBytes: number;
+  totalBytes: number;
+  percent: number;
+  message: string;
+}
+
 interface UpdaterState {
   appVersion: string;
   baseUrl: string;
   pluginsDir: string;
   plugins: Array<{ id: string; version: string | null; dir: string }>;
+  progress: UpdaterProgress;
+}
+
+/** 字节数 → 人读的 MB/KB（进度条右侧展示）。 */
+function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+  return `${Math.round(n)} B`;
 }
 
 interface PluginUpdateInfo {
@@ -39,6 +56,8 @@ export function UpdateSection() {
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  /** 应用更新期间轮询 updaterGetState 得到的进度快照 */
+  const [progress, setProgress] = useState<UpdaterProgress | null>(null);
 
   // 初始化：读取更新器状态
   useEffect(() => {
@@ -79,6 +98,17 @@ export function UpdateSection() {
     if (!api) return;
     setBusy('app');
     setNotice('');
+    setProgress(null);
+    // ★ 不新增 IPC 通道（D11.2 把通道冻结在 9 条）：更新在飞期间轮询
+    //   updaterGetState 读取主进程维护的进度快照，用它画进度条。
+    const poll = window.setInterval(() => {
+      void api
+        .updaterGetState()
+        .then((s) => setProgress(s.progress ?? null))
+        .catch(() => {
+          // 轮询失败不打扰用户：进度条停在上一帧，结果由 applyApp 的返回决定
+        });
+    }, 500);
     try {
       const r = await api.updaterApplyApp();
       if (!r.ok) {
@@ -90,6 +120,7 @@ export function UpdateSection() {
     } catch (err) {
       setNotice(`应用更新失败: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
+      window.clearInterval(poll);
       setBusy(null);
     }
   };
@@ -196,6 +227,40 @@ export function UpdateSection() {
               </button>
             )}
           </div>
+
+          {/* 更新进度：主进程按阶段/字节维护，前端每 500ms 轮询一次 */}
+          {busy === 'app' && (
+            <div className="mt-3 space-y-1.5">
+              <div
+                className="flex items-center justify-between gap-3 text-xs"
+                style={{ color: 'hsl(var(--ink-light))' }}
+              >
+                <span className="truncate">{progress?.message || '准备更新…'}</span>
+                <span className="shrink-0 font-mono">
+                  {progress && progress.totalBytes > 0
+                    ? `${formatBytes(progress.receivedBytes)} / ${formatBytes(progress.totalBytes)} · ${progress.percent}%`
+                    : `${progress?.percent ?? 0}%`}
+                </span>
+              </div>
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full"
+                role="progressbar"
+                aria-label="更新进度"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progress?.percent ?? 0}
+                style={{ background: 'hsl(var(--border) / 0.5)' }}
+              >
+                <div
+                  className="h-full rounded-full transition-[width] duration-300 ease-out"
+                  style={{
+                    width: `${progress?.percent ?? 0}%`,
+                    background: 'hsl(var(--state-done, 142 71% 45%))',
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
